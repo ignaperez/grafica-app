@@ -27,10 +27,13 @@ return new class extends Migration
         }
 
         // Migrar los registros de orden_trabajos que ya estaban "eliminados" con activo=0
-        DB::table('orden_trabajos')
-            ->where('activo', 0)
-            ->whereNull('deleted_at')
-            ->update(['deleted_at' => now()]);
+        // Solo si la columna activo existe (instalaciones previas al soft-delete)
+        if (Schema::hasColumn('orden_trabajos', 'activo')) {
+            DB::table('orden_trabajos')
+                ->where('activo', 0)
+                ->whereNull('deleted_at')
+                ->update(['deleted_at' => now()]);
+        }
     }
 
     public function down(): void
