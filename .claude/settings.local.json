@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cmd /c \"dir C:\\\\laragon\\\\www\\\\grafica-app /s /b 2>&1\")",
+      "Bash(php artisan *)"
+    ]
+  }
+}
