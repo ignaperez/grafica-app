@@ -12,7 +12,23 @@ class Maquina extends Model
 
     protected $table = 'maquinas';
 
-    protected $fillable = ['nombre', 'descripcion', 'activo'];
+    protected $fillable = [
+        'nombre', 'descripcion', 'activo',
+        'tipo_trabajo_id',
+        'costo_m2', 'costo_ml', 'costo_unidad',
+    ];
+
+    protected $casts = [
+        'costo_m2'     => 'decimal:2',
+        'costo_ml'     => 'decimal:2',
+        'costo_unidad' => 'decimal:2',
+        'activo'       => 'boolean',
+    ];
+
+    public function tipoTrabajo()
+    {
+        return $this->belongsTo(TipoTrabajo::class);
+    }
 
     public function trabajos()
     {

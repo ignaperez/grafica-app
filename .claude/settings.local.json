@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "PowerShell(cmd /c \"dir C:\\\\laragon\\\\www\\\\grafica-app /s /b 2>&1\")",
-      "Bash(php artisan *)"
+      "Bash(php artisan *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(rename listas-precios_create.blade.php create.blade.php)",
+      "Bash(rename listas-precios_edit.blade.php edit.blade.php)",
+      "Bash(dir \"C:\\\\laragon\\\\www\\\\grafica-app\\\\resources\\\\views\\\\listas-precios\\\\\")"
     ]
   }
 }

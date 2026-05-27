@@ -21,14 +21,20 @@ class MaterialController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nombre'      => 'required|string|max:100',
-            'descripcion' => 'nullable|string|max:255',
+            'nombre'       => 'required|string|max:100',
+            'descripcion'  => 'nullable|string|max:255',
+            'costo_m2'     => 'nullable|numeric|min:0',
+            'costo_ml'     => 'nullable|numeric|min:0',
+            'costo_unidad' => 'nullable|numeric|min:0',
         ]);
 
         Material::create([
-            'nombre'      => $request->nombre,
-            'descripcion' => $request->descripcion,
-            'activo'      => true,
+            'nombre'       => $request->nombre,
+            'descripcion'  => $request->descripcion,
+            'costo_m2'     => $request->costo_m2     ?? 0,
+            'costo_ml'     => $request->costo_ml     ?? 0,
+            'costo_unidad' => $request->costo_unidad ?? 0,
+            'activo'       => true,
         ]);
 
         return redirect()->route('materiales.index')
@@ -43,15 +49,20 @@ class MaterialController extends Controller
     public function update(Request $request, Material $material)
     {
         $request->validate([
-            'nombre'      => 'required|string|max:100',
-            'descripcion' => 'nullable|string|max:255',
-            'activo'      => 'boolean',
+            'nombre'       => 'required|string|max:100',
+            'descripcion'  => 'nullable|string|max:255',
+            'costo_m2'     => 'nullable|numeric|min:0',
+            'costo_ml'     => 'nullable|numeric|min:0',
+            'costo_unidad' => 'nullable|numeric|min:0',
         ]);
 
         $material->update([
-            'nombre'      => $request->nombre,
-            'descripcion' => $request->descripcion,
-            'activo'      => $request->boolean('activo'),
+            'nombre'       => $request->nombre,
+            'descripcion'  => $request->descripcion,
+            'costo_m2'     => $request->costo_m2     ?? 0,
+            'costo_ml'     => $request->costo_ml     ?? 0,
+            'costo_unidad' => $request->costo_unidad ?? 0,
+            'activo'       => $request->boolean('activo'),
         ]);
 
         return redirect()->route('materiales.index')

@@ -12,7 +12,17 @@ class Material extends Model
 
     protected $table = 'materiales';
 
-    protected $fillable = ['nombre', 'descripcion', 'activo'];
+    protected $fillable = [
+        'nombre', 'descripcion', 'activo',
+        'costo_m2', 'costo_ml', 'costo_unidad',
+    ];
+
+    protected $casts = [
+        'costo_m2'     => 'decimal:2',
+        'costo_ml'     => 'decimal:2',
+        'costo_unidad' => 'decimal:2',
+        'activo'       => 'boolean',
+    ];
 
     public function trabajos()
     {
