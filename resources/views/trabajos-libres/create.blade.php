@@ -54,7 +54,7 @@
                             <a href="{{ route('tipo-trabajos.create') }}" target="_blank"
                                style="font-size:11px;color:var(--ac);margin-left:6px">[+ nuevo]</a>
                         </label>
-                        <select name="trabajos[IDX][tipo_trabajo_id]" class="gselect">
+                        <select name="trabajos[IDX][tipo_trabajo_id]" class="gselect sel-tipo">
                             <option value="">— Sin especificar —</option>
                             @foreach($tipos as $t)
                                 <option value="{{ $t->id }}">{{ $t->nombre }}</option>
@@ -80,7 +80,7 @@
                     </div>
                 </div>
 
-                {{-- Máquina --}}
+                {{-- Máquina (se llena por JS según tipo de trabajo) --}}
                 <div class="col-md-4">
                     <div class="gfg">
                         <label class="glabel">
@@ -88,11 +88,8 @@
                             <a href="{{ route('maquinas.create') }}" target="_blank"
                                style="font-size:11px;color:var(--ac);margin-left:6px">[+ nueva]</a>
                         </label>
-                        <select name="trabajos[IDX][maquina_id]" class="gselect">
+                        <select name="trabajos[IDX][maquina_id]" class="gselect sel-maquina">
                             <option value="">— Sin especificar —</option>
-                            @foreach($maquinas as $mq)
-                                <option value="{{ $mq->id }}">{{ $mq->nombre }}</option>
-                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -204,6 +201,29 @@
 
 @section('scripts')
 <script>
+    // ── Datos de máquinas para filtrado client-side ───────────────
+    const MAQUINAS = @json($maquinas->map(fn($m) => [
+        'id'              => $m->id,
+        'nombre'          => $m->nombre,
+        'tipo_trabajo_id' => $m->tipo_trabajo_id,
+    ]));
+
+    function filtrarMaquinas(selTipo, selMaquina, valorActual = '') {
+        const tipoId = parseInt(selTipo.value) || null;
+        const filtradas = tipoId
+            ? MAQUINAS.filter(m => !m.tipo_trabajo_id || m.tipo_trabajo_id === tipoId)
+            : MAQUINAS;
+
+        selMaquina.innerHTML = '<option value="">— Sin especificar —</option>';
+        filtradas.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.nombre;
+            if (String(m.id) === String(valorActual)) opt.selected = true;
+            selMaquina.appendChild(opt);
+        });
+    }
+
     let idx = 0;
 
     function calcularM2(fila) {
@@ -234,6 +254,14 @@
 
         div.querySelectorAll('.campo-medida').forEach(input => {
             input.addEventListener('input', () => calcularM2(div));
+        });
+
+        // ── Filtrar máquinas por tipo de trabajo ──────────────────
+        const selTipo    = div.querySelector('.sel-tipo');
+        const selMaquina = div.querySelector('.sel-maquina');
+        filtrarMaquinas(selTipo, selMaquina); // inicializar con todas
+        selTipo.addEventListener('change', function () {
+            filtrarMaquinas(selTipo, selMaquina);
         });
 
         document.getElementById('contenedor-trabajos').appendChild(div);

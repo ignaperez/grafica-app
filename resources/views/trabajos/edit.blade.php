@@ -46,7 +46,7 @@
                 <div class="col-md-4">
                     <div class="gfg">
                         <label class="glabel">Tipo de trabajo</label>
-                        <select name="tipo_trabajo_id" class="gselect">
+                        <select name="tipo_trabajo_id" id="sel-tipo" class="gselect">
                             <option value="">— Sin especificar —</option>
                             @foreach($tipos as $t)
                                 <option value="{{ $t->id }}"
@@ -78,14 +78,8 @@
                 <div class="col-md-4">
                     <div class="gfg">
                         <label class="glabel">Máquina</label>
-                        <select name="maquina_id" class="gselect">
+                        <select name="maquina_id" id="sel-maquina" class="gselect">
                             <option value="">— Sin especificar —</option>
-                            @foreach($maquinas as $mq)
-                                <option value="{{ $mq->id }}"
-                                    {{ $trabajo->maquina_id == $mq->id ? 'selected' : '' }}>
-                                    {{ $mq->nombre }}
-                                </option>
-                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -228,7 +222,38 @@
 
 @section('scripts')
 <script>
-    // Calcular m²
+    // ── Datos de máquinas (para filtrar por tipo) ─────────────────
+    const MAQUINAS = @json($maquinas->map(fn($m) => [
+        'id'              => $m->id,
+        'nombre'          => $m->nombre,
+        'tipo_trabajo_id' => $m->tipo_trabajo_id,
+    ]));
+
+    function filtrarMaquinas(tipoId, valorActual) {
+        const sel = document.getElementById('sel-maquina');
+        const filtradas = tipoId
+            ? MAQUINAS.filter(m => !m.tipo_trabajo_id || m.tipo_trabajo_id == tipoId)
+            : MAQUINAS;
+
+        sel.innerHTML = '<option value="">— Sin especificar —</option>';
+        filtradas.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.nombre;
+            if (String(m.id) === String(valorActual)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    // Inicializar al cargar: filtrar según tipo actual, mantener máquina actual
+    const selTipo = document.getElementById('sel-tipo');
+    filtrarMaquinas(selTipo.value, '{{ $trabajo->maquina_id }}');
+
+    selTipo.addEventListener('change', function () {
+        filtrarMaquinas(this.value, '');
+    });
+
+    // ── Calcular m² ───────────────────────────────────────────────
     function calcularM2() {
         const ancho    = parseFloat(document.getElementById('ancho')?.value)    || 0;
         const alto     = parseFloat(document.getElementById('alto')?.value)     || 0;
