@@ -13,7 +13,7 @@ class Material extends Model
     protected $table = 'materiales';
 
     protected $fillable = [
-        'nombre', 'descripcion', 'activo',
+        'nombre', 'unidad', 'descripcion', 'activo',
         'costo_m2', 'costo_ml', 'costo_unidad',
     ];
 
@@ -27,5 +27,14 @@ class Material extends Model
     public function trabajos()
     {
         return $this->hasMany(Trabajo::class);
+    }
+
+    /**
+     * Máquinas compatibles con este material.
+     */
+    public function maquinas()
+    {
+        return $this->belongsToMany(Maquina::class, 'maquina_material')
+            ->withTimestamps();
     }
 }

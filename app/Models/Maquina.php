@@ -34,4 +34,14 @@ class Maquina extends Model
     {
         return $this->hasMany(Trabajo::class);
     }
+
+    /**
+     * Materiales compatibles con esta máquina.
+     * El pivot incluye los costos de mano de obra por combinación.
+     */
+    public function materiales()
+    {
+        return $this->belongsToMany(Material::class, 'maquina_material')
+            ->withTimestamps();
+    }
 }

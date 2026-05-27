@@ -194,6 +194,20 @@
             <a href="{{ route('clientes.index') }}" class="s-item {{ request()->routeIs('clientes.*') ? 'on' : '' }}">
                 <span class="dot"></span> Clientes
             </a>
+
+            <div class="s-section">Ventas</div>
+            <a href="{{ route('presupuestos.index') }}" class="s-item {{ request()->routeIs('presupuestos.*') ? 'on' : '' }}">
+                <span class="dot"></span> Presupuestos
+            </a>
+            <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
+                <span class="dot"></span> Catálogo
+            </a>
+            @if($rol === 'admin')
+            <a href="{{ route('listas-precios.index') }}" class="s-item {{ request()->routeIs('listas-precios.*') ? 'on' : '' }}">
+                <span class="dot"></span> Listas de precios
+            </a>
+            @endif
+
             <div class="s-section">Configuración</div>
             <a href="{{ route('tipo-trabajos.index') }}" class="s-item {{ request()->routeIs('tipo-trabajos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Tipos de trabajo
@@ -208,16 +222,12 @@
 
         {{-- ── Solo Admin ── --}}
         @if($rol === 'admin')
-            <div class="s-section">Catálogo</div>
-            <a href="{{ route('productos.index') }}" class="s-item {{ request()->routeIs('productos.*') ? 'on' : '' }}">
-                <span class="dot"></span> Productos
-            </a>
-            <a href="{{ route('listas-precios.index') }}" class="s-item {{ request()->routeIs('listas-precios.*') ? 'on' : '' }}">
-                <span class="dot"></span> Listas de precios
-            </a>
             <div class="s-section">Sistema</div>
             <a href="{{ route('usuarios.index') }}" class="s-item {{ request()->routeIs('usuarios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Usuarios
+            </a>
+            <a href="{{ route('configuracion.edit') }}" class="s-item {{ request()->routeIs('configuracion.*') ? 'on' : '' }}">
+                <span class="dot"></span> Configuración
             </a>
             <div class="s-section">RRHH</div>
             <button class="s-trigger {{ request()->is('rrhh/*') ? 'open' : '' }}" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">

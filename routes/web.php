@@ -19,6 +19,9 @@ use App\Http\Controllers\TrabajoArchivoController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\VehiculoPloteoController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\CatalogoController;
+use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\PresupuestoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -117,6 +120,10 @@ Route::middleware(['auth', 'rol:admin'])->group(function () {
 
     Route::resource('usuarios', UserController::class)->except(['show']);
 
+    // Configuración global del sistema
+    Route::get('/configuracion',  [ConfiguracionController::class, 'edit'])->name('configuracion.edit');
+    Route::put('/configuracion',  [ConfiguracionController::class, 'update'])->name('configuracion.update');
+
 });
 
 /*
@@ -180,6 +187,17 @@ Route::middleware(['auth', 'rol:admin,ventas'])->group(function () {
     Route::resource('tipo-trabajos', TipoTrabajoController::class)->parameters(['tipo-trabajos' => 'tipoTrabajo']);
     Route::resource('materiales', MaterialController::class)->parameters(['materiales' => 'material']);
     Route::resource('maquinas', MaquinaController::class);
+
+    // Catálogo (auto-generado de maquina × material)
+    Route::get('/catalogo',       [CatalogoController::class, 'index'])->name('catalogo.index');
+    Route::get('/catalogo/print', [CatalogoController::class, 'print'])->name('catalogo.print');
+
+    // Presupuestos
+    Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
+    Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');
+    Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
+    Route::post('/presupuestos/{presupuesto}/convertir-ot', [PresupuestoController::class, 'convertirAOT'])->name('presupuestos.convertir-ot');
+    Route::resource('presupuestos', PresupuestoController::class)->only(['index','create','store','show','edit','update','destroy']);
 
     // Productos y listas de precios
     Route::resource('productos',      ProductoController::class);

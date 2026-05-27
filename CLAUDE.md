@@ -161,7 +161,7 @@ $('.mi-select').select2({ width: 'resolve', placeholder: 'Seleccione...' });
 | `OrdenTrabajo` | `orden_trabajos` | hasMany Trabajo, belongsTo Cliente, hasMany OrdenFoto |
 | `Trabajo` | `trabajos` | belongsTo OrdenTrabajo (nullable), Cliente, TipoTrabajo, Material, Maquina, Producto |
 | `Cliente` | `clientes` | hasMany OrdenTrabajo |
-| `Producto` | `productos` | hasMany Trabajo |
+| `Producto` | `productos` | hasMany Trabajo, belongsTo TipoTrabajo, belongsTo Material |
 | `ListaPrecio` | `lista_precios` | pertenece a Cliente, tiene `multiplicador` |
 | `TipoTrabajo` | `tipo_trabajos` | lookup dinámico con `activo` |
 | `Material` | `materiales` | lookup dinámico con `activo` |
@@ -204,9 +204,12 @@ created_at, updated_at
 | `tipo-trabajos.*` | `TipoTrabajoController` | admin, ventas |
 | `materiales.*` | `MaterialController` | admin, ventas |
 | `maquinas.*` | `MaquinaController` | admin, ventas |
-| `clientes.*` | `ClienteController` | admin |
+| `clientes.*` | `ClienteController` | admin, ventas |
+| `presupuestos.*` | `PresupuestoController` | admin, ventas |
+| `catalogo.*` | `CatalogoController` | admin, ventas |
 | `productos.*` | `ProductoController` | admin, ventas |
 | `listas-precios.*` | `ListaPrecioController` | admin, ventas |
+| `configuracion.*` | `ConfiguracionController` | admin |
 | `rrhh.*` | `EmpleadoController`, `FichadaController` | admin |
 | `fichar.*` | `FichadaController` | público (tablet) |
 
@@ -214,6 +217,14 @@ created_at, updated_at
 ```
 GET /clientes/search?q=     → clientes.search
 GET /productos/search?q=    → productos.search
+```
+
+### Rutas especiales de presupuestos
+```
+GET  /presupuestos/precio-servicio?maquina_id=X&material_id=Y&cliente_id=Z  → presupuestos.precio-servicio
+GET  /presupuestos/{presupuesto}/print          → presupuestos.print
+PATCH /presupuestos/{presupuesto}/estado        → presupuestos.estado
+POST  /presupuestos/{presupuesto}/convertir-ot  → presupuestos.convertir-ot
 ```
 
 ### Rutas especiales de trabajos
@@ -241,6 +252,9 @@ resources/views/
 ├── materiales/                ← ABM materiales
 ├── maquinas/                  ← ABM máquinas
 ├── clientes/
+├── presupuestos/          ← index / create / show / print
+├── catalogo/              ← index / print (auto-generado maquina×material)
+├── configuracion/         ← edit (MO global, datos empresa)
 ├── productos/
 ├── listas-precios/
 └── rrhh/
@@ -270,7 +284,8 @@ Estructura de un link:
 - **Soft delete SIEMPRE:** TODOS los modelos usan `SoftDeletes`. Nunca usar delete físico. Los registros se conservan para auditoría de admin. Para recuperar usar `withTrashed()` / `onlyTrashed()` en Eloquent. Los lookups (tipos, materiales, máquinas) tienen además campo `activo` boolean para habilitar/deshabilitar sin eliminar.
 - **`activo` en orden_trabajos:** campo legacy, ya no se usa como flag de borrado (ahora usa `deleted_at`). Se mantiene en la tabla pero no tiene lógica activa.
 - **Fechas en vistas:** siempre formatear con `\Carbon\Carbon::parse($fecha)->format('d/m/Y')` o `->isoFormat('D MMM YYYY')`.
-- **Precios:** se calculan multiplicando `producto->precio * lista->multiplicador`. Siempre `round(..., 2)`.
+- **Precios (nuevo catálogo):** fórmula = `(material.costo_X + maquina.costo_X + producto.costo_mano_obra) × cantidad × lista.multiplicador`. El campo `X` depende de `producto.unidad` (m2 → `costo_m2`, ml → `costo_ml`, unidad → `costo_unidad`). Siempre `round(..., 2)`.
+- **Precios (legacy):** `producto->precio * lista->multiplicador` — todavía en la tabla pero nullable.
 - **m²:** se calcula en JS en tiempo real: `ancho * alto * cantidad`.
 - **`orden_trabajo_id` nullable:** trabajo puede existir sin orden. Nunca asumir que siempre tiene orden.
 - **Sin tests automáticos** por ahora. Verificar manualmente en el browser.
@@ -349,3 +364,10 @@ certbot --nginx -d plote.ar -d www.plote.ar
 4. **`navigation.blade.php`:** archivo viejo de Breeze, casi no se usa. El sidebar real está en `app.blade.php`.
 5. **ABM lookups (tipos/materiales/máquinas):** al eliminar, verificar primero que no haya trabajos asociados (`->exists()` check en el controller).
 6. **`listas-precios` resource:** parámetro es `listaPrecio` forzado con `.parameters(['listas-precios' => 'listaPrecio'])` en `web.php`.
+7. **`renovate_productos_table` migration:** todos los nuevos campos (tipo_trabajo_id, material_id, unidad, costo_mano_obra, activo, deleted_at) ya existían en la tabla cuando se corrió — se agregaron guards `if (!Schema::hasColumn(...))` para cada uno. OK al 2026-05-26.
+8. **Catálogo de servicios:** NO es la tabla `productos`. Es una vista auto-generada desde la tabla pivote `maquina_material`. El catálogo = todas las combinaciones (maquina × material) compatibles. Fórmula: `(maquina.costo_X + material.costo_X) × multiplicador + MO_efectiva`. MO viene de `configuracion` (global) o se pisa en `lista_precios` (por campo mo_m2/ml/unidad nullable).
+9. **Tabla `maquina_material`:** pivote sin datos extra — solo `maquina_id`, `material_id`. **Sin columnas de MO** (se eliminaron en migración `remove_mo_from_maquina_material_add_mo_to_lista_precios`). Los modelos Maquina y Material tienen `belongsToMany` con `->withTimestamps()` solamente, SIN `->withPivot(...)`.
+10. **Compatibilidad material↔máquina:** se define en el create/edit de `Material` (checkboxes de máquinas). En Maquina::edit se muestran los materiales asignados como chips de solo lectura.
+11. **Presupuestos — snapshot de precios:** al crear un presupuesto se snapshot `multiplicador`, `mo_m2`, `mo_ml`, `mo_unidad` en la tabla `presupuestos`. Los ítems guardan `precio_unitario` y `subtotal`. Cambios futuros de costos/listas no afectan presupuestos existentes.
+12. **Presupuesto → OT:** al aprobar un presupuesto se puede convertir a OT con la acción `convertirAOT`. Crea una `OrdenTrabajo` vacía y la vincula con `presupuesto.orden_trabajo_id`. La OT NO tiene trabajos precargados — se agregan manualmente.
+13. **route:cache:** si las rutas no aparecen en `route:list`, correr `php artisan route:clear` primero.

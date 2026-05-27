@@ -3,19 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Material;
+use App\Models\Maquina;
 use Illuminate\Http\Request;
 
 class MaterialController extends Controller
 {
     public function index()
     {
-        $materiales = Material::orderBy('nombre')->get();
+        $materiales = Material::withCount('maquinas')->orderBy('nombre')->get();
         return view('materiales.index', compact('materiales'));
     }
 
     public function create()
     {
-        return view('materiales.create');
+        $maquinas = Maquina::where('activo', true)->orderBy('nombre')->get();
+        return view('materiales.create', compact('maquinas'));
     }
 
     public function store(Request $request)
@@ -26,9 +28,11 @@ class MaterialController extends Controller
             'costo_m2'     => 'nullable|numeric|min:0',
             'costo_ml'     => 'nullable|numeric|min:0',
             'costo_unidad' => 'nullable|numeric|min:0',
+            'maquinas'     => 'nullable|array',
+            'maquinas.*'   => 'exists:maquinas,id',
         ]);
 
-        Material::create([
+        $material = Material::create([
             'nombre'       => $request->nombre,
             'descripcion'  => $request->descripcion,
             'costo_m2'     => $request->costo_m2     ?? 0,
@@ -37,13 +41,17 @@ class MaterialController extends Controller
             'activo'       => true,
         ]);
 
+        $this->syncMaquinas($material, $request);
+
         return redirect()->route('materiales.index')
             ->with('success', 'Material creado correctamente.');
     }
 
     public function edit(Material $material)
     {
-        return view('materiales.edit', compact('material'));
+        $material->load('maquinas');
+        $maquinas = Maquina::where('activo', true)->orderBy('nombre')->get();
+        return view('materiales.edit', compact('material', 'maquinas'));
     }
 
     public function update(Request $request, Material $material)
@@ -54,6 +62,8 @@ class MaterialController extends Controller
             'costo_m2'     => 'nullable|numeric|min:0',
             'costo_ml'     => 'nullable|numeric|min:0',
             'costo_unidad' => 'nullable|numeric|min:0',
+            'maquinas'     => 'nullable|array',
+            'maquinas.*'   => 'exists:maquinas,id',
         ]);
 
         $material->update([
@@ -64,6 +74,8 @@ class MaterialController extends Controller
             'costo_unidad' => $request->costo_unidad ?? 0,
             'activo'       => $request->boolean('activo'),
         ]);
+
+        $this->syncMaquinas($material, $request);
 
         return redirect()->route('materiales.index')
             ->with('success', 'Material actualizado correctamente.');
@@ -79,5 +91,12 @@ class MaterialController extends Controller
 
         return redirect()->route('materiales.index')
             ->with('success', 'Material eliminado.');
+    }
+
+    // ── Helper ───────────────────────────────────────────────────
+
+    private function syncMaquinas(Material $material, Request $request): void
+    {
+        $material->maquinas()->sync($request->input('maquinas', []));
     }
 }

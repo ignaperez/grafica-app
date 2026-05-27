@@ -10,7 +10,8 @@ class MaquinaController extends Controller
 {
     public function index()
     {
-        $maquinas = Maquina::with('tipoTrabajo')->orderBy('nombre')->get();
+        $maquinas = Maquina::with(['tipoTrabajo', 'materiales'])
+            ->orderBy('nombre')->get();
         return view('maquinas.index', compact('maquinas'));
     }
 
@@ -35,9 +36,9 @@ class MaquinaController extends Controller
             'nombre'          => $request->nombre,
             'descripcion'     => $request->descripcion,
             'tipo_trabajo_id' => $request->tipo_trabajo_id,
-            'costo_m2'        => $request->costo_m2        ?? 0,
-            'costo_ml'        => $request->costo_ml        ?? 0,
-            'costo_unidad'    => $request->costo_unidad    ?? 0,
+            'costo_m2'        => $request->costo_m2     ?? 0,
+            'costo_ml'        => $request->costo_ml     ?? 0,
+            'costo_unidad'    => $request->costo_unidad ?? 0,
             'activo'          => true,
         ]);
 
@@ -47,6 +48,7 @@ class MaquinaController extends Controller
 
     public function edit(Maquina $maquina)
     {
+        $maquina->load('materiales');
         $tipos = TipoTrabajo::where('activo', true)->orderBy('nombre')->get();
         return view('maquinas.edit', compact('maquina', 'tipos'));
     }
@@ -66,9 +68,9 @@ class MaquinaController extends Controller
             'nombre'          => $request->nombre,
             'descripcion'     => $request->descripcion,
             'tipo_trabajo_id' => $request->tipo_trabajo_id,
-            'costo_m2'        => $request->costo_m2        ?? 0,
-            'costo_ml'        => $request->costo_ml        ?? 0,
-            'costo_unidad'    => $request->costo_unidad    ?? 0,
+            'costo_m2'        => $request->costo_m2     ?? 0,
+            'costo_ml'        => $request->costo_ml     ?? 0,
+            'costo_unidad'    => $request->costo_unidad ?? 0,
             'activo'          => $request->boolean('activo'),
         ]);
 
