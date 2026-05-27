@@ -193,6 +193,20 @@ class TrabajoController extends Controller
     }
 
     /**
+     * Formulario para agregar trabajos a una orden existente.
+     * Ruta: GET /trabajos/crear-para/{ordenTrabajo}
+     */
+    public function createParaOrden(OrdenTrabajo $ordenTrabajo)
+    {
+        $orden      = $ordenTrabajo->load('cliente');
+        $tipos      = TipoTrabajo::where('activo', true)->orderBy('nombre')->get();
+        $materiales = Material::where('activo', true)->orderBy('nombre')->get();
+        $maquinas   = Maquina::where('activo', true)->orderBy('nombre')->get();
+
+        return view('ordenes-trabajo.trabajos', compact('orden', 'tipos', 'materiales', 'maquinas'));
+    }
+
+    /**
      * Guarda un trabajo vía AJAX (desde el formulario dinámico).
      */
     public function ajaxStore(Request $request)

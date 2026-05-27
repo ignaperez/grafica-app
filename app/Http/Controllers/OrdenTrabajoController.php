@@ -102,15 +102,8 @@ class OrdenTrabajoController extends Controller
 
     public function edit($id)
     {
-        $orden = OrdenTrabajo::with(['cliente', 'trabajos.producto'])->findOrFail($id);
-        $clientes  = Cliente::orderBy('nombre')->get();
-        $productos = Producto::orderBy('nombre')->get();
-
-        $total = $orden->trabajos->count();
-        $terminados = $orden->trabajos->where('estado', 'terminado')->count();
-        $porcentaje = ($total > 0) ? ($terminados / $total * 100) : 0;
-
-        return view('ordenes-trabajo.edit', compact('orden', 'clientes', 'productos', 'porcentaje'));
+        // La edición de la orden se hace inline desde el show
+        return redirect()->route('ordenes-trabajo.show', $id);
     }
 
     /**

@@ -145,7 +145,7 @@ Route::middleware(['auth', 'rol:admin,ventas,produccion'])->group(function () {
     Route::post('/trabajos/store-multiples',[TrabajoController::class, 'storeMultiples'])->name('trabajos.store-multiples');
     Route::post('/trabajos/{id}/terminar',  [TrabajoController::class, 'marcarTerminado'])->name('trabajos.terminar');
     Route::patch('/trabajos/{id}/estado',   [TrabajoController::class, 'cambiarEstado'])->name('trabajos.estado');
-    Route::get('/trabajos/crear-para/{ordenTrabajo}', [TrabajoController::class, 'create'])->name('trabajos.create-para-orden');
+    Route::get('/trabajos/crear-para/{ordenTrabajo}', [TrabajoController::class, 'createParaOrden'])->name('trabajos.create-para-orden');
     Route::resource('trabajos', TrabajoController::class);
 
     // Archivos adjuntos de trabajos
