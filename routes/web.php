@@ -183,7 +183,8 @@ Route::middleware(['auth', 'rol:admin,ventas'])->group(function () {
 
     // Productos y listas de precios
     Route::resource('productos',      ProductoController::class);
-    Route::resource('listas-precios', ListaPrecioController::class);
+    Route::resource('listas-precios', ListaPrecioController::class)
+        ->parameters(['listas-precios' => 'listaPrecio']);
 
 });
 

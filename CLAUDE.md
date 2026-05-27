@@ -307,6 +307,40 @@ DELETE /trabajo-archivos/{trabajoArchivo}  → trabajo-archivos.destroy
 
 ---
 
+## Deploy — Producción (plote.ar)
+
+**Dominio:** plote.ar
+**Servidor:** VPS Wiroos, acceso SSH
+**IP pública:** 148.113.192.65
+**Hostname:** c1116.cloud.wiroos.net
+**DNS:** administrados en panel Wiroos (ns1.wiroos.com / ns2.wiroos.com)
+**PHP en VPS:** 8.4.5
+**Servidor web:** Nginx (a instalar — no estaba al 2026-05-26)
+**OS:** por confirmar
+
+### Estado al 2026-05-26 — CASI LISTO
+- DNS registros A configurados en Wiroos (@ y www → 148.113.192.65) ✓
+- Nginx instalado y configurado ✓ — server block en `/etc/nginx/sites-enabled/plote-ar`
+- App Laravel en `/var/www/grafica/` ✓
+- `.env` de producción configurado ✓
+- `vendor/` y assets (`public/build/`) presentes ✓
+- Symlink `public/storage` creado ✓
+- Migraciones corridas ✓
+- Config/route/view cache generados ✓
+- App Django (123millas.com.ar) eliminada del servidor ✓
+- Laravel responde HTTP 200 ✓ (verificado con curl -H "Host: plote.ar")
+- **Pendiente:** DNS propagación + SSL con Certbot
+
+### Pendiente
+1. Esperar propagación DNS (chequear en https://dnschecker.org/#A/plote.ar)
+2. Una vez que resuelva, correr Certbot:
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d plote.ar -d www.plote.ar
+```
+
+---
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -314,3 +348,4 @@ DELETE /trabajo-archivos/{trabajoArchivo}  → trabajo-archivos.destroy
 3. **Select2 en filas dinámicas:** inicializar SOLO dentro del scope de la fila nueva, no con `$('.select2')` global, para evitar doble-init.
 4. **`navigation.blade.php`:** archivo viejo de Breeze, casi no se usa. El sidebar real está en `app.blade.php`.
 5. **ABM lookups (tipos/materiales/máquinas):** al eliminar, verificar primero que no haya trabajos asociados (`->exists()` check en el controller).
+6. **`listas-precios` resource:** parámetro es `listaPrecio` forzado con `.parameters(['listas-precios' => 'listaPrecio'])` en `web.php`.
