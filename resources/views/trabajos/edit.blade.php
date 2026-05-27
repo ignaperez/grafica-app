@@ -223,11 +223,7 @@
 @section('scripts')
 <script>
     // ── Datos de máquinas (para filtrar por tipo) ─────────────────
-    const MAQUINAS = @json($maquinas->map(fn($m) => [
-        'id'              => $m->id,
-        'nombre'          => $m->nombre,
-        'tipo_trabajo_id' => $m->tipo_trabajo_id,
-    ]));
+    const MAQUINAS = {!! json_encode($maquinas->map(fn($m) => ['id' => $m->id, 'nombre' => $m->nombre, 'tipo_trabajo_id' => $m->tipo_trabajo_id])->values()) !!};
 
     function filtrarMaquinas(tipoId, valorActual) {
         const sel = document.getElementById('sel-maquina');
