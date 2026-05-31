@@ -333,7 +333,7 @@ DELETE /trabajo-archivos/{trabajoArchivo}  → trabajo-archivos.destroy
 **Servidor web:** Nginx (a instalar — no estaba al 2026-05-26)
 **OS:** por confirmar
 
-### Estado al 2026-05-26 — CASI LISTO
+### Estado al 2026-05-27 — CASI LISTO
 - DNS registros A configurados en Wiroos (@ y www → 148.113.192.65) ✓
 - Nginx instalado y configurado ✓ — server block en `/etc/nginx/sites-enabled/plote-ar`
 - App Laravel en `/var/www/grafica/` ✓
@@ -344,15 +344,128 @@ DELETE /trabajo-archivos/{trabajoArchivo}  → trabajo-archivos.destroy
 - Config/route/view cache generados ✓
 - App Django (123millas.com.ar) eliminada del servidor ✓
 - Laravel responde HTTP 200 ✓ (verificado con curl -H "Host: plote.ar")
-- **Pendiente:** DNS propagación + SSL con Certbot
+- **Pendiente:** DNS (ticket abierto a Wiroos) + SSL con Certbot
 
-### Pendiente
-1. Esperar propagación DNS (chequear en https://dnschecker.org/#A/plote.ar)
-2. Una vez que resuelva, correr Certbot:
+### Problema DNS (2026-05-27)
+Wiroos no permite gestionar la zona DNS desde el panel del VPS. Los nameservers
+responden "Query refused" para plote.ar. Ticket de soporte abierto.
+
+**Plan B si Wiroos no resuelve:** mover DNS a Cloudflare (gratis).
+1. Agregar plote.ar en cloudflare.com → obtener 2 nameservers
+2. En NIC.ar cambiar nameservers a los de Cloudflare
+3. En Cloudflare: A @ → 148.113.192.65 y A www → 148.113.192.65 (proxy gris)
+4. Una vez que resuelva, correr Certbot en el VPS:
 ```bash
 apt install -y certbot python3-certbot-nginx
 certbot --nginx -d plote.ar -d www.plote.ar
 ```
+
+---
+
+## Módulo de Facturación Electrónica (ARCA/AFIP) — EN DESARROLLO
+
+### Objetivo
+Emitir **Facturas A, B y C con CAE** directamente desde la app, vinculadas a presupuestos.
+Remito: documento interno sin CAE (no aplica REM para imprenta).
+
+### Stack técnico
+```bash
+composer require afip/sdk   # SDK oficial AFIP/ARCA
+```
+O alternativa más mantenida:
+```bash
+composer require multinexo/php-afip-ws
+```
+
+### Servicios ARCA que se usan
+| Servicio | Función |
+|---|---|
+| **WSAA** | Autenticación — genera ticket (TA) con duración 12hs usando el certificado |
+| **WSFE** | Facturación electrónica — pide nro comprobante, envía datos, recibe CAE |
+
+### Flujo de emisión
+1. WSAA: firma XML con clave privada → ARCA devuelve Token + Sign (cachear 12hs)
+2. WSFE: con T+S, consultar último nro comprobante → enviar factura → recibir CAE + vencimiento
+3. Guardar CAE en DB
+4. Generar PDF con QR obligatorio (datos: CUIT, tipo, nro, fecha, importe, CAE, vto CAE)
+
+### Archivos del certificado (NO commitear nunca)
+```
+storage/app/arca/
+├── private.key      ← clave privada RSA 2048 (NUNCA al repo)
+├── cert.crt         ← certificado firmado por ARCA
+└── cert_homo.crt    ← certificado de homologación (testing)
+```
+Agregar a `.gitignore`: `storage/app/arca/`
+
+### Variables de entorno (.env)
+```
+ARCA_CUIT=20XXXXXXXXX
+ARCA_CERT=storage/app/arca/cert.crt
+ARCA_KEY=storage/app/arca/private.key
+ARCA_PRODUCTION=false          # true en producción
+ARCA_PUNTO_VENTA=1             # punto de venta registrado en ARCA
+```
+
+### Modelos y tablas a crear
+| Modelo | Tabla | Campos clave |
+|---|---|---|
+| `Factura` | `facturas` | presupuesto_id (nullable), cliente_id, tipo (A/B/C), punto_venta, numero, cae, cae_vencimiento, total, estado, created_by |
+| `FacturaItem` | `factura_items` | factura_id, descripcion, cantidad, precio_unitario, subtotal, alicuota_iva |
+
+### Tipos de comprobante ARCA (cbte_tipo)
+| Código | Tipo |
+|---|---|
+| 1 | Factura A |
+| 6 | Factura B |
+| 11 | Factura C (monotributistas) |
+| 3 | Nota de Crédito A |
+| 8 | Nota de Crédito B |
+
+### Rutas planeadas
+```
+GET  /facturas              → facturas.index
+GET  /facturas/create       → facturas.create  (manual)
+POST /facturas              → facturas.store
+GET  /facturas/{factura}    → facturas.show
+GET  /facturas/{factura}/pdf → facturas.pdf
+POST /presupuestos/{presupuesto}/facturar → presupuestos.facturar  (desde presupuesto aprobado)
+```
+
+### Estado del certificado ARCA
+- [ ] Generar CSR y clave privada (ver instrucciones abajo)
+- [ ] Subir CSR a ARCA homologación → obtener cert_homo.crt
+- [ ] Probar en ambiente de homologación (wswhomo.afip.gov.ar)
+- [ ] Subir CSR a ARCA producción → obtener cert.crt
+- [ ] Configurar punto de venta tipo "Web Services" en ARCA
+- [ ] Deploy y prueba en producción
+
+### Cómo crear el certificado en ARCA
+
+#### Paso 1 — Generar clave privada y CSR (en Laragon o Git Bash)
+```bash
+# En C:\laragon\www\grafica-app\storage\app\arca\ (crear la carpeta primero)
+openssl genrsa -out private.key 2048
+
+openssl req -new -key private.key -out request.csr \
+  -subj "/C=AR/O=NOMBRE_EMPRESA/CN=CUIT XXXXXXXXXX/serialNumber=CUIT XXXXXXXXXX"
+# Reemplazar NOMBRE_EMPRESA y CUIT (con los espacios tal como está)
+```
+
+#### Paso 2 — Subir el CSR a ARCA
+1. Ir a **https://auth.afip.gob.ar** → ingresar con CUIT + Clave Fiscal (nivel 3)
+2. Buscar el servicio **"Administración de Certificados Digitales"**
+   (si no aparece, habilitarlo desde "Administrador de Relaciones de Clave Fiscal")
+3. Clic en **"Nueva relación"** → seleccionar el servicio **"wsfe"** (o "wsfev1")
+4. En **"Generar certificado"** → pegar el contenido del archivo `request.csr`
+5. Descargar el `.crt` resultante → guardarlo como `storage/app/arca/cert.crt`
+
+> Para **homologación** (testing): ir a **https://wsaahomo.afip.gov.ar** — es un entorno separado con su propio certificado. Repetir el proceso ahí con `cert_homo.crt`.
+
+#### Paso 3 — Crear punto de venta en ARCA
+1. En ARCA → **"Mis Aplicaciones Web"** → **"Administración de Puntos de Venta"**
+2. Agregar punto de venta → tipo: **"Web Services"** → anotar el número asignado
+3. Ese número va en `ARCA_PUNTO_VENTA` del `.env`
 
 ---
 
