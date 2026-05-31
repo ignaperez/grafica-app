@@ -433,12 +433,25 @@ POST /presupuestos/{presupuesto}/facturar → presupuestos.facturar  (desde pres
 ```
 
 ### Estado del certificado ARCA
-- [ ] Generar CSR y clave privada (ver instrucciones abajo)
-- [ ] Subir CSR a ARCA homologación → obtener cert_homo.crt
-- [ ] Probar en ambiente de homologación (wswhomo.afip.gov.ar)
-- [ ] Subir CSR a ARCA producción → obtener cert.crt
-- [ ] Configurar punto de venta tipo "Web Services" en ARCA
-- [ ] Deploy y prueba en producción
+- [x] Generar CSR y clave privada ✓
+- [x] Subir CSR a ARCA producción → cert.crt obtenido ✓ (alias: plotear, vence 2028-05-29)
+- [x] Autorizar computador "plotear" al servicio "Facturación Electrónica" en ARCA ✓
+- [x] Autenticación WSAA OK en producción ✓
+- [x] Consulta WSFE OK — PV6 Factura B último nro: 0 (sin facturas aún) ✓
+- [ ] Implementar módulo Laravel completo
+- [ ] Deploy y prueba emisión real
+
+### Arquitectura ARCA confirmada
+- **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
+- **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)
+- **CUIT**: 23252997679
+- **Punto de venta**: 6
+- **Cert**: `storage/app/arca/cert.crt` (alias: plotear)
+- **Key**: `storage/app/arca/private.key`
+- **TA cache**: `storage/app/arca/xml/TA-23252997679-wsfe.xml` (dura 12hs, lo maneja el paquete)
+- **URL WSAA prod**: `https://wsaa.afip.gov.ar/ws/services/LoginCms`
+- **URL WSFE prod**: `https://servicios1.afip.gov.ar/wsfev1/service.asmx`
+- **WSDL WSFE local**: `vendor/multinexo/php-afip-ws/src/Multinexo/Afip/WSFE/wsfe.wsdl`
 
 ### Cómo crear el certificado en ARCA
 
