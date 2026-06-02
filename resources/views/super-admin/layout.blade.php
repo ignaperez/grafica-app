@@ -86,6 +86,14 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
 <nav class="sa-nav">
     <div class="sa-brand">plote<span>.ar</span> <span style="color:#333;margin:0 6px">|</span> <span style="font-size:.75rem">Super Admin</span></div>
     <div class="sa-sep"></div>
+    <a href="{{ route('super-admin.empresas.index') }}"
+       style="font-size:.82rem;color:{{ request()->routeIs('super-admin.empresas.*') ? 'var(--ac)' : 'var(--txm)' }};text-decoration:none">
+        Empresas
+    </a>
+    <a href="{{ route('super-admin.email.index') }}"
+       style="font-size:.82rem;color:{{ request()->routeIs('super-admin.email.*') ? 'var(--ac)' : 'var(--txm)' }};text-decoration:none">
+        Email
+    </a>
     <span class="sa-user">{{ auth()->user()->name }}</span>
     <a href="{{ route('super-admin.cambiar-clave') }}" class="sa-logout" style="text-decoration:none">Cambiar clave</a>
     <form method="POST" action="{{ route('super-admin.logout') }}" style="display:inline" id="sa-logout-form">

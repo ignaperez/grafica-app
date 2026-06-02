@@ -70,6 +70,13 @@ Route::prefix('super-admin')->name('super-admin.')->group(function () {
         Route::post('/empresas/{tenant}/impersonar',          [EmpresaController::class, 'impersonar'])->name('empresas.impersonar');
         Route::post('/empresas/{tenant}/blanquear-password',   [EmpresaController::class, 'blanquearPassword'])->name('empresas.blanquear-password');
 
+        // Gestión de cuentas de email
+        Route::get('/email',                                        [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'index'])->name('email.index');
+        Route::post('/email',                                       [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'store'])->name('email.store');
+        Route::post('/email/{mailAccount}/reset-password',          [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'resetPassword'])->name('email.reset-password');
+        Route::post('/email/{mailAccount}/toggle',                  [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'toggle'])->name('email.toggle');
+        Route::delete('/email/{mailAccount}',                       [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'destroy'])->name('email.destroy');
+
     });
 
 });
