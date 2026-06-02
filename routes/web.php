@@ -1,216 +1,74 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\OrdenTrabajoController;
-use App\Http\Controllers\TrabajoController;
-use App\Http\Controllers\ClienteController;
-use App\Http\Controllers\ProductoController;
-use App\Http\Controllers\ListaPrecioController;
-use App\Http\Controllers\FichadaController;
-use App\Http\Controllers\EmpleadoController;
-use App\Http\Controllers\TipoTrabajoController;
-use App\Http\Controllers\MaterialController;
-use App\Http\Controllers\MaquinaController;
-use App\Http\Controllers\TrabajoLibreController;
-use App\Http\Controllers\TrabajoArchivoController;
-use App\Http\Controllers\ReporteController;
-use App\Http\Controllers\VehiculoPloteoController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\CatalogoController;
-use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\PresupuestoController;
+use App\Http\Controllers\SuperAdmin\EmpresaController;
 
 /*
 |--------------------------------------------------------------------------
-| Rutas públicas (sin login)
+| Rutas centrales — dominio principal (plote.ar / grafica-app.test)
+| Estas rutas NO activan tenancy.
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn () => view('welcome'));
+// Landing pública (y raíz de subdominios tenant)
+Route::get('/', function () {
+    // Si el request viene de un subdominio (tenant), redirigir a login o panel
+    $centralDomains = config('tenancy.central_domains', []);
+    if (! in_array(request()->getHost(), $centralDomains)) {
+        return auth()->check()
+            ? redirect()->to('/inicio')
+            : redirect()->to('/login');
+    }
 
-// Kiosco de fichada — tablet en recepción, sin autenticación
-Route::get('/fichar',  [FichadaController::class, 'showKiosk'])->name('fichar.form');
-Route::post('/fichar', [FichadaController::class, 'store'])->name('fichar.store');
+    // Dominio central — super-admin va directo al panel
+    if (auth()->check() && auth()->user()->is_super_admin) {
+        return redirect()->route('super-admin.empresas.index');
+    }
+
+    // Construir URL de login del primer tenant activo para el botón "Empleados"
+    $tenant    = \App\Models\Tenant::with('domains')->first();
+    $loginUrl  = $tenant ? $tenant->panelUrl() . '/login' : '#';
+
+    return view('welcome', compact('loginUrl'));
+})->name('home');
 
 /*
 |--------------------------------------------------------------------------
-| Rutas autenticadas — generales
+| Panel Super-Admin
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'rol:admin'])->group(function () {
+Route::prefix('super-admin')->name('super-admin.')->group(function () {
 
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/reportes/produccion', [ReporteController::class, 'index'])->name('reportes.produccion');
+    // Login del super-admin (usa el auth de Breeze sobre el DB central)
+    Route::get('/login',  [App\Http\Controllers\SuperAdmin\AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [App\Http\Controllers\SuperAdmin\AuthController::class, 'login'])->name('login.post');
+    Route::post('/logout',[App\Http\Controllers\SuperAdmin\AuthController::class, 'logout'])->name('logout');
 
-    // Preview nuevo diseño
-    Route::get('/dashboard/preview', [DashboardController::class, 'preview'])->name('dashboard.preview');
-    Route::get('/dashboard/apply-preview', [DashboardController::class, 'applyPreview'])->name('dashboard.apply-preview');
+    // Panel protegido
+    Route::middleware(['auth', 'super-admin'])->group(function () {
 
-    // Perfil
-    Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+        Route::get('/', fn () => redirect()->route('super-admin.empresas.index'));
 
-    // Rutas de prueba — podés borrarlas en producción
-    Route::get('/select2-test', fn () => view('select2-test'))->name('select2-test');
-    Route::get('/ordenes-test', function () {
-        $ordenes = App\Models\OrdenTrabajo::with('cliente')->limit(5)->get();
-        return view('ordenes-test', compact('ordenes'));
-    })->name('ordenes.test');
+        // Cambiar contraseña
+        Route::get('/cambiar-clave',  [App\Http\Controllers\SuperAdmin\AuthController::class, 'showCambiarClave'])->name('cambiar-clave');
+        Route::post('/cambiar-clave', [App\Http\Controllers\SuperAdmin\AuthController::class, 'cambiarClave'])->name('cambiar-clave.post');
+
+        // AJAX — consulta CUIT en padrón ARCA
+        Route::get('/consultar-cuit', [EmpresaController::class, 'consultarCuit'])->name('consultar-cuit');
+
+        Route::get('/empresas',                    [EmpresaController::class, 'index'])->name('empresas.index');
+        Route::get('/empresas/crear',              [EmpresaController::class, 'create'])->name('empresas.create');
+        Route::post('/empresas',                   [EmpresaController::class, 'store'])->name('empresas.store');
+        Route::get('/empresas/{tenant}',           [EmpresaController::class, 'show'])->name('empresas.show');
+        Route::get('/empresas/{tenant}/editar',    [EmpresaController::class, 'edit'])->name('empresas.edit');
+        Route::put('/empresas/{tenant}',           [EmpresaController::class, 'update'])->name('empresas.update');
+        Route::delete('/empresas/{tenant}',        [EmpresaController::class, 'destroy'])->name('empresas.destroy');
+        Route::post('/empresas/{tenant}/cert',        [EmpresaController::class, 'uploadCert'])->name('empresas.cert');
+        Route::post('/empresas/{tenant}/generar-csr',[EmpresaController::class, 'generarCsr'])->name('empresas.generar-csr');
+        Route::get('/empresas/{tenant}/descargar-key',[EmpresaController::class, 'descargarKey'])->name('empresas.descargar-key');
+        Route::post('/empresas/{tenant}/impersonar', [EmpresaController::class, 'impersonar'])->name('empresas.impersonar');
+
+    });
 
 });
-
-/*
-|--------------------------------------------------------------------------
-| RRHH — solo admin
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'rol:admin'])->prefix('rrhh')->name('rrhh.')->group(function () {
-
-    // Dashboard RRHH
-    Route::get('/', [FichadaController::class, 'dashboard'])->name('dashboard');
-
-    // Fichadas
-    Route::get('/fichadas',     [FichadaController::class, 'index'])->name('fichadas.index');
-    Route::get('/fichadas/hoy', [FichadaController::class, 'hoy'])->name('fichadas.hoy');
-
-    // Empleados ABM
-    Route::get('/empleados',                  [EmpleadoController::class, 'index'])->name('empleados.index');
-    Route::get('/empleados/crear',            [EmpleadoController::class, 'create'])->name('empleados.create');
-    Route::post('/empleados',                 [EmpleadoController::class, 'store'])->name('empleados.store');
-    Route::get('/empleados/{empleado}/edit',  [EmpleadoController::class, 'edit'])->name('empleados.edit');
-    Route::put('/empleados/{empleado}',       [EmpleadoController::class, 'update'])->name('empleados.update');
-    Route::delete('/empleados/{empleado}',    [EmpleadoController::class, 'destroy'])->name('empleados.destroy');
-
-    // Reportes y liquidaciones por empleado
-    Route::get('/empleados/{empleado}/fichadas', [FichadaController::class, 'porEmpleado'])->name('empleados.fichadas');
-    Route::get('/empleados/{empleado}/liquidar', [EmpleadoController::class, 'liquidar'])->name('empleados.liquidar');
-    Route::post('/empleados/{empleado}/pagos',   [EmpleadoController::class, 'registrarPago'])->name('empleados.pagos.store');
-
-});
-
-/*
-|--------------------------------------------------------------------------
-| AJAX — búsquedas para Select2 (autenticado)
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware('auth')->group(function () {
-
-    Route::get('/clientes/search',      [ClienteController::class,   'search'])->name('clientes.search');
-    Route::get('/productos/search',     [ProductoController::class,  'search'])->name('productos.search');
-    Route::get('/listas-precios/buscar',[ListaPrecioController::class,'search'])->name('listas-precios.search');
-
-});
-
-/*
-|--------------------------------------------------------------------------
-| Recursos — Admin
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'rol:admin'])->group(function () {
-
-    Route::get('/admin', fn () => 'Bienvenido administrador.');
-
-    Route::resource('usuarios', UserController::class)->except(['show']);
-
-    // Configuración global del sistema
-    Route::get('/configuracion',  [ConfiguracionController::class, 'edit'])->name('configuracion.edit');
-    Route::put('/configuracion',  [ConfiguracionController::class, 'update'])->name('configuracion.update');
-
-});
-
-/*
-|--------------------------------------------------------------------------
-| Operativo — Admin + Ventas + Producción
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'rol:admin,ventas,produccion'])->group(function () {
-
-    Route::get('/inicio', [DashboardController::class, 'inicio'])->name('inicio');
-
-    // Órdenes de trabajo
-    Route::resource('ordenes-trabajo', OrdenTrabajoController::class);
-    Route::get('/ordenes-trabajo/{orden}/trabajos', [OrdenTrabajoController::class, 'trabajos'])
-        ->name('ordenes.trabajos');
-    Route::patch('/ordenes-trabajo/{id}/estado', [OrdenTrabajoController::class, 'cambiarEstado'])
-        ->name('ordenes-trabajo.estado');
-    Route::patch('/ordenes-trabajo/{id}/metadata', [OrdenTrabajoController::class, 'updateMetadata'])
-        ->name('ordenes-trabajo.metadata');
-    Route::get('/ordenes-trabajo/{id}/print', [OrdenTrabajoController::class, 'print'])
-        ->name('ordenes-trabajo.print');
-
-    // Trabajos
-    Route::post('/trabajos/ajax-store',    [TrabajoController::class, 'ajaxStore'])->name('trabajos.ajax-store');
-    Route::post('/trabajos/store-multiples',[TrabajoController::class, 'storeMultiples'])->name('trabajos.store-multiples');
-    Route::post('/trabajos/{id}/terminar',  [TrabajoController::class, 'marcarTerminado'])->name('trabajos.terminar');
-    Route::patch('/trabajos/{id}/estado',   [TrabajoController::class, 'cambiarEstado'])->name('trabajos.estado');
-    Route::get('/trabajos/crear-para/{ordenTrabajo}', [TrabajoController::class, 'createParaOrden'])->name('trabajos.create-para-orden');
-    Route::resource('trabajos', TrabajoController::class);
-
-    // Archivos adjuntos de trabajos
-    Route::post('/trabajos/{trabajo}/archivos',        [TrabajoArchivoController::class, 'store'])->name('trabajo-archivos.store');
-    Route::delete('/trabajo-archivos/{trabajoArchivo}',[TrabajoArchivoController::class, 'destroy'])->name('trabajo-archivos.destroy');
-
-    // Trabajos libres
-    Route::get('/trabajos-libres',                [TrabajoLibreController::class, 'index'])->name('trabajos-libres.index');
-    Route::get('/trabajos-libres/crear',          [TrabajoLibreController::class, 'create'])->name('trabajos-libres.create');
-    Route::post('/trabajos-libres',               [TrabajoLibreController::class, 'store'])->name('trabajos-libres.store');
-    Route::post('/trabajos-libres/asignar-orden', [TrabajoLibreController::class, 'asignarOrden'])->name('trabajos-libres.asignar-orden');
-
-    // Vehículos ploteo
-    Route::resource('vehiculos-ploteo', VehiculoPloteoController::class);
-    Route::delete('/vehiculos-ploteo/{vehiculosPloteo}/fotos', [VehiculoPloteoController::class, 'destroyFoto'])
-        ->name('vehiculos-ploteo.destroy-foto');
-
-});
-
-/*
-|--------------------------------------------------------------------------
-| Configuración — Admin + Ventas (NO producción)
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'rol:admin,ventas'])->group(function () {
-
-    // Clientes
-    Route::resource('clientes', ClienteController::class);
-
-    // ABM dinámicos
-    Route::resource('tipo-trabajos', TipoTrabajoController::class)->parameters(['tipo-trabajos' => 'tipoTrabajo']);
-    Route::resource('materiales', MaterialController::class)->parameters(['materiales' => 'material']);
-    Route::resource('maquinas', MaquinaController::class);
-
-    // Catálogo (auto-generado de maquina × material)
-    Route::get('/catalogo',       [CatalogoController::class, 'index'])->name('catalogo.index');
-    Route::get('/catalogo/print', [CatalogoController::class, 'print'])->name('catalogo.print');
-
-    // Presupuestos
-    Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
-    Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');
-    Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
-    Route::post('/presupuestos/{presupuesto}/convertir-ot', [PresupuestoController::class, 'convertirAOT'])->name('presupuestos.convertir-ot');
-    Route::resource('presupuestos', PresupuestoController::class)->only(['index','create','store','show','edit','update','destroy']);
-
-    // Productos y listas de precios
-    Route::resource('productos',      ProductoController::class);
-    Route::resource('listas-precios', ListaPrecioController::class)
-        ->parameters(['listas-precios' => 'listaPrecio']);
-
-});
-
-
-/*
-|--------------------------------------------------------------------------
-| Auth (Breeze)
-|--------------------------------------------------------------------------
-*/
-
-require __DIR__ . '/auth.php';

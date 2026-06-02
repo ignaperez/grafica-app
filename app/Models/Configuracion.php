@@ -48,12 +48,15 @@ class Configuracion extends Model
     public static function empresa(): array
     {
         return [
-            'nombre'      => static::get('empresa_nombre',      config('app.name')),
-            'cuit'        => static::get('empresa_cuit',        ''),
-            'direccion'   => static::get('empresa_direccion',   ''),
-            'telefono'    => static::get('empresa_telefono',    ''),
-            'propietario' => static::get('empresa_propietario', ''),
-            'email'       => static::get('empresa_email',       ''),
+            'nombre'               => static::get('empresa_nombre',               config('app.name')),
+            'cuit'                 => static::get('empresa_cuit',                 ''),
+            'direccion'            => static::get('empresa_direccion',            ''),
+            'telefono'             => static::get('empresa_telefono',             ''),
+            'propietario'          => static::get('empresa_propietario',          ''),
+            'email'                => static::get('empresa_email',                ''),
+            'condicion_iva'        => static::get('empresa_condicion_iva',        ''),
+            'iibb'                 => static::get('empresa_iibb',                 ''),
+            'inicio_actividades'   => static::get('empresa_inicio_actividades',   ''),
         ];
     }
 }

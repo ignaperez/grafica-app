@@ -64,6 +64,28 @@
                 @error('empresa_email')<div class="gerr">{{ $message }}</div>@enderror
             </div>
 
+            <div class="gfg">
+                <label class="glabel">Condición frente al IVA</label>
+                <input type="text" name="empresa_condicion_iva" class="ginput" maxlength="80"
+                       value="{{ old('empresa_condicion_iva', $empresa['condicion_iva']) }}"
+                       placeholder="Monotributista / IVA Responsable Inscripto / IVA Exento">
+                <div class="txd" style="font-size:11px;margin-top:4px">Aparece en el encabezado de las facturas.</div>
+            </div>
+
+            <div class="gfg">
+                <label class="glabel">Ingresos Brutos</label>
+                <input type="text" name="empresa_iibb" class="ginput" maxlength="60"
+                       value="{{ old('empresa_iibb', $empresa['iibb']) }}"
+                       placeholder="20-12345678-9 ó Convenio Multilateral">
+            </div>
+
+            <div class="gfg">
+                <label class="glabel">Inicio de Actividades</label>
+                <input type="text" name="empresa_inicio_actividades" class="ginput" maxlength="20"
+                       value="{{ old('empresa_inicio_actividades', $empresa['inicio_actividades']) }}"
+                       placeholder="01/01/2020">
+            </div>
+
         </div>
     </div>
 </div>

@@ -42,18 +42,19 @@
         .s-mark{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--ac);margin-bottom:4px}
         .s-name{font-size:14px;font-weight:600;color:var(--tx);letter-spacing:-.3px}
         .s-nav{flex:1;padding:10px 8px;overflow-y:auto}
-        .s-section{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#2a2a2a;padding:12px 10px 4px;font-weight:700}
+        .s-section{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#333;padding:12px 10px 4px;font-weight:700}
         .s-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;font-size:13px;color:var(--txd);text-decoration:none;transition:all .12s;margin-bottom:1px}
         .s-item:hover{background:var(--bg-h);color:var(--tx);text-decoration:none}
         .s-item.on{background:#191919;color:var(--tx);font-weight:500}
         .s-item.on .dot{background:var(--ac)}
         .dot{width:5px;height:5px;border-radius:50%;background:#252525;flex-shrink:0;transition:background .12s}
-        .s-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 10px;border-radius:7px;font-size:13px;color:var(--txd);background:none;border:none;cursor:pointer;font-family:var(--sans);transition:all .12s;margin-bottom:1px}
-        .s-trigger:hover{background:var(--bg-h);color:var(--tx)}
-        .s-trigger .tl{display:flex;align-items:center;gap:9px}
-        .s-arrow{font-size:10px;color:#2a2a2a;transition:transform .15s}
-        .s-trigger.open .s-arrow{transform:rotate(90deg)}
-        .s-sub{display:none;padding-left:18px}
+        .s-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 10px;border-radius:7px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#585858;background:none;border:none;cursor:pointer;font-family:var(--sans);transition:all .12s;margin-bottom:1px;margin-top:8px}
+        .s-trigger:hover{background:var(--bg-h);color:#888}
+        .s-trigger.open{color:#888}
+        .s-trigger .tl{display:flex;align-items:center;gap:7px}
+        .s-arrow{font-size:11px;color:#585858;transition:transform .18s;line-height:1}
+        .s-trigger.open .s-arrow{transform:rotate(90deg);color:#888}
+        .s-sub{display:none}
         .s-sub.open{display:block}
         .s-user{padding:12px 16px;border-top:1px solid var(--b);display:flex;align-items:center;gap:10px}
         .s-avatar{width:28px;height:28px;border-radius:50%;background:#1e100a;border:1px solid #3a1e10;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--ac);flex-shrink:0}
@@ -160,44 +161,67 @@
     <div class="s-logo">
         <img src="{{ asset('images/logo.png') }}" alt="Plote.ar Gráfica">
     </div>
-    @php $rol = auth()->user()->rol; @endphp
+    @php
+        $rol = auth()->user()->rol;
+        $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || request()->routeIs('remitos.*');
+        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('catalogo.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && in_array(auth()->user()->rol ?? '', ['admin','ventas']));
+        $configOn     = request()->routeIs('tipo-trabajos.*') || request()->routeIs('materiales.*') || request()->routeIs('maquinas.*') || request()->routeIs('remito-cais.*');
+        $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*');
+        $rrhhOn       = request()->is('rrhh/*');
+    @endphp
     <nav class="s-nav">
-        {{-- ── Admin only ── --}}
-        @if($rol === 'admin')
-            <div class="s-section">Producción</div>
-            <a href="{{ route('dashboard') }}" class="s-item {{ request()->routeIs('dashboard') ? 'on' : '' }}">
-                <span class="dot"></span> Dashboard
-            </a>
-            <a href="{{ route('reportes.produccion') }}" class="s-item {{ request()->routeIs('reportes.*') ? 'on' : '' }}">
-                <span class="dot"></span> Reportes
-            </a>
-        @else
-            <div class="s-section">Producción</div>
-            <a href="{{ route('inicio') }}" class="s-item {{ request()->routeIs('inicio') ? 'on' : '' }}">
-                <span class="dot"></span> Inicio
-            </a>
-        @endif
 
-        {{-- ── Todos los roles ── --}}
-        <a href="{{ route('ordenes-trabajo.index') }}" class="s-item {{ request()->routeIs('ordenes-trabajo.*') ? 'on' : '' }}">
-            <span class="dot"></span> Órdenes de trabajo
-        </a>
-        <a href="{{ route('trabajos-libres.index') }}" class="s-item {{ request()->routeIs('trabajos-libres.*') ? 'on' : '' }}">
-            <span class="dot"></span> Trabajos
-        </a>
-        <a href="{{ route('vehiculos-ploteo.index') }}" class="s-item {{ request()->routeIs('vehiculos-ploteo.*') ? 'on' : '' }}">
-            <span class="dot"></span> Vehículos
-        </a>
+        {{-- ══ PRODUCCIÓN ══ --}}
+        <button class="s-trigger {{ $produccionOn ? 'open' : '' }}" onclick="toggleGroup(this)">
+            <span class="tl">Producción</span><span class="s-arrow">›</span>
+        </button>
+        <div class="s-sub {{ $produccionOn ? 'open' : '' }}">
+            @if($rol === 'admin')
+                <a href="{{ route('dashboard') }}" class="s-item {{ request()->routeIs('dashboard') ? 'on' : '' }}">
+                    <span class="dot"></span> Dashboard
+                </a>
+                <a href="{{ route('reportes.produccion') }}" class="s-item {{ request()->routeIs('reportes.*') ? 'on' : '' }}">
+                    <span class="dot"></span> Reportes
+                </a>
+            @else
+                <a href="{{ route('inicio') }}" class="s-item {{ request()->routeIs('inicio') ? 'on' : '' }}">
+                    <span class="dot"></span> Inicio
+                </a>
+            @endif
+            <a href="{{ route('ordenes-trabajo.index') }}" class="s-item {{ request()->routeIs('ordenes-trabajo.*') ? 'on' : '' }}">
+                <span class="dot"></span> Órdenes de trabajo
+            </a>
+            <a href="{{ route('trabajos-libres.index') }}" class="s-item {{ request()->routeIs('trabajos-libres.*') ? 'on' : '' }}">
+                <span class="dot"></span> Trabajos
+            </a>
+            <a href="{{ route('vehiculos-ploteo.index') }}" class="s-item {{ request()->routeIs('vehiculos-ploteo.*') ? 'on' : '' }}">
+                <span class="dot"></span> Vehículos
+            </a>
+            {{-- Remitos solo aparece aquí para producción; admin/ventas lo ven en Ventas --}}
+            @if($rol === 'produccion')
+            <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') ? 'on' : '' }}">
+                <span class="dot"></span> Remitos
+            </a>
+            @endif
+        </div>
 
-        {{-- ── Admin + Ventas ── --}}
+        {{-- ══ VENTAS ══ --}}
         @if(in_array($rol, ['admin', 'ventas']))
+        <button class="s-trigger {{ $ventasOn ? 'open' : '' }}" onclick="toggleGroup(this)">
+            <span class="tl">Ventas</span><span class="s-arrow">›</span>
+        </button>
+        <div class="s-sub {{ $ventasOn ? 'open' : '' }}">
             <a href="{{ route('clientes.index') }}" class="s-item {{ request()->routeIs('clientes.*') ? 'on' : '' }}">
                 <span class="dot"></span> Clientes
             </a>
-
-            <div class="s-section">Ventas</div>
             <a href="{{ route('presupuestos.index') }}" class="s-item {{ request()->routeIs('presupuestos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Presupuestos
+            </a>
+            <a href="{{ route('facturas.index') }}" class="s-item {{ request()->routeIs('facturas.*') ? 'on' : '' }}">
+                <span class="dot"></span> Facturas
+            </a>
+            <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') && !request()->routeIs('remito-cais.*') ? 'on' : '' }}">
+                <span class="dot"></span> Remitos
             </a>
             <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Catálogo
@@ -207,8 +231,13 @@
                 <span class="dot"></span> Listas de precios
             </a>
             @endif
+        </div>
 
-            <div class="s-section">Configuración</div>
+        {{-- ══ CONFIGURACIÓN ══ --}}
+        <button class="s-trigger {{ $configOn ? 'open' : '' }}" onclick="toggleGroup(this)">
+            <span class="tl">Configuración</span><span class="s-arrow">›</span>
+        </button>
+        <div class="s-sub {{ $configOn ? 'open' : '' }}">
             <a href="{{ route('tipo-trabajos.index') }}" class="s-item {{ request()->routeIs('tipo-trabajos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Tipos de trabajo
             </a>
@@ -218,29 +247,47 @@
             <a href="{{ route('maquinas.index') }}" class="s-item {{ request()->routeIs('maquinas.*') ? 'on' : '' }}">
                 <span class="dot"></span> Máquinas
             </a>
+            @if($rol === 'admin')
+            <a href="{{ route('remito-cais.index') }}" class="s-item {{ request()->routeIs('remito-cais.*') ? 'on' : '' }}">
+                <span class="dot"></span> CAI remitos
+            </a>
+            @endif
+        </div>
         @endif
 
-        {{-- ── Solo Admin ── --}}
+        {{-- ══ SISTEMA + RRHH (solo admin) ══ --}}
         @if($rol === 'admin')
-            <div class="s-section">Sistema</div>
+        <button class="s-trigger {{ $sistemaOn ? 'open' : '' }}" onclick="toggleGroup(this)">
+            <span class="tl">Sistema</span><span class="s-arrow">›</span>
+        </button>
+        <div class="s-sub {{ $sistemaOn ? 'open' : '' }}">
             <a href="{{ route('usuarios.index') }}" class="s-item {{ request()->routeIs('usuarios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Usuarios
             </a>
             <a href="{{ route('configuracion.edit') }}" class="s-item {{ request()->routeIs('configuracion.*') ? 'on' : '' }}">
                 <span class="dot"></span> Configuración
             </a>
-            <div class="s-section">RRHH</div>
-            <button class="s-trigger {{ request()->is('rrhh/*') ? 'open' : '' }}" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-                <span class="tl"><span class="dot" style="{{ request()->is('rrhh/*') ? 'background:var(--ac)' : '' }}"></span> RRHH</span>
-                <span class="s-arrow">›</span>
-            </button>
-            <div class="s-sub {{ request()->is('rrhh/*') ? 'open' : '' }}">
-                <a href="{{ route('rrhh.dashboard') }}" class="s-item {{ request()->routeIs('rrhh.dashboard') ? 'on' : '' }}"><span class="dot"></span> Panel</a>
-                <a href="{{ route('rrhh.empleados.index') }}" class="s-item {{ request()->routeIs('rrhh.empleados.*') ? 'on' : '' }}"><span class="dot"></span> Empleados</a>
-                <a href="{{ route('rrhh.fichadas.index') }}" class="s-item {{ request()->routeIs('rrhh.fichadas.*') ? 'on' : '' }}"><span class="dot"></span> Fichadas</a>
-                <a href="{{ route('fichar.form') }}" target="_blank" class="s-item"><span class="dot"></span> Reloj tablet ↗</a>
-            </div>
+        </div>
+
+        <button class="s-trigger {{ $rrhhOn ? 'open' : '' }}" onclick="toggleGroup(this)">
+            <span class="tl">RRHH</span><span class="s-arrow">›</span>
+        </button>
+        <div class="s-sub {{ $rrhhOn ? 'open' : '' }}">
+            <a href="{{ route('rrhh.dashboard') }}" class="s-item {{ request()->routeIs('rrhh.dashboard') ? 'on' : '' }}">
+                <span class="dot"></span> Panel
+            </a>
+            <a href="{{ route('rrhh.empleados.index') }}" class="s-item {{ request()->routeIs('rrhh.empleados.*') ? 'on' : '' }}">
+                <span class="dot"></span> Empleados
+            </a>
+            <a href="{{ route('rrhh.fichadas.index') }}" class="s-item {{ request()->routeIs('rrhh.fichadas.*') ? 'on' : '' }}">
+                <span class="dot"></span> Fichadas
+            </a>
+            <a href="{{ route('fichar.form') }}" target="_blank" class="s-item">
+                <span class="dot"></span> Reloj tablet ↗
+            </a>
+        </div>
         @endif
+
     </nav>
     <div class="s-user">
         <div class="s-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div>
@@ -287,6 +334,25 @@
             </div>
         @endif
 
+        {{-- Alerta global de CAI de remito (solo admin) --}}
+        @if($rol === 'admin' && !request()->routeIs('remito-cais.*'))
+        @php
+            $caiVigente = \App\Models\RemitoCai::vigente();
+        @endphp
+        @if(!$caiVigente)
+            <div class="flash flash-err" style="font-size:12px">
+                ⚠️ <strong>Sin CAI vigente para remitos.</strong>
+                Los remitos que emitas no tendrán número fiscal.
+                <a href="{{ route('remito-cais.create') }}" style="color:inherit;text-decoration:underline">Cargar CAI →</a>
+            </div>
+        @elseif($caiVigente->casiAgotado())
+            <div class="flash flash-warn" style="font-size:12px;background:rgba(245,158,11,.15);border-color:#f59e0b;color:#f59e0b">
+                ⚠️ <strong>CAI casi agotado:</strong> quedan {{ $caiVigente->restantes() }} números.
+                <a href="{{ route('remito-cais.create') }}" style="color:inherit;text-decoration:underline">Cargar nuevo CAI →</a>
+            </div>
+        @endif
+        @endif
+
         @yield('content')
     </div>
 </div>
@@ -294,6 +360,12 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+function toggleGroup(btn) {
+    btn.classList.toggle('open');
+    btn.nextElementSibling.classList.toggle('open');
+}
+</script>
 @yield('scripts')
 </body>
 </html>
