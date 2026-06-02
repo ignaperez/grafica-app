@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Confiar en el proxy Nginx local para que Laravel sepa que la conexión es HTTPS
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'rol'        => RolMiddleware::class,
             'super-admin' => SuperAdmin::class,
