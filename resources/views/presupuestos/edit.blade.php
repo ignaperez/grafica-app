@@ -172,14 +172,17 @@ $(function () {
 
 // ── Select2 para cliente ──────────────────────────────────────────────────
 $('#select-cliente').select2({
-    placeholder: 'Buscar cliente...',
-    minimumInputLength: 2,
+    placeholder: 'Escribí el nombre del cliente...',
+    minimumInputLength: 1,
+    allowClear: true,
+    width: 'resolve',
     ajax: {
         url: '{{ route("clientes.search") }}',
         dataType: 'json',
         delay: 250,
         data: params => ({ q: params.term }),
-        processResults: data => ({ results: data })   // endpoint ya devuelve {id,text}
+        processResults: data => ({ results: data }),
+        cache: true,
     }
 });
 

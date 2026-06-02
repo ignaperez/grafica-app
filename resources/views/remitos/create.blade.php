@@ -148,14 +148,21 @@
 
             <div class="gfg">
                 <label class="glabel">Cliente *</label>
-                <select name="cliente_id" class="gselect" id="sel-cliente" required>
-                    <option value="">Seleccione cliente...</option>
-                    @foreach($clientes as $c)
-                        <option value="{{ $c->id }}"
-                            {{ old('cliente_id', $presupuesto?->cliente_id ?? $factura?->cliente_id) == $c->id ? 'selected' : '' }}>
-                            {{ $c->nombre }}
-                        </option>
-                    @endforeach
+                @php
+                    $clientePresel = null;
+                    if (old('cliente_id')) {
+                        $clientePresel = \App\Models\Cliente::find(old('cliente_id'));
+                    } elseif ($presupuesto?->cliente) {
+                        $clientePresel = $presupuesto->cliente;
+                    } elseif ($factura?->cliente) {
+                        $clientePresel = $factura->cliente;
+                    }
+                @endphp
+                <select name="cliente_id" class="gselect" id="sel-cliente" required style="width:100%">
+                    <option value=""></option>
+                    @if($clientePresel)
+                        <option value="{{ $clientePresel->id }}" selected>{{ $clientePresel->nombre }}</option>
+                    @endif
                 </select>
                 @error('cliente_id')<div class="gerr">{{ $message }}</div>@enderror
             </div>
@@ -278,8 +285,21 @@
         $(this).closest('tr.item-row').remove();
     });
 
-    // ── Init ─────────────────────────────────────────────────────────────
-    $('#sel-cliente').select2({ width: 'resolve', placeholder: 'Seleccione cliente...' });
+    // ── Init Select2 AJAX para cliente ───────────────────────────────────
+    $('#sel-cliente').select2({
+        ajax: {
+            url: '{{ route("clientes.search") }}',
+            dataType: 'json',
+            delay: 250,
+            data: params => ({ q: params.term }),
+            processResults: data => ({ results: data }),
+            cache: true,
+        },
+        minimumInputLength: 1,
+        placeholder: 'Escribí el nombre del cliente...',
+        allowClear: true,
+        width: 'resolve',
+    });
 
     // ── Selector tipo remito ─────────────────────────────────────────────
     $(document).on('change', '.tipo-radio', function () {

@@ -30,7 +30,6 @@ class RemitoController extends Controller
 
     public function create(Request $request)
     {
-        $clientes    = Cliente::orderBy('nombre')->get();
         $presupuesto = null;
         $factura     = null;
         $rol         = auth()->user()->rol;
@@ -48,7 +47,7 @@ class RemitoController extends Controller
         $caiVigente   = $puedeOficial ? RemitoCai::vigente() : null;
 
         return view('remitos.create', compact(
-            'clientes', 'presupuesto', 'factura', 'puedeOficial', 'caiVigente'
+            'presupuesto', 'factura', 'puedeOficial', 'caiVigente'
         ));
     }
 
