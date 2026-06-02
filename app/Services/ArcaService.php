@@ -31,7 +31,10 @@ class ArcaService
         $this->cuit = (int) preg_replace('/\D/', '', $cuitDb ?: config('arca.cuit'));
 
         $this->ptoVta     = (int)  config('arca.punto_venta');
-        $this->xmlDir     = storage_path('app/arca/xml/');
+        // Usamos base_path('storage/') en vez de storage_path() porque en contexto
+        // tenant el filesystem bootstrapper redirige storage_path() al directorio del tenant.
+        // Los certs ARCA son siempre centrales, no por tenant.
+        $this->xmlDir     = base_path('storage/app/arca/xml/');
         $this->wsdl       = base_path('vendor/multinexo/php-afip-ws/src/Multinexo/Afip/WSFE/wsfe.wsdl');
 
         $this->wsaaUrl = $this->production
@@ -56,8 +59,8 @@ class ArcaService
         $wsfe->setearConfiguracion([
             'cuit'    => $this->cuit,
             'archivos' => [
-                'certificado'  => storage_path(config('arca.cert')),
-                'clavePrivada' => storage_path(config('arca.key')),
+                'certificado'  => base_path('storage/' . config('arca.cert')),
+                'clavePrivada' => base_path('storage/' . config('arca.key')),
             ],
             'dir'        => ['xml_generados' => $this->xmlDir],
             'proxyHost'  => '',
@@ -269,8 +272,8 @@ class ArcaService
         $conf = array_replace_recursive($defConf, [
             'cuit'    => $this->cuit,
             'archivos' => [
-                'certificado'  => storage_path(config('arca.cert')),
-                'clavePrivada' => storage_path(config('arca.key')),
+                'certificado'  => base_path('storage/' . config('arca.cert')),
+                'clavePrivada' => base_path('storage/' . config('arca.key')),
             ],
             'dir'        => ['xml_generados' => $this->xmlDir],
             'proxyHost'  => '',
