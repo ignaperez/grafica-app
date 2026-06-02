@@ -28,6 +28,9 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Estampar el tenant en la sesión para evitar session bleeding entre contextos
+        session(['_tenant_id' => tenant('id')]);
+
         $rol = $request->user()->rol;
 
         $destino = match($rol) {

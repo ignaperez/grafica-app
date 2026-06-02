@@ -28,6 +28,8 @@ use App\Http\Controllers\PresupuestoController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\RemitoController;
 use App\Http\Controllers\RemitoCaiController;
+use App\Http\Controllers\SaImpersonateController;
+use App\Http\Middleware\ValidateTenantSession;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,11 +45,15 @@ Route::middleware([
     'web',
     InitializeTenancyBySubdomain::class,
     PreventAccessFromCentralDomains::class,
+    ValidateTenantSession::class,
 ])->group(function () {
 
     // Kiosco de fichada — tablet en recepción, sin autenticación
     Route::get('/fichar',  [FichadaController::class, 'showKiosk'])->name('fichar.form');
     Route::post('/fichar', [FichadaController::class, 'store'])->name('fichar.store');
+
+    // Super-admin impersonation — token firmado HMAC, sin middleware de auth
+    Route::get('/sa-impersonate', [SaImpersonateController::class, 'login'])->name('sa-impersonate');
 
     // Auth Breeze (login/logout/registro del tenant)
     require __DIR__ . '/auth.php';

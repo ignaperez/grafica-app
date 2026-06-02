@@ -377,21 +377,28 @@ class EmpresaController extends Controller
     }
 
     /**
-     * Impersonar — redirige al super-admin al panel del tenant.
+     * Impersonar — genera un token HMAC firmado y redirige al tenant para hacer login real.
+     * El browser del super-admin NUNCA usa su sesión central en el tenant.
      */
     public function impersonar(string $id)
     {
         $tenant = Tenant::with('domains')->findOrFail($id);
-        $sub = $tenant->subdomain();
+        $sub    = $tenant->subdomain();
 
         if (!$sub) {
             return back()->with('error', 'Este tenant no tiene dominio configurado.');
         }
 
-        // Construir URL del tenant
-        $baseUrl = config('app.url'); // http://grafica-app.test
+        // Payload firmado con APP_KEY — expira en 3 minutos
+        $payload = base64_encode(json_encode([
+            'tid' => $tenant->id,
+            'exp' => now()->addMinutes(3)->timestamp,
+        ]));
+        $sig = hash_hmac('sha256', $payload, config('app.key'));
+
+        $baseUrl   = config('app.url');
         $tenantUrl = preg_replace('#(https?://)#', "$1{$sub}.", $baseUrl);
 
-        return redirect()->away($tenantUrl);
+        return redirect()->away("{$tenantUrl}/sa-impersonate?t={$payload}&s={$sig}");
     }
 }
