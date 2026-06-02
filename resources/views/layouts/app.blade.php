@@ -69,7 +69,7 @@
         .topbar-bc{font-size:12.5px;color:#333;display:flex;align-items:center;gap:8px}
         .topbar-bc span{color:#262626}
         .topbar-bc strong{color:var(--txd);font-weight:500}
-        .page-content{flex:1;padding:24px 24px 48px}
+        .page-content{flex:1;padding:24px 24px 48px;min-width:0;overflow-x:hidden}
 
         /* ── FLASH ───────────────────────────────────────────── */
         .flash{margin-bottom:16px;padding:10px 16px;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:8px}

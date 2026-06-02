@@ -4,32 +4,32 @@
 
 @section('content')
 
-<form action="{{ route('configuracion.update') }}" method="POST" enctype="multipart/form-data">
+<form action="{{ route('configuracion.update') }}" method="POST" enctype="multipart/form-data" style="width:100%;min-width:0">
 @csrf
 @method('PUT')
 
 {{-- ── Logo ── --}}
-<div class="gcard" style="max-width:680px;margin-bottom:16px">
+<div class="gcard" style="max-width:680px;margin-bottom:16px;overflow:hidden">
     <div class="gcard-hd">
         <span class="gcard-title">Logo de la empresa</span>
     </div>
-    <div class="gcard-bd" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div class="gcard-bd" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;min-width:0">
         {{-- Preview actual --}}
-        <div style="width:120px;height:80px;background:#0a0a0a;border:1px solid var(--b);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+        <div style="width:120px;height:72px;background:#0a0a0a;border:1px solid var(--b);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
             @if($empresa['logo'] && \Illuminate\Support\Facades\Storage::disk('public')->exists($empresa['logo']))
                 <img id="logo-preview" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($empresa['logo']) }}"
-                     style="max-width:112px;max-height:72px;width:auto;height:auto;display:block">
+                     style="max-width:112px;max-height:64px;width:auto;height:auto;display:block">
             @else
-                <img id="logo-preview" src="" style="max-width:112px;max-height:72px;display:none">
+                <img id="logo-preview" src="" style="max-width:112px;max-height:64px;display:none">
                 <span id="logo-placeholder" style="font-size:11px;color:var(--txd)">Sin logo</span>
             @endif
         </div>
         {{-- Upload --}}
-        <div style="flex:1;min-width:200px">
+        <div style="flex:1;min-width:0">
             <div class="gfg" style="margin-bottom:6px">
                 <label class="glabel">Subir nuevo logo</label>
                 <input type="file" name="empresa_logo" id="empresa_logo" accept="image/*"
-                       class="ginput" style="padding:6px 10px;cursor:pointer">
+                       class="ginput" style="padding:6px 10px;cursor:pointer;width:100%;min-width:0">
                 @error('empresa_logo')<div class="gerr">{{ $message }}</div>@enderror
             </div>
             <div class="txd" style="font-size:11px;line-height:1.5">
