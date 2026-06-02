@@ -164,7 +164,6 @@ class EmpresaController extends Controller
 
         $user = DB::connection($conn)
             ->table('users')
-            ->whereNull('deleted_at')
             ->where('id', $request->user_id)
             ->first();
 
@@ -203,7 +202,6 @@ class EmpresaController extends Controller
             $conn     = $this->tenantConnection($tenantId);
             $usuarios = DB::connection($conn)
                 ->table('users')
-                ->whereNull('deleted_at')
                 ->orderBy('rol')
                 ->get(['id', 'name', 'email', 'rol']);
             DB::purge($conn);
