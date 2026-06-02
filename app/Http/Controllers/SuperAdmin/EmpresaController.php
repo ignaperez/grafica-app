@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\ArcaService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -111,29 +112,25 @@ class EmpresaController extends Controller
 
         $resultado = [];
 
-        // Cambiar al contexto del tenant (BD del tenant)
-        tenancy()->initialize($tenant);
+        $tenant->run(function () use ($roles, &$resultado) {
+            foreach ($roles as $rol => $datos) {
+                $password = $this->generarPassword();
 
-        foreach ($roles as $rol => $datos) {
-            $password = $this->generarPassword();
+                User::create([
+                    'name'     => $datos['nombre'],
+                    'email'    => $datos['email'],
+                    'password' => Hash::make($password),
+                    'rol'      => $rol,
+                ]);
 
-            User::create([
-                'name'     => $datos['nombre'],
-                'email'    => $datos['email'],
-                'password' => Hash::make($password),
-                'rol'      => $rol,
-            ]);
-
-            $resultado[] = [
-                'rol'      => $rol,
-                'nombre'   => $datos['nombre'],
-                'email'    => $datos['email'],
-                'password' => $password,   // texto plano solo para el email de bienvenida
-            ];
-        }
-
-        // Volver al contexto central
-        tenancy()->end();
+                $resultado[] = [
+                    'rol'      => $rol,
+                    'nombre'   => $datos['nombre'],
+                    'email'    => $datos['email'],
+                    'password' => $password,
+                ];
+            }
+        });
 
         return $resultado;
     }
@@ -151,8 +148,69 @@ class EmpresaController extends Controller
 
     public function show(string $id)
     {
-        $tenant = Tenant::withTrashed()->with('domains')->findOrFail($id);
-        return view('super-admin.empresas.show', compact('tenant'));
+        $tenant   = Tenant::withTrashed()->with('domains')->findOrFail($id);
+        $usuarios = $this->usuariosTenant($tenant->id);
+
+        return view('super-admin.empresas.show', compact('tenant', 'usuarios'));
+    }
+
+    public function blanquearPassword(Request $request, string $id)
+    {
+        $tenant = Tenant::findOrFail($id);
+
+        $request->validate(['user_id' => 'required|integer']);
+
+        $conn = $this->tenantConnection($tenant->id);
+
+        $user = DB::connection($conn)
+            ->table('users')
+            ->whereNull('deleted_at')
+            ->where('id', $request->user_id)
+            ->first();
+
+        abort_if(! $user, 404);
+
+        $password = $this->generarPassword();
+
+        DB::connection($conn)
+            ->table('users')
+            ->where('id', $request->user_id)
+            ->update(['password' => Hash::make($password)]);
+
+        DB::purge($conn);
+
+        return back()->with('password_reset', [
+            'nombre'   => $user->name,
+            'email'    => $user->email,
+            'rol'      => $user->rol,
+            'password' => $password,
+        ]);
+    }
+
+    /** Consulta directa a la BD del tenant sin inicializar el contexto de tenancy. */
+    private function tenantConnection(string $tenantId): string
+    {
+        $base = config('database.connections.mysql');
+        $base['database'] = 'tenant_' . $tenantId;
+        $name = 'sa_tenant_' . $tenantId;
+        config(["database.connections.{$name}" => $base]);
+        return $name;
+    }
+
+    private function usuariosTenant(string $tenantId): \Illuminate\Support\Collection
+    {
+        try {
+            $conn     = $this->tenantConnection($tenantId);
+            $usuarios = DB::connection($conn)
+                ->table('users')
+                ->whereNull('deleted_at')
+                ->orderBy('rol')
+                ->get(['id', 'name', 'email', 'rol']);
+            DB::purge($conn);
+            return $usuarios;
+        } catch (\Exception $e) {
+            return collect();
+        }
     }
 
     public function edit(string $id)

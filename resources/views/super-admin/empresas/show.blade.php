@@ -177,6 +177,62 @@
 
 </div>
 
+{{-- Flash: contraseña blanqueada --}}
+@if(session('password_reset'))
+@php $pr = session('password_reset'); @endphp
+<div style="background:#0d1a10;border:1px solid #1d4a30;border-radius:8px;padding:18px 20px;margin-bottom:20px">
+    <div style="font-size:.82rem;color:#3fb96a;font-weight:600;margin-bottom:10px">✓ Contraseña blanqueada — {{ $pr['nombre'] }} ({{ $pr['rol'] }})</div>
+    <div style="font-size:.82rem;color:#888;margin-bottom:8px">Nuevas credenciales (guardá esto, no se vuelve a mostrar):</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div>
+            <div style="font-size:.72rem;color:#666;text-transform:uppercase;letter-spacing:.06em">Email</div>
+            <div class="mono" style="color:#e8e4dc">{{ $pr['email'] }}</div>
+        </div>
+        <div>
+            <div style="font-size:.72rem;color:#666;text-transform:uppercase;letter-spacing:.06em">Contraseña</div>
+            <div class="mono" style="color:#f5c842;font-size:1.05rem;letter-spacing:.05em">{{ $pr['password'] }}</div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Usuarios del panel --}}
+@if($usuarios->isNotEmpty())
+<div class="sa-card" style="margin-bottom:20px">
+    <div class="sa-card-hd"><span class="sa-card-title">Usuarios del panel</span></div>
+    <table class="sa-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Rol</th>
+                <th>Email</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($usuarios as $u)
+            <tr>
+                <td>{{ $u->name }}</td>
+                <td><span class="mono" style="color:#888">{{ $u->rol }}</span></td>
+                <td class="mono" style="font-size:.82rem">{{ $u->email }}</td>
+                <td style="text-align:right">
+                    <form method="POST"
+                          action="{{ route('super-admin.empresas.blanquear-password', $tenant->id) }}"
+                          onsubmit="return confirm('¿Blanquear la contraseña de {{ $u->name }}?\nSe generará una nueva contraseña aleatoria.')">
+                        @csrf
+                        <input type="hidden" name="user_id" value="{{ $u->id }}">
+                        <button type="submit" class="btn btn-ghost btn-sm" style="border-color:#2a2a2a;color:#888;white-space:nowrap">
+                            Blanquear contraseña
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
 {{-- Danger zone --}}
 @if(!$tenant->trashed())
 <div class="sa-card" style="border-color:#2a1515">

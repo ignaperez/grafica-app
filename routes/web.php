@@ -67,7 +67,8 @@ Route::prefix('super-admin')->name('super-admin.')->group(function () {
         Route::post('/empresas/{tenant}/cert',        [EmpresaController::class, 'uploadCert'])->name('empresas.cert');
         Route::post('/empresas/{tenant}/generar-csr',[EmpresaController::class, 'generarCsr'])->name('empresas.generar-csr');
         Route::get('/empresas/{tenant}/descargar-key',[EmpresaController::class, 'descargarKey'])->name('empresas.descargar-key');
-        Route::post('/empresas/{tenant}/impersonar', [EmpresaController::class, 'impersonar'])->name('empresas.impersonar');
+        Route::post('/empresas/{tenant}/impersonar',          [EmpresaController::class, 'impersonar'])->name('empresas.impersonar');
+        Route::post('/empresas/{tenant}/blanquear-password',   [EmpresaController::class, 'blanquearPassword'])->name('empresas.blanquear-password');
 
     });
 
