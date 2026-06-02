@@ -221,8 +221,8 @@ class EmpresaController extends Controller
         $tenant = Tenant::findOrFail($id);
 
         $request->validate([
-            'cert' => 'nullable|file|mimes:crt,cer,pem|max:512',
-            'key'  => 'nullable|file|max:512',
+            'cert' => 'nullable|file|extensions:crt,cer,pem|max:2048',
+            'key'  => 'nullable|file|extensions:key,pem|max:2048',
         ]);
 
         // Guardamos en el disco central (no en disco tenant porque ARCA se lee fuera de contexto)

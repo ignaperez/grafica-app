@@ -96,6 +96,11 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
     @if(session('error'))
     <div class="alert-err">{{ session('error') }}</div>
     @endif
+    @if($errors->any())
+    <div class="alert-err">
+        @foreach($errors->all() as $e)<div>· {{ $e }}</div>@endforeach
+    </div>
+    @endif
 
     @yield('content')
 
