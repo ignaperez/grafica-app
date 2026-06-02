@@ -4,9 +4,41 @@
 
 @section('content')
 
-<form action="{{ route('configuracion.update') }}" method="POST">
+<form action="{{ route('configuracion.update') }}" method="POST" enctype="multipart/form-data">
 @csrf
 @method('PUT')
+
+{{-- ── Logo ── --}}
+<div class="gcard" style="max-width:680px;margin-bottom:16px">
+    <div class="gcard-hd">
+        <span class="gcard-title">Logo de la empresa</span>
+    </div>
+    <div class="gcard-bd" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        {{-- Preview actual --}}
+        <div style="width:120px;height:80px;background:#0a0a0a;border:1px solid var(--b);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+            @if($empresa['logo'] && \Illuminate\Support\Facades\Storage::disk('public')->exists($empresa['logo']))
+                <img id="logo-preview" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($empresa['logo']) }}"
+                     style="max-width:112px;max-height:72px;width:auto;height:auto;display:block">
+            @else
+                <img id="logo-preview" src="" style="max-width:112px;max-height:72px;display:none">
+                <span id="logo-placeholder" style="font-size:11px;color:var(--txd)">Sin logo</span>
+            @endif
+        </div>
+        {{-- Upload --}}
+        <div style="flex:1;min-width:200px">
+            <div class="gfg" style="margin-bottom:6px">
+                <label class="glabel">Subir nuevo logo</label>
+                <input type="file" name="empresa_logo" id="empresa_logo" accept="image/*"
+                       class="ginput" style="padding:6px 10px;cursor:pointer">
+                @error('empresa_logo')<div class="gerr">{{ $message }}</div>@enderror
+            </div>
+            <div class="txd" style="font-size:11px;line-height:1.5">
+                PNG, JPG, SVG o WebP — máx. 2 MB.<br>
+                Recomendado: fondo transparente, proporción horizontal.
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ── Datos de la empresa ── --}}
 <div class="gcard" style="max-width:680px;margin-bottom:16px">
@@ -144,4 +176,20 @@
 
 </form>
 
+@section('scripts')
+<script>
+document.getElementById('empresa_logo').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = document.getElementById('logo-preview');
+        const placeholder = document.getElementById('logo-placeholder');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+});
+</script>
 @endsection

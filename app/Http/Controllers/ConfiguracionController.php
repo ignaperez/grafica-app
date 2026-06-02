@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Configuracion;
 
 class ConfiguracionController extends Controller
@@ -32,6 +33,7 @@ class ConfiguracionController extends Controller
             'empresa_condicion_iva'        => 'nullable|string|max:80',
             'empresa_iibb'                 => 'nullable|string|max:60',
             'empresa_inicio_actividades'   => 'nullable|string|max:20',
+            'empresa_logo'                 => 'nullable|image|mimes:jpeg,png,gif,webp,svg|max:2048',
         ]);
 
         // Mano de obra
@@ -48,6 +50,14 @@ class ConfiguracionController extends Controller
 
         foreach ($campos as $clave) {
             Configuracion::set($clave, $request->input($clave, ''));
+        }
+
+        // Logo
+        if ($request->hasFile('empresa_logo')) {
+            $old = Configuracion::get('empresa_logo');
+            if ($old) Storage::disk('public')->delete($old);
+            $path = $request->file('empresa_logo')->store('logos', 'public');
+            Configuracion::set('empresa_logo', $path);
         }
 
         return back()->with('success', 'Configuración guardada correctamente.');

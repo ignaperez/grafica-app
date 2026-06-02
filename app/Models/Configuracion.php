@@ -57,6 +57,7 @@ class Configuracion extends Model
             'condicion_iva'        => static::get('empresa_condicion_iva',        ''),
             'iibb'                 => static::get('empresa_iibb',                 ''),
             'inicio_actividades'   => static::get('empresa_inicio_actividades',   ''),
+            'logo'                 => static::get('empresa_logo',                 ''),
         ];
     }
 }

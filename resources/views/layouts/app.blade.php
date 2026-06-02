@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'Gráfica') }}</title>
+    <title>{{ \App\Models\Configuracion::get('empresa_nombre', config('app.name')) }}@hasSection('page-title') — @yield('page-title')@endif</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -159,7 +159,21 @@
 
 <aside id="sidebar">
     <div class="s-logo">
-        <img src="{{ asset('images/logo.png') }}" alt="Plote.ar Gráfica">
+        @php
+            $empresaNombre = \App\Models\Configuracion::get('empresa_nombre', config('app.name'));
+            $logoPath      = \App\Models\Configuracion::get('empresa_logo');
+            $logoUrl       = $logoPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)
+                             ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath)
+                             : null;
+        @endphp
+        @if($logoUrl)
+            <img src="{{ $logoUrl }}" alt="{{ $empresaNombre }}" style="max-width:160px;max-height:64px;width:auto;height:auto;display:block">
+        @else
+            <div style="text-align:center;padding:4px 0">
+                <div class="s-mark">gráfica</div>
+                <div class="s-name">{{ $empresaNombre }}</div>
+            </div>
+        @endif
     </div>
     @php
         $rol = auth()->user()->rol;
