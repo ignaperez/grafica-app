@@ -73,6 +73,12 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
 /* Grid */
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:600px){.grid-2{grid-template-columns:1fr}}
+
+/* Session timeout banner */
+#sa-timeout-banner{display:none;position:fixed;bottom:24px;right:24px;background:#1a0a0a;border:1px solid #e05050;color:#e05050;border-radius:8px;padding:14px 20px;font-size:.85rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.5);max-width:320px;line-height:1.5}
+#sa-timeout-banner strong{display:block;margin-bottom:4px;font-size:.9rem}
+#sa-timeout-banner .sa-tb-timer{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700}
+#sa-timeout-banner .sa-tb-keep{margin-top:10px;background:var(--ac);color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:.82rem;font-weight:600}
 </style>
 </head>
 <body>
@@ -82,11 +88,19 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
     <div class="sa-sep"></div>
     <span class="sa-user">{{ auth()->user()->name }}</span>
     <a href="{{ route('super-admin.cambiar-clave') }}" class="sa-logout" style="text-decoration:none">Cambiar clave</a>
-    <form method="POST" action="{{ route('super-admin.logout') }}" style="display:inline">
+    <form method="POST" action="{{ route('super-admin.logout') }}" style="display:inline" id="sa-logout-form">
         @csrf
         <button class="sa-logout" type="submit">Cerrar sesión</button>
     </form>
 </nav>
+
+{{-- ── Banner de advertencia de inactividad ──────────────────────────────── --}}
+<div id="sa-timeout-banner">
+    <strong>⚠ Sesión por expirar</strong>
+    La sesión se cerrará en <span class="sa-tb-timer" id="sa-tb-secs">5:00</span>
+    <br>
+    <button class="sa-tb-keep" id="sa-tb-keep">Seguir conectado</button>
+</div>
 
 <div class="sa-wrap">
 
@@ -107,5 +121,62 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
 </div>
 
 @yield('scripts')
+
+<script>
+(function () {
+    const TIMEOUT_MS  = {{ \App\Http\Middleware\SuperAdmin::TIMEOUT_MINUTES }} * 60 * 1000;
+    const WARN_BEFORE = 5 * 60 * 1000; // mostrar aviso 5 min antes
+    const banner  = document.getElementById('sa-timeout-banner');
+    const timerEl = document.getElementById('sa-tb-secs');
+    const keepBtn = document.getElementById('sa-tb-keep');
+
+    let lastActivity = Date.now();
+    let warnInterval = null;
+
+    // Registrar actividad del usuario (mouse, teclado, scroll)
+    ['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
+        document.addEventListener(ev, () => { lastActivity = Date.now(); hideBanner(); }, { passive: true })
+    );
+
+    function hideBanner() {
+        banner.style.display = 'none';
+        if (warnInterval) { clearInterval(warnInterval); warnInterval = null; }
+    }
+
+    function showBanner(secsLeft) {
+        const m = String(Math.floor(secsLeft / 60)).padStart(1,'0');
+        const s = String(secsLeft % 60).padStart(2,'0');
+        timerEl.textContent = m + ':' + s;
+        banner.style.display = 'block';
+    }
+
+    // Verificar cada 10 segundos
+    setInterval(function () {
+        const idle = Date.now() - lastActivity;
+        const remaining = TIMEOUT_MS - idle;
+
+        if (remaining <= 0) {
+            // Tiempo agotado — hacer logout
+            document.getElementById('sa-logout-form').submit();
+            return;
+        }
+
+        if (remaining <= WARN_BEFORE) {
+            const secsLeft = Math.ceil(remaining / 1000);
+            showBanner(secsLeft);
+        } else {
+            hideBanner();
+        }
+    }, 10000);
+
+    // Botón "Seguir conectado" hace un fetch silencioso para renovar la sesión servidor
+    keepBtn.addEventListener('click', function () {
+        fetch(window.location.href, { method: 'GET', credentials: 'same-origin' })
+            .catch(() => {});
+        lastActivity = Date.now();
+        hideBanner();
+    });
+})();
+</script>
 </body>
 </html>
