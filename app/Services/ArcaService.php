@@ -140,8 +140,10 @@ class ArcaService
 
         [$impNeto, $impIva, $ivaArray] = $this->calcularImpuestos($cbteTipo, $total);
 
+        $concepto = (int) $datos['Concepto'];
+
         $det = [
-            'Concepto'   => $datos['Concepto'],
+            'Concepto'   => $concepto,
             'DocTipo'    => $datos['DocTipo'],
             'DocNro'     => $datos['DocNro'],
             'CbteDesde'  => $nro,
@@ -156,6 +158,13 @@ class ArcaService
             'MonId'      => 'PES',
             'MonCotiz'   => 1,
         ];
+
+        // Concepto 2 (Servicios) o 3 (Productos y Servicios): ARCA exige fechas de servicio
+        if ($concepto !== 1) {
+            $det['FchServDesde'] = $fecha;
+            $det['FchServHasta'] = $fecha;
+            $det['FchVtoPago']   = $fecha;
+        }
 
         if ($ivaArray) {
             $det['Iva'] = $ivaArray;
@@ -191,7 +200,14 @@ class ArcaService
 
         if ($resp->Resultado === 'R') {
             $obs = $resp->Observaciones->Obs ?? null;
-            $msg = $obs ? "[{$obs->Code}] {$obs->Msg}" : 'Error desconocido de ARCA';
+            if ($obs !== null) {
+                // Puede venir como objeto único o array de observaciones
+                $items = is_array($obs) ? $obs : [$obs];
+                $msgs  = array_map(fn($o) => "[{$o->Code}] {$o->Msg}", $items);
+                $msg   = implode(' | ', $msgs);
+            } else {
+                $msg = 'Error desconocido de ARCA';
+            }
             throw new \Exception("ARCA rechazó el comprobante: {$msg}");
         }
 
