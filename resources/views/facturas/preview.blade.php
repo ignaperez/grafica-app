@@ -193,15 +193,16 @@
 <body>
 
 @php
-    $empresa = $cfg->get('empresa_nombre', config('app.name'));
-    $cuitEmp = $cfg->get('empresa_cuit',   config('arca.cuit'));
-    $dir     = $cfg->get('empresa_direccion', '');
-    $tel     = $cfg->get('empresa_telefono', '');
-    $owner   = $cfg->get('empresa_propietario', '');
-    $email   = $cfg->get('empresa_email', '');
+    $empData = \App\Models\Configuracion::empresa();
+    $empresa = $empData['nombre'];
+    $cuitEmp = $empData['cuit'];
+    $dir     = $empData['direccion'];
+    $tel     = $empData['telefono'];
+    $owner   = $empData['propietario'];
+    $email   = $empData['email'];
     $tipoLabel = \App\Services\ArcaService::TIPOS_CBTE[$tipo] ?? "Comprobante $tipo";
-    $hoy = \Carbon\Carbon::today()->format('d/m/Y');
-    $ptoVta = config('arca.punto_venta', 1);
+    $hoy    = \Carbon\Carbon::today()->format('d/m/Y');
+    $ptoVta = (int) (\App\Models\Configuracion::get('arca_punto_venta') ?: config('arca.punto_venta', 1));
 @endphp
 
 <div class="screen-bar">
