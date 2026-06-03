@@ -196,17 +196,31 @@ class ArcaService
             ],
         ]);
 
-        $resp = $result->FECAESolicitarResult->FeDetResp->FECAEDetResponse;
+        $raw  = $result->FECAESolicitarResult;
+        $resp = $raw->FeDetResp->FECAEDetResponse ?? null;
 
-        if ($resp->Resultado === 'R') {
+        // Loguear respuesta completa para diagnóstico
+        \Illuminate\Support\Facades\Log::debug('ARCA FECAESolicitar', [
+            'raw' => json_decode(json_encode($raw), true),
+        ]);
+
+        if (!$resp || $resp->Resultado === 'R') {
+            // Errores a nivel de ítem (Observaciones)
             $obs = $resp->Observaciones->Obs ?? null;
             if ($obs !== null) {
-                // Puede venir como objeto único o array de observaciones
                 $items = is_array($obs) ? $obs : [$obs];
                 $msgs  = array_map(fn($o) => "[{$o->Code}] {$o->Msg}", $items);
                 $msg   = implode(' | ', $msgs);
             } else {
-                $msg = 'Error desconocido de ARCA';
+                // Errores a nivel de request (Errors.Err)
+                $err = $raw->Errors->Err ?? null;
+                if ($err !== null) {
+                    $items = is_array($err) ? $err : [$err];
+                    $msgs  = array_map(fn($e) => "[{$e->Code}] {$e->Msg}", $items);
+                    $msg   = implode(' | ', $msgs);
+                } else {
+                    $msg = 'Respuesta inesperada de ARCA (ver log)';
+                }
             }
             throw new \Exception("ARCA rechazó el comprobante: {$msg}");
         }
