@@ -161,18 +161,19 @@
 <aside id="sidebar">
     <div class="s-logo">
         @php
-            $empresaNombre = \App\Models\Configuracion::get('empresa_nombre', config('app.name'));
-            $logoPath      = \App\Models\Configuracion::get('empresa_logo');
-            $logoUrl       = $logoPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)
-                             ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath)
-                             : null;
+            $emp     = \App\Models\Configuracion::empresa();
+            $sNombre = $emp['nombre_factura'] ?? $emp['nombre'];
+            $logoPath = $emp['logo'];
+            $logoUrl  = $logoPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)
+                        ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath)
+                        : null;
         @endphp
         @if($logoUrl)
-            <img src="{{ $logoUrl }}" alt="{{ $empresaNombre }}" style="max-width:160px;max-height:64px;width:auto;height:auto;display:block">
+            <img src="{{ $logoUrl }}" alt="{{ $sNombre }}" style="max-width:160px;max-height:64px;width:auto;height:auto;display:block">
         @else
             <div style="text-align:center;padding:4px 0">
                 <div class="s-mark">gráfica</div>
-                <div class="s-name">{{ $empresaNombre }}</div>
+                <div class="s-name">{{ $sNombre }}</div>
             </div>
         @endif
     </div>
