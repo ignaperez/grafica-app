@@ -96,6 +96,13 @@ class FacturaController extends Controller
             }
         }
 
+        // ARCA no permite que el DocNro del receptor sea igual al CUIT del emisor
+        if ((int) $request->doc_nro === (int) \App\Models\Configuracion::get('empresa_cuit')) {
+            return back()->withInput()->with('error',
+                'El CUIT del receptor no puede ser igual al CUIT del emisor (ARCA error 10069).'
+            );
+        }
+
         // Calcular total desde los ítems
         $total = 0;
         foreach ($request->items as $it) {
