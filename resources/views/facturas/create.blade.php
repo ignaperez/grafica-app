@@ -260,7 +260,8 @@
         👁 Vista previa
     </button>
 
-    <button type="submit" class="gbtn gbtn-primary" style="width:100%;justify-content:center;padding:12px">
+    <button type="button" class="gbtn gbtn-primary" style="width:100%;justify-content:center;padding:12px"
+            onclick="confirmarEmision()">
         ⚡ Emitir comprobante
     </button>
 
@@ -268,6 +269,24 @@
 </div>{{-- /grid --}}
 
 </form>
+
+{{-- Modal de confirmación --}}
+<div id="modal-confirmar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#141414;border:1px solid #2a2a2a;border-radius:12px;padding:32px;max-width:400px;width:90%;text-align:center">
+        <div style="font-size:2rem;margin-bottom:12px">⚡</div>
+        <div style="font-size:1.05rem;font-weight:600;color:#e8e4dc;margin-bottom:8px">¿Emitir el comprobante?</div>
+        <div style="font-size:.85rem;color:#888;margin-bottom:24px;line-height:1.6">
+            Se enviará la factura a ARCA y se generará el CAE.<br>
+            <strong style="color:#e6502a">Esta acción no se puede deshacer.</strong>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center">
+            <button type="button" class="gbtn gbtn-ghost" onclick="cerrarModal()">Cancelar</button>
+            <button type="button" class="gbtn gbtn-primary" onclick="document.getElementById('form-factura').submit()">
+                Sí, emitir
+            </button>
+        </div>
+    </div>
+</div>
 
 @endsection
 
@@ -492,6 +511,21 @@
     });
 
 })();
+
+// ── Modal confirmación emisión ──────────────────────────────────────────
+function confirmarEmision() {
+    const modal = document.getElementById('modal-confirmar');
+    modal.style.display = 'flex';
+}
+function cerrarModal() {
+    document.getElementById('modal-confirmar').style.display = 'none';
+}
+// Cerrar con Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+// Cerrar al click fuera del panel
+document.getElementById('modal-confirmar').addEventListener('click', function(e) {
+    if (e.target === this) cerrarModal();
+});
 </script>
 
 <style>
