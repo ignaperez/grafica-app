@@ -44,20 +44,26 @@ class Configuracion extends Model
 
     /**
      * Devuelve los datos de empresa como array.
+     * Fuente primaria: tabla tenants (cargada por super-admin).
+     * Fuente secundaria: tabla configuracion del tenant (campos extra).
      */
     public static function empresa(): array
     {
+        $t = tenant(); // null fuera de contexto tenant
+
         return [
-            'nombre'               => static::get('empresa_nombre',               config('app.name')),
-            'cuit'                 => static::get('empresa_cuit',                 ''),
-            'direccion'            => static::get('empresa_direccion',            ''),
-            'telefono'             => static::get('empresa_telefono',             ''),
-            'propietario'          => static::get('empresa_propietario',          ''),
-            'email'                => static::get('empresa_email',                ''),
-            'condicion_iva'        => static::get('empresa_condicion_iva',        ''),
-            'iibb'                 => static::get('empresa_iibb',                 ''),
-            'inicio_actividades'   => static::get('empresa_inicio_actividades',   ''),
-            'logo'                 => static::get('empresa_logo',                 ''),
+            // Datos cargados por super-admin → vienen del tenant
+            'nombre'             => $t?->nombre    ?: static::get('empresa_nombre', ''),
+            'cuit'               => $t?->cuit      ?: static::get('empresa_cuit', ''),
+            'direccion'          => $t?->direccion ?: static::get('empresa_direccion', ''),
+            'telefono'           => $t?->telefono  ?: static::get('empresa_telefono', ''),
+            'email'              => $t?->email     ?: static::get('empresa_email', ''),
+            // Datos adicionales → solo en configuracion del tenant
+            'propietario'        => static::get('empresa_propietario',        ''),
+            'condicion_iva'      => static::get('empresa_condicion_iva',      ''),
+            'iibb'               => static::get('empresa_iibb',               ''),
+            'inicio_actividades' => static::get('empresa_inicio_actividades', ''),
+            'logo'               => static::get('empresa_logo',               ''),
         ];
     }
 }

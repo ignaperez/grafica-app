@@ -27,9 +27,10 @@ class ArcaService
     {
         $this->production = (bool) config('arca.production');
 
-        // CUIT: fuente única = configuracion (empresa_cuit), fallback al env.
-        $cuitDb     = \App\Models\Configuracion::get('empresa_cuit');
-        $this->cuit = (int) preg_replace('/\D/', '', $cuitDb ?: config('arca.cuit'));
+        // CUIT: tenant → configuracion → env (en ese orden de prioridad)
+        $t          = tenant();
+        $cuitRaw    = $t?->cuit ?: \App\Models\Configuracion::get('empresa_cuit') ?: config('arca.cuit');
+        $this->cuit = (int) preg_replace('/\D/', '', $cuitRaw);
 
         // Punto de venta: per-tenant desde configuracion, fallback al env.
         $ptoDB      = \App\Models\Configuracion::get('arca_punto_venta');
