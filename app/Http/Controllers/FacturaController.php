@@ -24,7 +24,8 @@ class FacturaController extends Controller
     {
         $presupuesto         = null;
         $clienteSeleccionado = null;
-        $condicionEmisor     = config('arca.condicion_emisor', 'monotributo');
+        $condIva             = \App\Models\Configuracion::get('empresa_condicion_iva', '');
+        $condicionEmisor     = $condIva === 'responsable_inscripto' ? 'responsable_inscripto' : 'monotributo';
         $tipoCbte            = (int) config('arca.tipo_cbte');
 
         // Tipos de comprobante desde ARCA (con fallback)

@@ -14,6 +14,8 @@ use Multinexo\Afip\WSFE\Wsfe;
 class ArcaService
 {
     protected string $xmlDir;
+    protected string $certPath;
+    protected string $keyPath;
     protected int    $cuit;
     protected int    $ptoVta;
     protected string $wsdl;
@@ -25,17 +27,32 @@ class ArcaService
     {
         $this->production = (bool) config('arca.production');
 
-        // CUIT del emisor: fuente única = configuracion (empresa_cuit).
-        // Fallback al env ARCA_CUIT si todavía no hay nada en la DB.
-        $cuitDb = \App\Models\Configuracion::get('empresa_cuit');
+        // CUIT: fuente única = configuracion (empresa_cuit), fallback al env.
+        $cuitDb     = \App\Models\Configuracion::get('empresa_cuit');
         $this->cuit = (int) preg_replace('/\D/', '', $cuitDb ?: config('arca.cuit'));
 
-        $this->ptoVta     = (int)  config('arca.punto_venta');
-        // Usamos base_path('storage/') en vez de storage_path() porque en contexto
-        // tenant el filesystem bootstrapper redirige storage_path() al directorio del tenant.
-        // Los certs ARCA son siempre centrales, no por tenant.
-        $this->xmlDir     = base_path('storage/app/arca/xml/');
-        $this->wsdl       = base_path('vendor/multinexo/php-afip-ws/src/Multinexo/Afip/WSFE/wsfe.wsdl');
+        // Punto de venta: per-tenant desde configuracion, fallback al env.
+        $ptoDB      = \App\Models\Configuracion::get('arca_punto_venta');
+        $this->ptoVta = (int) ($ptoDB ?: config('arca.punto_venta'));
+
+        // Cert y key: per-tenant en storage/app/private/arca/{tenant_id}/
+        // Fallback a rutas legacy si no existen.
+        $tenantId      = tenant()?->id ?? 'app';
+        $basePath      = base_path('storage/app/private/arca/' . $tenantId);
+        $this->certPath = file_exists("{$basePath}/cert.crt")
+            ? "{$basePath}/cert.crt"
+            : base_path('storage/' . config('arca.cert'));
+        // La key puede estar en private/ (nuevos tenants) o en app/arca/{id}/ (legacy)
+        if (file_exists("{$basePath}/private.key")) {
+            $this->keyPath = "{$basePath}/private.key";
+        } elseif (file_exists(base_path("storage/app/arca/{$tenantId}/private.key"))) {
+            $this->keyPath = base_path("storage/app/arca/{$tenantId}/private.key");
+        } else {
+            $this->keyPath = base_path('storage/' . config('arca.key'));
+        }
+
+        $this->xmlDir = base_path('storage/app/arca/xml/');
+        $this->wsdl   = base_path('vendor/multinexo/php-afip-ws/src/Multinexo/Afip/WSFE/wsfe.wsdl');
 
         $this->wsaaUrl = $this->production
             ? config('arca.url.wsaa_prod')
@@ -78,8 +95,8 @@ class ArcaService
         $wsfe->setearConfiguracion([
             'cuit'    => $this->cuit,
             'archivos' => [
-                'certificado'  => base_path('storage/' . config('arca.cert')),
-                'clavePrivada' => base_path('storage/' . config('arca.key')),
+                'certificado'  => $this->certPath,
+                'clavePrivada' => $this->keyPath,
             ],
             'dir'        => ['xml_generados' => $this->xmlDir],
             'proxyHost'  => '',
@@ -322,8 +339,8 @@ class ArcaService
         $conf = array_replace_recursive($defConf, [
             'cuit'    => $this->cuit,
             'archivos' => [
-                'certificado'  => base_path('storage/' . config('arca.cert')),
-                'clavePrivada' => base_path('storage/' . config('arca.key')),
+                'certificado'  => $this->certPath,
+                'clavePrivada' => $this->keyPath,
             ],
             'dir'        => ['xml_generados' => $this->xmlDir],
             'proxyHost'  => '',
