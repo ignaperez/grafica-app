@@ -50,6 +50,25 @@ class ArcaService
         }
     }
 
+    // ── SSL: SECLEVEL=1 para AFIP (DH 1024-bit workaround en OpenSSL 3.x) ──
+
+    protected function sslCtx(): mixed
+    {
+        return stream_context_create(['ssl' => ['ciphers' => 'DEFAULT:@SECLEVEL=1']]);
+    }
+
+    protected function withAfipSsl(callable $fn): mixed
+    {
+        // El paquete multinexo crea sus propios SoapClients internamente.
+        // Bajamos el SECLEVEL globalmente para esa llamada y lo restauramos.
+        stream_context_set_default(['ssl' => ['ciphers' => 'DEFAULT:@SECLEVEL=1']]);
+        try {
+            return $fn();
+        } finally {
+            stream_context_set_default(['ssl' => ['ciphers' => 'DEFAULT:@SECLEVEL=2']]);
+        }
+    }
+
     // ── Autenticación WSAA ────────────────────────────────────────────────
 
     protected function getAuth(): array
@@ -68,7 +87,7 @@ class ArcaService
             'url'        => ['wsaa' => $this->wsaaUrl],
         ]);
 
-        $wsfe->getAutenticacion();
+        $this->withAfipSsl(fn() => $wsfe->getAutenticacion());
 
         $ta = simplexml_load_file($this->xmlDir . 'TA-' . $this->cuit . '-wsfe.xml');
 
@@ -82,9 +101,10 @@ class ArcaService
     protected function wsfeClient(): \SoapClient
     {
         return new \SoapClient($this->wsdl, [
-            'location'     => $this->wsfeUrl,
-            'soap_version' => SOAP_1_2,
-            'trace'        => true,
+            'location'       => $this->wsfeUrl,
+            'soap_version'   => SOAP_1_2,
+            'trace'          => true,
+            'stream_context' => $this->sslCtx(),
         ]);
     }
 
@@ -282,7 +302,7 @@ class ArcaService
         ]);
         $wsaa->configuracion = json_decode(json_encode($conf));
 
-        $wsaa->checkTARenovation($service);
+        $this->withAfipSsl(fn() => $wsaa->checkTARenovation($service));
 
         $ta = simplexml_load_file($taFile);
 
@@ -372,7 +392,7 @@ class ArcaService
         try {
             $client = new \SoapClient(
                 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
-                ['soap_version' => SOAP_1_1, 'trace' => true, 'exceptions' => true, 'cache_wsdl' => WSDL_CACHE_BOTH]
+                ['soap_version' => SOAP_1_1, 'trace' => true, 'exceptions' => true, 'cache_wsdl' => WSDL_CACHE_BOTH, 'stream_context' => $this->sslCtx()]
             );
             $result = $client->getPersona([
                 'token'            => $auth['token'],
@@ -458,7 +478,7 @@ class ArcaService
         try {
             $client = new \SoapClient(
                 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL',
-                ['soap_version' => SOAP_1_1, 'trace' => true, 'exceptions' => true, 'cache_wsdl' => WSDL_CACHE_BOTH]
+                ['soap_version' => SOAP_1_1, 'trace' => true, 'exceptions' => true, 'cache_wsdl' => WSDL_CACHE_BOTH, 'stream_context' => $this->sslCtx()]
             );
             $result = $client->getPersona([
                 'token'            => $auth['token'],
