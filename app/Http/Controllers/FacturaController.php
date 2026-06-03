@@ -81,7 +81,8 @@ class FacturaController extends Controller
         ]);
 
         $cbteTipo        = (int) $request->tipo;
-        $condicionEmisor = config('arca.condicion_emisor', 'monotributo');
+        $condIvaEm       = \App\Models\Configuracion::get('empresa_condicion_iva', '');
+        $condicionEmisor = $condIvaEm === 'responsable_inscripto' ? 'responsable_inscripto' : 'monotributo';
 
         // Validar tipo según condición del EMISOR
         if ($condicionEmisor === 'monotributo' && !in_array($cbteTipo, [11, 13])) {
