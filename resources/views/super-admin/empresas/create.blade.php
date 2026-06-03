@@ -25,8 +25,8 @@
 
             <div class="grid-2">
                 <div class="fg">
-                    <label class="glb">Nombre *</label>
-                    <input class="gin" type="text" name="nombre" id="f-nombre" value="{{ old('nombre') }}" placeholder="Gráfica El Taller" required>
+                    <label class="glb">Razón Social *</label>
+                    <input class="gin" type="text" name="nombre" id="f-nombre" value="{{ old('nombre') }}" placeholder="Gráfica El Taller S.R.L." required>
                     @error('nombre') <div class="err-msg">{{ $message }}</div> @enderror
                 </div>
                 <div class="fg">
@@ -35,6 +35,12 @@
                     <div class="hint">Solo letras minúsculas, números y guiones. Será: <strong>slug.plote.ar</strong></div>
                     @error('slug') <div class="err-msg">{{ $message }}</div> @enderror
                 </div>
+            </div>
+
+            <div class="fg">
+                <label class="glb">Nombre de Fantasía</label>
+                <input class="gin" type="text" name="nombre_fantasia" value="{{ old('nombre_fantasia') }}" placeholder="El Taller (aparece en facturas si se completa)">
+                <div class="hint">Si se completa, se usa en facturas en lugar de la razón social.</div>
             </div>
 
             <div class="grid-2">

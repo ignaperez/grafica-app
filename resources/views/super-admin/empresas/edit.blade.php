@@ -27,7 +27,7 @@
         <div class="sa-card-bd">
             <div class="grid-2">
                 <div class="fg">
-                    <label class="glb">Nombre *</label>
+                    <label class="glb">Razón Social *</label>
                     <input class="gin" type="text" name="nombre" id="f-nombre" value="{{ old('nombre', $tenant->nombre) }}" required>
                     @error('nombre') <div class="err-msg">{{ $message }}</div> @enderror
                 </div>
@@ -36,6 +36,12 @@
                     <input class="gin" type="text" value="{{ $tenant->id }}" disabled style="opacity:.5">
                     <div class="hint">El slug no se puede cambiar después de creado.</div>
                 </div>
+            </div>
+
+            <div class="fg">
+                <label class="glb">Nombre de Fantasía</label>
+                <input class="gin" type="text" name="nombre_fantasia" value="{{ old('nombre_fantasia', $tenant->nombre_fantasia) }}" placeholder="(aparece en facturas si se completa)">
+                <div class="hint">Si se completa, se usa en facturas en lugar de la razón social.</div>
             </div>
             <div class="grid-2">
                 <div class="fg">

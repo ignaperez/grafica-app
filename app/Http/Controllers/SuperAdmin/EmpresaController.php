@@ -51,24 +51,26 @@ class EmpresaController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nombre'    => 'required|string|max:100',
-            'slug'      => 'required|alpha_dash|max:30|unique:tenants,id',
-            'cuit'      => 'nullable|string|max:20',
-            'email'     => 'required|email|max:100',   // requerido para enviar las credenciales
-            'telefono'  => 'nullable|string|max:30',
-            'direccion' => 'nullable|string|max:200',
+            'nombre'          => 'required|string|max:100',
+            'nombre_fantasia'  => 'nullable|string|max:100',
+            'slug'            => 'required|alpha_dash|max:30|unique:tenants,id',
+            'cuit'            => 'nullable|string|max:20',
+            'email'           => 'required|email|max:100',
+            'telefono'        => 'nullable|string|max:30',
+            'direccion'       => 'nullable|string|max:200',
         ]);
 
         $slug = Str::lower($request->slug);
 
         // ── Crear tenant → dispara CreateDatabase + MigrateDatabase (sync) ──
         $tenant = Tenant::create([
-            'id'        => $slug,
-            'nombre'    => $request->nombre,
-            'cuit'      => $request->input('cuit')      ?: null,
-            'email'     => $request->input('email'),
-            'telefono'  => $request->input('telefono')  ?: null,
-            'direccion' => $request->input('direccion') ?: null,
+            'id'              => $slug,
+            'nombre'          => $request->nombre,
+            'nombre_fantasia' => $request->input('nombre_fantasia') ?: null,
+            'cuit'            => $request->input('cuit')            ?: null,
+            'email'           => $request->input('email'),
+            'telefono'        => $request->input('telefono')        ?: null,
+            'direccion'       => $request->input('direccion')       ?: null,
         ]);
 
         // Crear el subdominio
@@ -223,6 +225,7 @@ class EmpresaController extends Controller
 
         $request->validate([
             'nombre'           => 'required|string|max:100',
+            'nombre_fantasia'  => 'nullable|string|max:100',
             'cuit'             => 'nullable|string|max:20',
             'email'            => 'nullable|email|max:100',
             'telefono'         => 'nullable|string|max:30',
@@ -232,18 +235,14 @@ class EmpresaController extends Controller
             'arca_production'  => 'nullable|boolean',
         ]);
 
-        // Pasar cada clave individualmente.
-        // El modelo stancl/tenancy enruta automáticamente:
-        //   'nombre' → columna real (está en getCustomColumns)
-        //   el resto  → columna JSON 'data'
-        // Pasar 'data' => $array como clave rompe ese mecanismo (anida data.data).
         $tenant->update([
             'nombre'           => $request->nombre,
-            'cuit'             => $request->input('cuit')      ?: null,
-            'email'            => $request->input('email')     ?: null,
-            'telefono'         => $request->input('telefono')  ?: null,
-            'direccion'        => $request->input('direccion') ?: null,
-            'arca_cuit'        => $request->input('arca_cuit') ?: null,
+            'nombre_fantasia'  => $request->input('nombre_fantasia') ?: null,
+            'cuit'             => $request->input('cuit')            ?: null,
+            'email'            => $request->input('email')           ?: null,
+            'telefono'         => $request->input('telefono')        ?: null,
+            'direccion'        => $request->input('direccion')       ?: null,
+            'arca_cuit'        => $request->input('arca_cuit')       ?: null,
             'arca_punto_venta' => $request->filled('arca_punto_venta')
                                     ? (int) $request->arca_punto_venta
                                     : null,

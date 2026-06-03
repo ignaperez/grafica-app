@@ -51,14 +51,20 @@ class Configuracion extends Model
     {
         $t = tenant(); // null fuera de contexto tenant
 
+        $razonSocial    = $t?->nombre          ?: static::get('empresa_nombre', '');
+        $nombreFantasia = $t?->nombre_fantasia ?: null;
+
         return [
-            // Datos cargados por super-admin → vienen del tenant
-            'nombre'             => $t?->nombre    ?: static::get('empresa_nombre', ''),
+            // Datos del tenant (cargados por super-admin)
+            'nombre'             => $razonSocial,
+            'nombre_fantasia'    => $nombreFantasia,
+            // En facturas se muestra nombre_fantasia si existe, sino razón social
+            'nombre_factura'     => $nombreFantasia ?: $razonSocial,
             'cuit'               => $t?->cuit      ?: static::get('empresa_cuit', ''),
             'direccion'          => $t?->direccion ?: static::get('empresa_direccion', ''),
             'telefono'           => $t?->telefono  ?: static::get('empresa_telefono', ''),
             'email'              => $t?->email     ?: static::get('empresa_email', ''),
-            // Datos adicionales → solo en configuracion del tenant
+            // Configuración adicional del tenant
             'propietario'        => static::get('empresa_propietario',        ''),
             'condicion_iva'      => static::get('empresa_condicion_iva',      ''),
             'iibb'               => static::get('empresa_iibb',               ''),

@@ -288,10 +288,10 @@
             <div class="hd-empresa">
                 @if($logoUrl)
                     <div class="logo-wrap">
-                        <img src="{{ $logoUrl }}" alt="{{ $empresa['nombre'] }}">
+                        <img src="{{ $logoUrl }}" alt="{{ $empresa['nombre_factura'] }}">
                     </div>
                 @endif
-                <div class="emp-nombre">{{ $empresa['propietario'] ?: $empresa['nombre'] }}</div>
+                <div class="emp-nombre">{{ $empresa['nombre_factura'] }}</div>
                 @if($empresa['direccion'])
                     <div class="emp-row">{{ $empresa['direccion'] }}</div>
                 @endif
