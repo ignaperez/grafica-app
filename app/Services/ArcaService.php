@@ -25,16 +25,23 @@ class ArcaService
 
     public function __construct()
     {
-        $this->production = (bool) config('arca.production');
+        // Todo desde el tenant (cargado por super-admin), fallback al env global
+        $t = tenant();
 
-        // CUIT: tenant → configuracion → env (en ese orden de prioridad)
-        $t          = tenant();
-        $cuitRaw    = $t?->cuit ?: \App\Models\Configuracion::get('empresa_cuit') ?: config('arca.cuit');
+        $this->production = $t?->arca_production !== null
+            ? (bool) $t->arca_production
+            : (bool) config('arca.production');
+
+        // CUIT: tenant.data.cuit → env
+        $cuitRaw    = $t?->cuit ?: config('arca.cuit');
         $this->cuit = (int) preg_replace('/\D/', '', $cuitRaw);
 
-        // Punto de venta: per-tenant desde configuracion, fallback al env.
-        $ptoDB      = \App\Models\Configuracion::get('arca_punto_venta');
-        $this->ptoVta = (int) ($ptoDB ?: config('arca.punto_venta'));
+        // Punto de venta: tenant.data.arca_punto_venta → configuracion → env
+        $this->ptoVta = (int) (
+            $t?->arca_punto_venta
+            ?: \App\Models\Configuracion::get('arca_punto_venta')
+            ?: config('arca.punto_venta')
+        );
 
         // Cert y key: per-tenant en storage/app/private/arca/{tenant_id}/
         // Fallback a rutas legacy si no existen.
