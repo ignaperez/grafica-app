@@ -12,10 +12,7 @@
     <div class="sa-hd-actions">
         <a href="{{ route('super-admin.empresas.edit', $tenant->id) }}" class="btn btn-ghost">Editar</a>
         @if(!$tenant->trashed())
-        <form method="POST" action="{{ route('super-admin.empresas.impersonar', $tenant->id) }}" style="display:inline">
-            @csrf
-            <button class="btn btn-primary" type="submit">↗ Ir al panel</button>
-        </form>
+        <a href="{{ $tenant->panelUrl() }}" target="_blank" class="btn btn-primary">↗ Ir al panel</a>
         @endif
         <a href="{{ route('super-admin.empresas.index') }}" class="btn btn-ghost">← Volver</a>
     </div>

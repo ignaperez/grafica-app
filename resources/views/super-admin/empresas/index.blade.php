@@ -60,10 +60,7 @@
             <td style="text-align:right">
                 <a href="{{ route('super-admin.empresas.show', $t->id) }}" class="btn btn-ghost btn-sm">Ver</a>
                 @if(!$t->trashed())
-                <form method="POST" action="{{ route('super-admin.empresas.impersonar', $t->id) }}" style="display:inline">
-                    @csrf
-                    <button class="btn btn-ghost btn-sm" type="submit">↗ Panel</button>
-                </form>
+                <a href="{{ $t->panelUrl() }}" target="_blank" class="btn btn-ghost btn-sm">↗ Panel</a>
                 @endif
             </td>
         </tr>
