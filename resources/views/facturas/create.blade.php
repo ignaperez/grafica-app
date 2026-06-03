@@ -217,10 +217,13 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
                     <div class="gfg" style="margin-bottom:0">
                         <label class="glabel">Tipo *</label>
-                        <select name="nc_tipo" class="gselect">
-                            <option value="11" {{ old('nc_tipo') == 11 ? 'selected' : '' }}>Factura C</option>
-                            <option value="6"  {{ old('nc_tipo') == 6  ? 'selected' : '' }}>Factura B</option>
-                            <option value="1"  {{ old('nc_tipo') == 1  ? 'selected' : '' }}>Factura A</option>
+                        <select name="nc_tipo" class="gselect" id="sel-nc-tipo">
+                            @if($condicionEmisor === 'responsable_inscripto')
+                                <option value="6" {{ old('nc_tipo', 6) == 6 ? 'selected' : '' }}>Factura B</option>
+                                <option value="1" {{ old('nc_tipo') == 1 ? 'selected' : '' }}>Factura A</option>
+                            @else
+                                <option value="11" {{ old('nc_tipo', 11) == 11 ? 'selected' : '' }}>Factura C</option>
+                            @endif
                         </select>
                         @error('nc_tipo')<div class="gerr">{{ $message }}</div>@enderror
                     </div>
@@ -373,6 +376,13 @@
 
     $('#sel-tipo').on('change', function () {
         recalcTotal();
+        // Sincronizar el tipo del comprobante original en NC
+        @if($condicionEmisor === 'responsable_inscripto')
+        const t = parseInt($(this).val());
+        // NC-A (3) → el comprobante original es Factura A; NC-B (8) → Factura B
+        if (t === 3) $('#sel-nc-tipo').val('1');
+        else if (t === 8) $('#sel-nc-tipo').val('6');
+        @endif
     });
 
     // ── Doc tipo → mostrar/ocultar N° doc ───────────────────────────────
@@ -444,7 +454,7 @@
         showBadge(condicion);
 
         // Tipo de comprobante — solo aplica si el EMISOR es Responsable Inscripto
-        @if(config('arca.condicion_emisor') === 'responsable_inscripto')
+        @if($condicionEmisor === 'responsable_inscripto')
         const NC_TIPOS = [3, 8, 13];
         if (info && !NC_TIPOS.includes(parseInt($('#sel-tipo').val()))) {
             $('#sel-tipo').val(info.tipoRI).trigger('change');

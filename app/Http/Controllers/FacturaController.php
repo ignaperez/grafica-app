@@ -36,11 +36,13 @@ class FacturaController extends Controller
             $tiposCbte = \App\Services\ArcaService::TIPOS_CBTE;
         }
 
-        // Filtrar según condición del emisor:
+        // Filtrar tipos según condición del emisor:
         // Monotributista → solo C (11) y NC-C (13)
-        // RI → todos (A, B, C y sus NC)
+        // RI            → A (1), B (6), NC-A (3), NC-B (8) — NO Factura C
         if ($condicionEmisor === 'monotributo') {
             $tiposCbte = array_intersect_key($tiposCbte, [11 => null, 13 => null]);
+        } elseif ($condicionEmisor === 'responsable_inscripto') {
+            $tiposCbte = array_intersect_key($tiposCbte, [1 => null, 6 => null, 3 => null, 8 => null]);
         }
 
         if ($request->filled('presupuesto_id')) {
