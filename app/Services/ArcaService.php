@@ -392,9 +392,10 @@ class ArcaService
         }
 
         // ── Nombre ───────────────────────────────────────────────
-        $tipoPersona = strtoupper($dg->tipoPersona ?? 'F');
-        if ($tipoPersona === 'J') {
-            $nombre = $dg->razonSocial ?? '';
+        // razonSocial presente = persona jurídica (independientemente del valor de tipoPersona)
+        $razonSocial = trim($dg->razonSocial ?? $dg->denominacion ?? '');
+        if ($razonSocial !== '') {
+            $nombre = $razonSocial;
         } else {
             $apellido = $dg->apellido ?? '';
             $nombres  = $dg->nombre   ?? '';
@@ -474,10 +475,13 @@ class ArcaService
             throw new \Exception("CUIT {$cuitConsulta} no encontrado en el padrón ARCA.");
         }
 
+        $razonSocial = trim($persona->razonSocial ?? $persona->denominacion ?? '');
         $tipoPersona = strtoupper($persona->tipoPersona ?? 'F');
-        $nombre = $tipoPersona === 'J'
-            ? ($persona->razonSocial ?? '')
-            : trim(($persona->apellido ?? '') ? ($persona->apellido . ', ' . ($persona->nombre ?? '')) : ($persona->nombre ?? ''));
+        if ($razonSocial !== '') {
+            $nombre = $razonSocial;
+        } else {
+            $nombre = trim(($persona->apellido ?? '') ? ($persona->apellido . ', ' . ($persona->nombre ?? '')) : ($persona->nombre ?? ''));
+        }
 
         $domicilios = $persona->domicilio ?? [];
         if (!is_array($domicilios)) $domicilios = [$domicilios];
