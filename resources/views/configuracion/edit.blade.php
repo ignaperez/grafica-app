@@ -14,7 +14,6 @@
         <span class="gcard-title">Logo de la empresa</span>
     </div>
     <div class="gcard-bd" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;min-width:0">
-        {{-- Preview actual --}}
         <div style="width:120px;height:72px;background:#0a0a0a;border:1px solid var(--b);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
             @if($empresa['logo'] && \Illuminate\Support\Facades\Storage::disk('public')->exists($empresa['logo']))
                 <img id="logo-preview" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($empresa['logo']) }}"
@@ -24,7 +23,6 @@
                 <span id="logo-placeholder" style="font-size:11px;color:var(--txd)">Sin logo</span>
             @endif
         </div>
-        {{-- Upload --}}
         <div style="flex:1;min-width:0">
             <div class="gfg" style="margin-bottom:6px">
                 <label class="glabel">Subir nuevo logo</label>
@@ -40,67 +38,74 @@
     </div>
 </div>
 
-{{-- ── Datos de la empresa ── --}}
+{{-- ── Datos de la empresa (read-only — administrados por super-admin) ── --}}
 <div class="gcard" style="max-width:680px;margin-bottom:16px">
     <div class="gcard-hd">
         <span class="gcard-title">Datos de la empresa</span>
+        <span class="txd" style="font-size:11px">Administrados por el sistema — contactá al administrador para modificarlos</span>
     </div>
     <div class="gcard-bd">
-        <div class="txd" style="font-size:12px;margin-bottom:16px;line-height:1.6">
-            Esta información aparece en el encabezado de los <strong style="color:var(--tx)">presupuestos impresos</strong>.
-        </div>
-
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
 
             <div class="gfg" style="grid-column:1/-1">
-                <label class="glabel">Nombre de la empresa *</label>
-                <input type="text" name="empresa_nombre" class="ginput" maxlength="120"
-                       value="{{ old('empresa_nombre', $empresa['nombre']) }}"
-                       placeholder="{{ config('app.name') }}">
-                @error('empresa_nombre')<div class="gerr">{{ $message }}</div>@enderror
+                <label class="glabel">Razón Social</label>
+                <div class="ginput" style="opacity:.6;cursor:default;background:#0a0a0a">{{ $empresa['nombre'] ?: '—' }}</div>
             </div>
 
             <div class="gfg">
+                <label class="glabel">CUIT</label>
+                <div class="ginput" style="opacity:.6;cursor:default;background:#0a0a0a">{{ $empresa['cuit'] ?: '—' }}</div>
+            </div>
+
+            <div class="gfg">
+                <label class="glabel">E-mail</label>
+                <div class="ginput" style="opacity:.6;cursor:default;background:#0a0a0a">{{ $empresa['email'] ?: '—' }}</div>
+            </div>
+
+            <div class="gfg" style="grid-column:1/-1">
+                <label class="glabel">Dirección</label>
+                <div class="ginput" style="opacity:.6;cursor:default;background:#0a0a0a">{{ $empresa['direccion'] ?: '—' }}</div>
+            </div>
+
+            <div class="gfg">
+                <label class="glabel">Teléfono</label>
+                <div class="ginput" style="opacity:.6;cursor:default;background:#0a0a0a">{{ $empresa['telefono'] ?: '—' }}</div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{{-- ── Datos fiscales y adicionales (editables) ── --}}
+<div class="gcard" style="max-width:680px;margin-bottom:16px">
+    <div class="gcard-hd">
+        <span class="gcard-title">Datos fiscales y adicionales</span>
+    </div>
+    <div class="gcard-bd">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+            <div class="gfg" style="grid-column:1/-1">
                 <label class="glabel">Propietario / Responsable</label>
                 <input type="text" name="empresa_propietario" class="ginput" maxlength="120"
                        value="{{ old('empresa_propietario', $empresa['propietario']) }}"
                        placeholder="Nombre y apellido">
             </div>
 
-            <div class="gfg">
-                <label class="glabel">CUIT</label>
-                <input type="text" name="empresa_cuit" class="ginput" maxlength="30"
-                       value="{{ old('empresa_cuit', $empresa['cuit']) }}"
-                       placeholder="20-12345678-9">
-            </div>
-
             <div class="gfg" style="grid-column:1/-1">
-                <label class="glabel">Dirección</label>
-                <input type="text" name="empresa_direccion" class="ginput" maxlength="200"
-                       value="{{ old('empresa_direccion', $empresa['direccion']) }}"
-                       placeholder="Calle 123, Ciudad, Provincia">
-            </div>
-
-            <div class="gfg">
-                <label class="glabel">Teléfono</label>
-                <input type="text" name="empresa_telefono" class="ginput" maxlength="60"
-                       value="{{ old('empresa_telefono', $empresa['telefono']) }}"
-                       placeholder="+54 9 11 1234-5678">
-            </div>
-
-            <div class="gfg">
-                <label class="glabel">E-mail</label>
-                <input type="email" name="empresa_email" class="ginput" maxlength="120"
-                       value="{{ old('empresa_email', $empresa['email']) }}"
-                       placeholder="contacto@miempresa.com">
-                @error('empresa_email')<div class="gerr">{{ $message }}</div>@enderror
-            </div>
-
-            <div class="gfg">
                 <label class="glabel">Condición frente al IVA</label>
-                <input type="text" name="empresa_condicion_iva" class="ginput" maxlength="80"
-                       value="{{ old('empresa_condicion_iva', $empresa['condicion_iva']) }}"
-                       placeholder="Monotributista / IVA Responsable Inscripto / IVA Exento">
+                <select name="empresa_condicion_iva" class="ginput">
+                    <option value="">— Sin especificar —</option>
+                    @foreach([
+                        'responsable_inscripto' => 'IVA Responsable Inscripto',
+                        'monotributo'           => 'Monotributista',
+                        'exento'                => 'IVA Exento',
+                        'consumidor_final'      => 'Consumidor Final',
+                    ] as $val => $label)
+                        <option value="{{ $val }}" {{ old('empresa_condicion_iva', $empresa['condicion_iva']) === $val ? 'selected' : '' }}>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
                 <div class="txd" style="font-size:11px;margin-top:4px">Aparece en el encabezado de las facturas.</div>
             </div>
 
@@ -128,13 +133,11 @@
         <span class="gcard-title">Mano de obra — valores globales</span>
     </div>
     <div class="gcard-bd">
-
         <div class="txd" style="font-size:12px;margin-bottom:16px;line-height:1.6">
             Tarifa por defecto de <strong style="color:var(--tx)">colocación / instalación</strong>.
             Se aplica a todos los servicios del catálogo.<br>
             Cada <strong style="color:var(--tx)">lista de precios</strong> puede pisarla con un valor distinto.
         </div>
-
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
             <div class="gfg">
                 <label class="glabel">Por m²</label>
@@ -165,7 +168,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
@@ -175,6 +177,8 @@
 </div>
 
 </form>
+
+@endsection
 
 @section('scripts')
 <script>
