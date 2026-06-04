@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Carbon\Carbon;
-use Multinexo\Afip\WSAA\Wsaa;
 
 /**
  * Servicio de Remito Electrónico ARCA/AFIP — WSREMV1.
@@ -110,34 +109,18 @@ class RemWsService
         }
     }
 
-    // ── Autenticación WSAA ────────────────────────────────────────────────
+    // ── Autenticación WSAA vía ArcaService::getAuthPublic ───────────────
 
     protected function getAuth(): array
     {
-        $wsaa = new Wsaa();
-        $wsaa->setearConfiguracion([
-            'cuit'    => $this->cuit,
-            'archivos' => [
-                'certificado'  => $this->certPath,
-                'clavePrivada' => $this->keyPath,
-            ],
-            'dir'        => ['xml_generados' => $this->xmlDir],
-            'proxyHost'  => '',
-            'proxyPort'  => '',
-            'url'        => ['wsaa' => $this->wsaaUrl],
-        ]);
-
-        $taFile = $this->xmlDir . 'TA-' . $this->cuit . '-wsremv1.xml';
-
-        $this->withAfipSsl(function () use ($wsaa, $taFile) {
-            $wsaa->checkTARenovation('wsremv1');
-        });
-
-        $ta = simplexml_load_file($taFile);
+        // Reutilizamos la lógica de autenticación genérica de ArcaService
+        // que ya maneja cert, key, XML dir, SSL workaround y cache de TA
+        $arca = new \App\Services\ArcaService();
+        $auth = $arca->getAuthPublic('wsremv1');
 
         return [
-            'Token' => (string) $ta->credentials->token,
-            'Sign'  => (string) $ta->credentials->sign,
+            'Token' => $auth['token'],
+            'Sign'  => $auth['sign'],
             'Cuit'  => $this->cuit,
         ];
     }
