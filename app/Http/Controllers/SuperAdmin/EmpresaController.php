@@ -353,7 +353,9 @@ class EmpresaController extends Controller
         $csr = openssl_csr_new($dn, $privKey, ['digest_alg' => 'sha256']);
 
         if (! $csr) {
-            return response()->json(['error' => 'Error al generar el CSR.'], 500);
+            $opensslErr = '';
+            while ($msg = openssl_error_string()) $opensslErr .= $msg . ' | ';
+            return response()->json(['error' => 'Error al generar el CSR: ' . ($opensslErr ?: 'OpenSSL error desconocido.')], 500);
         }
 
         openssl_csr_export($csr, $csrPem);
