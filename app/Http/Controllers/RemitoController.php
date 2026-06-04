@@ -9,6 +9,7 @@ use App\Models\RemitoItem;
 use App\Models\Cliente;
 use App\Models\Presupuesto;
 use App\Models\Factura;
+use App\Services\RemWsService;
 
 class RemitoController extends Controller
 {
@@ -46,8 +47,12 @@ class RemitoController extends Controller
         $puedeOficial = in_array($rol, ['admin', 'ventas']);
         $caiVigente   = $puedeOficial ? RemitoCai::vigente() : null;
 
+        // Remito electrónico disponible si hay PV REM configurado
+        $pvRem         = (int) \App\Models\Configuracion::get('arca_pv_rem', 0);
+        $puedeElectronico = $puedeOficial && $pvRem > 0;
+
         return view('remitos.create', compact(
-            'presupuesto', 'factura', 'puedeOficial', 'caiVigente'
+            'presupuesto', 'factura', 'puedeOficial', 'caiVigente', 'puedeElectronico', 'pvRem'
         ));
     }
 
@@ -58,7 +63,7 @@ class RemitoController extends Controller
         $request->validate([
             'cliente_id'           => 'required|exists:clientes,id',
             'fecha'                => 'required|date',
-            'tipo'                 => 'required|in:interno,oficial',
+            'tipo'                 => 'required|in:interno,oficial,electronico',
             'observaciones'        => 'nullable|string',
             'items'                => 'required|array|min:1',
             'items.*.descripcion'  => 'required|string|max:255',
@@ -72,14 +77,44 @@ class RemitoController extends Controller
             $tipo = 'interno';
         }
 
-        // Asignar CAI solo si es oficial
-        $caiData = [];
+        // ── Remito Electrónico (WSREMV1) ────────────────────────────────────
+        $remData = [];
+        if ($tipo === 'electronico') {
+            $cliente = Cliente::findOrFail($request->cliente_id);
+            try {
+                $wsrem = new RemWsService();
+                $items = collect($request->items)->map(fn($it) => [
+                    'descripcion' => $it['descripcion'],
+                    'cantidad'    => $it['cantidad'],
+                    'unidad'      => $it['unidad'],
+                ])->toArray();
+
+                $resultado = $wsrem->autorizar([
+                    'DocTipo'   => $cliente->cuit ? 80 : 99,
+                    'DocNro'    => preg_replace('/\D/', '', $cliente->cuit ?? '0'),
+                    'Nombre'    => $cliente->nombre,
+                    'Domicilio' => $cliente->direccion ?? '',
+                    'Items'     => $items,
+                ]);
+
+                $remData = [
+                    'numero_fiscal'        => $resultado->numero,
+                    'punto_venta'          => $wsrem->getPtoVta(),
+                    'cod_autorizacion'     => $resultado->cod_autorizacion,
+                    'cod_autorizacion_vto' => $resultado->cod_autorizacion_vto,
+                ];
+            } catch (\Exception $e) {
+                return back()->withInput()->with('error', 'Error ARCA: ' . $e->getMessage());
+            }
+        }
+
+        // ── Asignar CAI si es oficial (papel) ────────────────────────────
         if ($tipo === 'oficial') {
             $cai = RemitoCai::vigente();
             if ($cai) {
                 $nroFiscal = $cai->reservarNumero();
                 if ($nroFiscal) {
-                    $caiData = [
+                    $remData = [
                         'remito_cai_id' => $cai->id,
                         'numero_fiscal' => $nroFiscal,
                         'punto_venta'   => $cai->punto_venta,
@@ -89,7 +124,9 @@ class RemitoController extends Controller
         }
 
         $remito = Remito::create(array_merge([
-            'numero'           => $tipo === 'oficial' ? Remito::proximoNumeroOficial() : Remito::proximoNumero(),
+            'numero'           => in_array($tipo, ['oficial','electronico'])
+                                    ? Remito::proximoNumeroOficial()
+                                    : Remito::proximoNumero(),
             'cliente_id'       => $request->cliente_id,
             'presupuesto_id'   => $request->presupuesto_id ?: null,
             'factura_id'       => $request->factura_id ?: null,

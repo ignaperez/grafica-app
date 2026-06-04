@@ -178,23 +178,34 @@
             @if($puedeOficial)
             <div class="gfg">
                 <label class="glabel">Tipo *</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="display:grid;grid-template-columns:{{ $puedeElectronico ? '1fr 1fr 1fr' : '1fr 1fr' }};gap:8px">
+
                     <label id="lbl-interno" style="border:1px solid var(--bm);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s;{{ old('tipo','interno') === 'interno' ? 'border-color:var(--ac);background:rgba(230,80,42,.08)' : '' }}">
                         <input type="radio" name="tipo" value="interno" {{ old('tipo','interno') === 'interno' ? 'checked' : '' }} style="display:none" class="tipo-radio">
                         <div style="font-size:13px;font-weight:600;color:var(--tx)">Interno</div>
-                        <div style="font-size:11px;color:var(--txd);margin-top:2px">Sin CAI · solo uso interno</div>
+                        <div style="font-size:11px;color:var(--txd);margin-top:2px">Sin validación fiscal</div>
                     </label>
+
                     <label id="lbl-oficial" style="border:1px solid var(--bm);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s;{{ old('tipo','interno') === 'oficial' ? 'border-color:var(--ac);background:rgba(230,80,42,.08)' : '' }}">
                         <input type="radio" name="tipo" value="oficial" {{ old('tipo','interno') === 'oficial' ? 'checked' : '' }} style="display:none" class="tipo-radio">
-                        <div style="font-size:13px;font-weight:600;color:var(--tx)">Oficial</div>
+                        <div style="font-size:13px;font-weight:600;color:var(--tx)">Oficial (CAI)</div>
                         <div style="font-size:11px;color:var(--txd);margin-top:2px">
                             @if($caiVigente)
-                                Con CAI · nro {{ \App\Models\RemitoCai::formatearNumero($caiVigente->punto_venta, $caiVigente->ultimo_numero + 1) }}
+                                PV {{ $caiVigente->punto_venta }} · nro {{ $caiVigente->ultimo_numero + 1 }}
                             @else
                                 <span style="color:var(--ac)">Sin CAI vigente</span>
                             @endif
                         </div>
                     </label>
+
+                    @if($puedeElectronico)
+                    <label id="lbl-electronico" style="border:1px solid var(--bm);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s;{{ old('tipo') === 'electronico' ? 'border-color:var(--ac);background:rgba(230,80,42,.08)' : '' }}">
+                        <input type="radio" name="tipo" value="electronico" {{ old('tipo') === 'electronico' ? 'checked' : '' }} style="display:none" class="tipo-radio">
+                        <div style="font-size:13px;font-weight:600;color:var(--tx)">⚡ Electrónico</div>
+                        <div style="font-size:11px;color:var(--txd);margin-top:2px">ARCA · PV {{ $pvRem }}</div>
+                    </label>
+                    @endif
+
                 </div>
                 @error('tipo')<div class="gerr">{{ $message }}</div>@enderror
             </div>

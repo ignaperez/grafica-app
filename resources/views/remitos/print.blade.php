@@ -298,7 +298,9 @@
             <p>{{ $remito->observaciones ?: 'Sin observaciones.' }}</p>
             <div class="cond-dates">
                 Emitido el {{ $remito->fecha->format('d/m/Y') }}
-                @if($remito->tieneCai())
+                @if($remito->tieneAutorizacion())
+                    &nbsp;·&nbsp; Comprobante electrónico autorizado por ARCA
+                @elseif($remito->tieneCai())
                     &nbsp;·&nbsp; Comprobante fiscal autorizado — CAI vigente
                 @else
                     &nbsp;·&nbsp; Documento interno — no válido como comprobante fiscal
@@ -306,8 +308,28 @@
             </div>
         </div>
 
-        {{-- ── Bloque CAI (solo si tiene número fiscal) ── --}}
-        @if($remito->tieneCai() && $cai)
+        {{-- ── Bloque Remito Electrónico ── --}}
+        @if($remito->tieneAutorizacion())
+        <div class="cai-block">
+            <div class="cai-data">
+                <div class="cai-label">Código de Autorización ARCA</div>
+                <div class="cai-code">{{ $remito->cod_autorizacion }}</div>
+                @if($remito->cod_autorizacion_vto)
+                <div class="cai-vto">Vto. autorización: <strong>{{ $remito->cod_autorizacion_vto->format('d/m/Y') }}</strong></div>
+                @endif
+                <div class="cai-nro">
+                    N° comprobante: <span class="mono">{{ $remito->numeroElectronicoFormateado() }}</span>
+                    &nbsp;·&nbsp; Tipo: 91 — Remito R (Electrónico)
+                </div>
+            </div>
+            <div class="cai-bc">
+                <svg id="barcode-cai"></svg>
+                <div style="font-size:8.5px;color:#9aa0a8;margin-top:3px;letter-spacing:.04em">{{ $remito->cod_autorizacion }}</div>
+            </div>
+        </div>
+
+        {{-- ── Bloque CAI papel (solo si tiene CAI y no es electrónico) ── --}}
+        @elseif($remito->tieneCai() && $cai)
         <div class="cai-block">
             <div class="cai-data">
                 <div class="cai-label">CAI</div>
@@ -341,10 +363,15 @@
 
 </div>{{-- /v1 --}}
 
-@if($remito->tieneCai() && $cai)
+@if($remito->tieneAutorizacion() || ($remito->tieneCai() && $cai))
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    JsBarcode("#barcode-cai", "{{ $cai->codigo }}", {
+    var codigo = @if($remito->tieneAutorizacion())
+        "{{ $remito->cod_autorizacion }}"
+    @else
+        "{{ $cai->codigo }}"
+    @endif;
+    JsBarcode("#barcode-cai", codigo, {
         format:      "CODE128",
         lineColor:   "#15171a",
         width:       1.4,

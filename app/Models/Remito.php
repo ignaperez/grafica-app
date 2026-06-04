@@ -14,12 +14,14 @@ class Remito extends Model
         'orden_trabajo_id', 'created_by',
         'fecha', 'estado', 'tipo', 'observaciones',
         'remito_cai_id', 'numero_fiscal', 'punto_venta',
+        'cod_autorizacion', 'cod_autorizacion_vto',
     ];
 
     protected $casts = [
-        'fecha'         => 'date',
-        'numero_fiscal' => 'integer',
-        'punto_venta'   => 'integer',
+        'fecha'                => 'date',
+        'numero_fiscal'        => 'integer',
+        'punto_venta'          => 'integer',
+        'cod_autorizacion_vto' => 'date',
     ];
 
     // ── Relaciones ────────────────────────────────────────────────────────
@@ -47,6 +49,23 @@ class Remito extends Model
     public function tieneCai(): bool
     {
         return !is_null($this->numero_fiscal);
+    }
+
+    /** ¿Tiene código de autorización electrónico (WSREMV1)? */
+    public function tieneAutorizacion(): bool
+    {
+        return !empty($this->cod_autorizacion);
+    }
+
+    /** Número formateado para remito electrónico: PPPP-NNNNNNNN */
+    public function numeroElectronicoFormateado(): string
+    {
+        if ($this->tipo === 'electronico' && $this->numero_fiscal && $this->punto_venta) {
+            return str_pad($this->punto_venta, 4, '0', STR_PAD_LEFT)
+                 . '-'
+                 . str_pad($this->numero_fiscal, 8, '0', STR_PAD_LEFT);
+        }
+        return $this->numeroFormateado();
     }
 
     /** Próximo número para remitos INTERNOS (secuencia propia, sin mezclar con oficiales). */
