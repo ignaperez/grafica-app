@@ -165,18 +165,24 @@
         /* ═══ PRINT ═══ */
         @media print {
             body { background: #fff; }
-            .toolbar { display: none; }
+            .toolbar { display: none !important; }
             .page {
-                width: auto;
+                width: 100% !important;
                 min-height: 0 !important;
                 height: auto !important;
-                margin: 0;
-                padding: 10mm 12mm;
-                box-shadow: none;
+                margin: 0 !important;
+                padding: 10mm 12mm !important;
+                box-shadow: none !important;
+                display: block !important;
             }
-            .bottom-block { margin-top: 16px !important; page-break-inside: avoid; }
-            .pie          { page-break-inside: avoid; }
-            .totales-wrap { page-break-inside: avoid; }
+            .bottom-block {
+                margin-top: 16px !important;
+                page-break-inside: avoid !important;
+            }
+            .pie          { page-break-inside: avoid !important; }
+            .totales-wrap { page-break-inside: avoid !important; }
+            .hd-wrapper   { page-break-inside: avoid !important; }
+            .receptor     { page-break-inside: avoid !important; }
         }
     </style>
 </head>
@@ -186,7 +192,7 @@
     <a href="{{ route('facturas.show', $factura->id) }}">← Volver a la factura</a>
     <div class="tb-btns">
         <button class="tb-btn ghost" onclick="window.print()">Imprimir</button>
-        <button class="tb-btn" onclick="descargarPDF(this)">⬇ Descargar PDF</button>
+        <button class="tb-btn" onclick="descargarPDF()">⬇ Descargar PDF</button>
     </div>
 </div>
 
@@ -583,61 +589,22 @@
 
 </div>{{-- /page --}}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 function descargarPDF(btn) {
-    if (typeof html2pdf === 'undefined') {
-        alert('Error: no se pudo cargar la librería de PDF. Revisá tu conexión.');
-        return;
-    }
-
-    btn.textContent = '⏳ Generando...';
-    btn.disabled = true;
-
-    var page = document.querySelector('.page');
-
-    var opt = {
-        margin:      [0, 0, 0, 0],
-        filename:    '{{ addslashes($fileNombre) }}.pdf',
-        image:       { type: 'jpeg', quality: 0.97 },
-        html2canvas: {
-            scale:      1.96,
-            useCORS:    true,
-            allowTaint: true,
-            logging:    false,
-            onclone: function(clonedDoc) {
-                // Inyectar CSS con !important para sobrescribir min-height del layout
-                var s = clonedDoc.createElement('style');
-                s.textContent =
-                    '.page { min-height: 0 !important; height: auto !important; ' +
-                    '        margin: 0 !important; box-shadow: none !important; }' +
-                    '.bottom-block { margin-top: 24px !important; }' +
-                    '.toolbar { display: none !important; }';
-                clonedDoc.head.appendChild(s);
-            }
-        },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:   { mode: 'avoid-all' }
-    };
-
-    html2pdf().set(opt).from(page).save()
-        .then(function() {
-            btn.textContent = '⬇ Descargar PDF';
-            btn.disabled = false;
-        })
-        .catch(function(err) {
-            console.error('html2pdf error:', err);
-            btn.textContent = '⬇ Descargar PDF';
-            btn.disabled = false;
-            alert('No se pudo generar el PDF: ' + err.message);
-        });
+    // Usa window.print() con document.title como nombre de archivo.
+    // Chrome/Edge: en el diálogo elegir "Guardar como PDF" →
+    // el nombre sugerido es el título de la página.
+    var tituloOrig = document.title;
+    document.title = '{{ addslashes($fileNombre) }}';
+    window.print();
+    // Restaurar título después de que el diálogo se abre
+    setTimeout(function() { document.title = tituloOrig; }, 1000);
 }
 
 // Auto-descarga si viene ?auto=1
 @if(request('auto') == '1')
 window.addEventListener('load', function() {
-    var btn = document.querySelector('.tb-btn:not(.ghost)');
-    if (btn) setTimeout(function() { descargarPDF(btn); }, 800);
+    setTimeout(function() { descargarPDF(null); }, 600);
 });
 @endif
 </script>
