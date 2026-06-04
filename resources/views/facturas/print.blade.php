@@ -268,12 +268,20 @@
                  . ($totalCts > 0 ? ' con ' . sprintf('%02d', $totalCts) . '/100' : '');
 
     // ── Nombre de archivo para descarga ────────────────────────────
-    $san = fn(string $s) => strtoupper(preg_replace('/[^A-Z0-9]/i', '', \Illuminate\Support\Str::ascii($s)));
+    // Formato: PV006_NRO0047_RAZON_SOCIAL_TRUNCADA_OBSERVAC.pdf
+    $sanFile = function(string $s, int $max): string {
+        $s = \Illuminate\Support\Str::ascii($s);          // quitar acentos
+        $s = strtoupper($s);                              // mayúsculas
+        $s = preg_replace('/\s+/', '_', trim($s));        // espacios → _
+        $s = preg_replace('/[^A-Z0-9_]/', '', $s);       // solo alfanum y _
+        $s = preg_replace('/_+/', '_', $s);               // _ múltiples → 1
+        return substr($s, 0, $max);
+    };
     $fileNombre = implode('_', array_filter([
-        str_pad($factura->numero,       8, '0', STR_PAD_LEFT),
-        str_pad($factura->punto_venta,  5, '0', STR_PAD_LEFT),
-        substr($san($factura->cliente->nombre ?? ''), 0, 20),
-        substr($san($factura->observaciones    ?? ''), 0, 8),
+        'PV'  . str_pad($factura->punto_venta, 3, '0', STR_PAD_LEFT),
+        'NRO' . str_pad($factura->numero,      4, '0', STR_PAD_LEFT),
+        $sanFile($factura->cliente->nombre ?? '', 20),
+        $sanFile($factura->observaciones   ?? '', 6),
     ]));
 
     // ── Logo ───────────────────────────────────────────────────────
