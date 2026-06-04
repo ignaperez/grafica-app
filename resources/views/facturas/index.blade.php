@@ -55,6 +55,9 @@
                         <a href="{{ route('facturas.show', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
                         <a href="{{ route('facturas.print', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank">🖨</a>
                         <a href="{{ route('facturas.print', $f->id) }}?auto=1" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Descargar PDF">⬇</a>
+                        @if(in_array($f->tipo, [1, 6, 11]))
+                        <a href="{{ route('remitos.create', ['factura_id' => $f->id]) }}" class="gbtn gbtn-ghost gbtn-xs" title="Crear remito">📦 Remito</a>
+                        @endif
                     </td>
                 </tr>
                 @empty
