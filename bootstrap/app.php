@@ -25,10 +25,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'central-only' => PreventAccessFromCentralDomains::class,
         ]);
 
-        // Tenancy middleware necesita la prioridad más alta
+        // Tenancy middleware debe correr ANTES que SubstituteBindings (route model binding).
+        // SubstituteBindings está dentro del grupo 'web' — si corre primero, resuelve
+        // los modelos en la BD central antes de que el tenant esté inicializado → 404.
         $middleware->priority([
             PreventAccessFromCentralDomains::class,
             InitializeTenancyBySubdomain::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
     })
     ->withProviders([
