@@ -49,9 +49,22 @@
                     <input class="gin" type="text" name="cuit" id="f-cuit" value="{{ old('cuit') }}" placeholder="20-12345678-9">
                 </div>
                 <div class="fg">
+                    <label class="glb">Condición IVA *</label>
+                    <select class="gin" name="condicion_iva">
+                        <option value="monotributo" {{ old('condicion_iva','monotributo') === 'monotributo' ? 'selected' : '' }}>Monotributista</option>
+                        <option value="responsable_inscripto" {{ old('condicion_iva') === 'responsable_inscripto' ? 'selected' : '' }}>IVA Responsable Inscripto</option>
+                        <option value="exento" {{ old('condicion_iva') === 'exento' ? 'selected' : '' }}>IVA Exento</option>
+                    </select>
+                    <div class="hint">Define si emite Factura C (mono) o A/B (RI).</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="fg">
                     <label class="glb">Email</label>
                     <input class="gin" type="email" name="email" id="f-email" value="{{ old('email') }}" placeholder="contacto@empresa.com">
                 </div>
+                <div class="fg"></div>
             </div>
 
             <div class="grid-2">

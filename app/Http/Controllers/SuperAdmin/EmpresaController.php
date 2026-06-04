@@ -52,9 +52,10 @@ class EmpresaController extends Controller
     {
         $request->validate([
             'nombre'          => 'required|string|max:100',
-            'nombre_fantasia'  => 'nullable|string|max:100',
+            'nombre_fantasia' => 'nullable|string|max:100',
             'slug'            => 'required|alpha_dash|max:30|unique:tenants,id',
             'cuit'            => 'nullable|string|max:20',
+            'condicion_iva'   => 'nullable|in:monotributo,responsable_inscripto,exento',
             'email'           => 'required|email|max:100',
             'telefono'        => 'nullable|string|max:30',
             'direccion'       => 'nullable|string|max:200',
@@ -75,6 +76,12 @@ class EmpresaController extends Controller
 
         // Crear el subdominio
         $tenant->domains()->create(['domain' => $slug]);
+
+        // ── Guardar condicion_iva en configuracion del tenant ─────────────────
+        if ($request->filled('condicion_iva')) {
+            $condIva = $request->condicion_iva;
+            $tenant->run(fn() => \App\Models\Configuracion::set('empresa_condicion_iva', $condIva));
+        }
 
         // ── Crear 3 usuarios en la BD del tenant ─────────────────────────────
         $usuarios   = $this->crearUsuariosTenant($tenant, $slug);
@@ -227,6 +234,7 @@ class EmpresaController extends Controller
             'nombre'           => 'required|string|max:100',
             'nombre_fantasia'  => 'nullable|string|max:100',
             'cuit'             => 'nullable|string|max:20',
+            'condicion_iva'    => 'nullable|in:monotributo,responsable_inscripto,exento',
             'email'            => 'nullable|email|max:100',
             'telefono'         => 'nullable|string|max:30',
             'direccion'        => 'nullable|string|max:200',
@@ -248,6 +256,12 @@ class EmpresaController extends Controller
                                     : null,
             'arca_production'  => $request->boolean('arca_production'),
         ]);
+
+        // Guardar condicion_iva en configuracion del tenant
+        if ($request->filled('condicion_iva')) {
+            $condIva = $request->condicion_iva;
+            $tenant->run(fn() => \App\Models\Configuracion::set('empresa_condicion_iva', $condIva));
+        }
 
         return redirect()
             ->route('super-admin.empresas.show', $tenant->id)
