@@ -144,7 +144,8 @@
         }
 
         /* ═══ PIE ═══ */
-        .pie { margin-top: auto; padding-top: 14px; border-top: 1px solid #000; }
+        .bottom-block { margin-top: auto; }
+        .pie { padding-top: 14px; border-top: 1px solid #000; }
         .pie-body { display: flex; gap: 16px; align-items: flex-start; }
         .pie-qr img { width: 90px; height: 90px; display: block; }
         .pie-qr .qr-placeholder {
@@ -465,7 +466,8 @@
     </table>
     @endif
 
-    {{-- ════════════════ TOTALES ════════════════ --}}
+    {{-- ════════════════ TOTALES + PIE (siempre al fondo) ════════════════ --}}
+    <div class="bottom-block">
     <div class="totales-wrap">
         <div class="totales">
             @if($ivaDiscriminado)
@@ -559,15 +561,29 @@
 
         </div>
     </div>{{-- /pie --}}
+    </div>{{-- /bottom-block --}}
 
 </div>{{-- /page --}}
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 function descargarPDF() {
-    var orig = document.title;
-    document.title = '{{ addslashes($fileNombre) }}';
-    window.print();
-    setTimeout(function() { document.title = orig; }, 1000);
+    var btn = event.target;
+    btn.textContent = '⏳ Generando...';
+    btn.disabled = true;
+
+    var opt = {
+        margin:      [8, 10, 8, 10],
+        filename:    '{{ addslashes($fileNombre) }}.pdf',
+        image:       { type: 'jpeg', quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(document.querySelector('.page')).save().then(function() {
+        btn.textContent = '⬇ Descargar PDF';
+        btn.disabled = false;
+    });
 }
 </script>
 </body>
