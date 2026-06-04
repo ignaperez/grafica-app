@@ -136,7 +136,7 @@ class RemitoController extends Controller
             'estado'           => 'pendiente',
             'tipo'             => $tipo,
             'observaciones'    => $request->observaciones,
-        ], $caiData));
+        ], $remData));
 
         foreach ($request->items as $i => $it) {
             RemitoItem::create([
