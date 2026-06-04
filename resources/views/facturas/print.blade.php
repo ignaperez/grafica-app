@@ -280,7 +280,7 @@
     $fileNombre = implode('_', array_filter([
         'PV'  . str_pad($factura->punto_venta, 3, '0', STR_PAD_LEFT),
         'NRO' . str_pad($factura->numero,      4, '0', STR_PAD_LEFT),
-        $sanFile($factura->cliente->nombre ?? '', 20),
+        $sanFile($factura->cliente->nombre ?? '', 26),
         $sanFile($factura->observaciones   ?? '', 6),
     ]));
 
