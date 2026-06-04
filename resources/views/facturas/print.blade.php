@@ -594,48 +594,42 @@ function descargarPDF(btn) {
     btn.textContent = '⏳ Generando...';
     btn.disabled = true;
 
-    var page        = document.querySelector('.page');
-    var bottomBlock = document.querySelector('.bottom-block');
-
-    // Guardar estilos originales (pantalla)
-    var origMinH   = page.style.minHeight;
-    var origH      = page.style.height;
-    var origMT     = bottomBlock ? bottomBlock.style.marginTop : '';
-
-    // Para el PDF: dejar que el contenido dicte la altura real
-    page.style.minHeight = '0';
-    page.style.height    = 'auto';
-    if (bottomBlock) bottomBlock.style.marginTop = '20px';
-
-    var pageW = page.offsetWidth || 794;
+    var page = document.querySelector('.page');
 
     var opt = {
-        margin:      [8, 8, 8, 8],
+        margin:      [0, 0, 0, 0],
         filename:    '{{ addslashes($fileNombre) }}.pdf',
         image:       { type: 'jpeg', quality: 0.97 },
         html2canvas: {
-            scale:       2,
-            useCORS:     true,
-            allowTaint:  true,
-            logging:     false,
-            windowWidth: pageW,
+            scale:      2,
+            useCORS:    true,
+            allowTaint: true,
+            logging:    false,
+            // onclone: modifica la copia sin tocar la página real
+            onclone: function(clonedDoc) {
+                var p = clonedDoc.querySelector('.page');
+                var b = clonedDoc.querySelector('.bottom-block');
+                if (p) {
+                    p.style.minHeight = '0';
+                    p.style.height    = 'auto';
+                    p.style.margin    = '0';
+                    p.style.boxShadow = 'none';
+                }
+                if (b) b.style.marginTop = '20px';
+            }
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    function restaurar() {
-        page.style.minHeight = origMinH;
-        page.style.height    = origH;
-        if (bottomBlock) bottomBlock.style.marginTop = origMT;
-        btn.textContent = '⬇ Descargar PDF';
-        btn.disabled    = false;
-    }
-
     html2pdf().set(opt).from(page).save()
-        .then(restaurar)
+        .then(function() {
+            btn.textContent = '⬇ Descargar PDF';
+            btn.disabled = false;
+        })
         .catch(function(err) {
             console.error('html2pdf error:', err);
-            restaurar();
+            btn.textContent = '⬇ Descargar PDF';
+            btn.disabled = false;
             alert('No se pudo generar el PDF: ' + err.message);
         });
 }
