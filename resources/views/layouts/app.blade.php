@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ \App\Models\Configuracion::get('empresa_nombre', config('app.name')) }}@hasSection('page-title') — @yield('page-title')@endif</title>
+    <title>{{ \App\Models\Configuracion::empresa()['nombre_factura'] ?: config('app.name') }}@hasSection('page-title') — @yield('page-title')@endif</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -322,7 +322,7 @@
         <div style="display:flex;align-items:center;gap:12px">
             <button class="s-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
             <div class="topbar-bc">
-                <span>{{ config('app.name') }}</span>
+                <span>{{ \App\Models\Configuracion::empresa()['nombre_factura'] ?: config('app.name') }}</span>
                 <span>›</span>
                 <strong>@yield('page-title', 'Dashboard')</strong>
             </div>
