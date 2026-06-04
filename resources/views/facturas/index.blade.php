@@ -54,6 +54,7 @@
                     <td style="text-align:right">
                         <a href="{{ route('facturas.show', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
                         <a href="{{ route('facturas.print', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank">🖨</a>
+                        <a href="{{ route('facturas.print', $f->id) }}?auto=1" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Descargar PDF">⬇</a>
                     </td>
                 </tr>
                 @empty

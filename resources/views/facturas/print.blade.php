@@ -596,6 +596,14 @@ function descargarPDF(btn) {
             alert('No se pudo generar el PDF: ' + err.message);
         });
 }
+
+// Auto-descarga si viene ?auto=1
+@if(request('auto') == '1')
+window.addEventListener('load', function() {
+    var btn = document.querySelector('.tb-btn:not(.ghost)');
+    if (btn) setTimeout(function() { descargarPDF(btn); }, 800);
+});
+@endif
 </script>
 </body>
 </html>
