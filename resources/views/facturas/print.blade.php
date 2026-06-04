@@ -176,7 +176,7 @@
     <a href="{{ route('facturas.show', $factura->id) }}">← Volver a la factura</a>
     <div class="tb-btns">
         <button class="tb-btn ghost" onclick="window.print()">Imprimir</button>
-        <button class="tb-btn" onclick="descargarPDF()">⬇ Descargar PDF</button>
+        <button class="tb-btn" onclick="descargarPDF(this)">⬇ Descargar PDF</button>
     </div>
 </div>
 
@@ -565,25 +565,36 @@
 
 </div>{{-- /page --}}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
-function descargarPDF() {
-    var btn = event.target;
+function descargarPDF(btn) {
+    if (typeof html2pdf === 'undefined') {
+        alert('Error: no se pudo cargar la librería de PDF. Revisá tu conexión.');
+        return;
+    }
+
     btn.textContent = '⏳ Generando...';
     btn.disabled = true;
 
     var opt = {
         margin:      [8, 10, 8, 10],
         filename:    '{{ addslashes($fileNombre) }}.pdf',
-        image:       { type: 'jpeg', quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        image:       { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(document.querySelector('.page')).save().then(function() {
-        btn.textContent = '⬇ Descargar PDF';
-        btn.disabled = false;
-    });
+    html2pdf().set(opt).from(document.querySelector('.page')).save()
+        .then(function() {
+            btn.textContent = '⬇ Descargar PDF';
+            btn.disabled = false;
+        })
+        .catch(function(err) {
+            console.error('html2pdf error:', err);
+            btn.textContent = '⬇ Descargar PDF';
+            btn.disabled = false;
+            alert('No se pudo generar el PDF: ' + err.message);
+        });
 }
 </script>
 </body>
