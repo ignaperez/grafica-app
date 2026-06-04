@@ -601,24 +601,23 @@ function descargarPDF(btn) {
         filename:    '{{ addslashes($fileNombre) }}.pdf',
         image:       { type: 'jpeg', quality: 0.97 },
         html2canvas: {
-            scale:      2,
+            scale:      1.96,
             useCORS:    true,
             allowTaint: true,
             logging:    false,
-            // onclone: modifica la copia sin tocar la página real
             onclone: function(clonedDoc) {
-                var p = clonedDoc.querySelector('.page');
-                var b = clonedDoc.querySelector('.bottom-block');
-                if (p) {
-                    p.style.minHeight = '0';
-                    p.style.height    = 'auto';
-                    p.style.margin    = '0';
-                    p.style.boxShadow = 'none';
-                }
-                if (b) b.style.marginTop = '20px';
+                // Inyectar CSS con !important para sobrescribir min-height del layout
+                var s = clonedDoc.createElement('style');
+                s.textContent =
+                    '.page { min-height: 0 !important; height: auto !important; ' +
+                    '        margin: 0 !important; box-shadow: none !important; }' +
+                    '.bottom-block { margin-top: 24px !important; }' +
+                    '.toolbar { display: none !important; }';
+                clonedDoc.head.appendChild(s);
             }
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:   { mode: 'avoid-all' }
     };
 
     html2pdf().set(opt).from(page).save()
