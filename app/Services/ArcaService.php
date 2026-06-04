@@ -98,7 +98,10 @@ class ArcaService
 
     protected function getAuth(): array
     {
-        // El paquete multinexo maneja la renovación automática del TA (12hs cache)
+        // Eliminar TA expirado antes de que el paquete lo lea
+        // (workaround: multinexo no detecta expiración en PHP 8.4)
+        $this->eliminarTaExpirado($this->xmlDir . 'TA-' . $this->cuit . '-wsfe.xml');
+
         $wsfe = new Wsfe();
         $wsfe->setearConfiguracion([
             'cuit'    => $this->cuit,
