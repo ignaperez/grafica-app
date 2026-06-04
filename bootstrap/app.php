@@ -38,5 +38,25 @@ return Application::configure(basePath: dirname(__DIR__))
         App\Providers\TenancyServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+
+        // Sesión expirada / inválida en rutas tenant → redirigir al login en vez de 500
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+
+            // Solo en rutas web (no JSON/API)
+            if ($request->expectsJson()) return null;
+
+            $esErrorSesion =
+                $e instanceof \Illuminate\Session\TokenMismatchException ||
+                $e instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $e->getStatusCode() === 419 ||
+                str_contains($e->getMessage(), 'Session store not set') ||
+                str_contains($e->getMessage(), 'Undefined array key "_token"');
+
+            if ($esErrorSesion) {
+                return redirect()->route('login')
+                    ->withErrors(['email' => 'Tu sesión expiró. Por favor ingresá nuevamente.']);
+            }
+
+            return null; // dejar que Laravel maneje el resto normalmente
+        });
+
     })->create();

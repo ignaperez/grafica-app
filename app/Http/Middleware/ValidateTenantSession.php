@@ -18,21 +18,33 @@ class ValidateTenantSession
 {
     public function handle(Request $request, Closure $next)
     {
-        if (Auth::check()) {
-            $sessionTenantId = session('_tenant_id');
-            $currentTenantId = tenant('id');
+        try {
+            if (Auth::check()) {
+                $sessionTenantId = session('_tenant_id');
+                $currentTenantId = tenant('id');
 
-            if ($sessionTenantId !== $currentTenantId) {
-                // Sesión de otro contexto → forzar logout
+                if ($sessionTenantId !== $currentTenantId) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+
+                    return redirect()->route('login')
+                        ->withErrors(['email' => 'Sesión expirada. Por favor ingresá nuevamente.']);
+                }
+            }
+
+            return $next($request);
+
+        } catch (\Exception $e) {
+            // Sesión inválida / corrupta → redirigir al login limpio
+            try {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
+            } catch (\Exception) {}
 
-                return redirect()->route('login')
-                    ->withErrors(['email' => 'Sesión expirada. Por favor ingresá nuevamente.']);
-            }
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Tu sesión expiró. Por favor ingresá nuevamente.']);
         }
-
-        return $next($request);
     }
 }
