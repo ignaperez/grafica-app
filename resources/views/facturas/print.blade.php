@@ -166,7 +166,17 @@
         @media print {
             body { background: #fff; }
             .toolbar { display: none; }
-            .page { width: auto; min-height: 0; margin: 0; padding: 12mm 15mm 12mm; }
+            .page {
+                width: auto;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0;
+                padding: 10mm 12mm;
+                box-shadow: none;
+            }
+            .bottom-block { margin-top: 16px !important; page-break-inside: avoid; }
+            .pie          { page-break-inside: avoid; }
+            .totales-wrap { page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -401,15 +411,15 @@
     <table class="items">
         <thead>
             <tr>
-                <th style="width:28px">Cód.</th>
-                <th class="l" style="min-width:160px">Producto / Servicio</th>
-                <th style="width:55px">Cantidad</th>
-                <th style="width:52px">U.<br>Medida</th>
-                <th style="width:78px">Precio<br>Unitario</th>
-                <th style="width:46px">%<br>Bonif.</th>
-                <th style="width:78px">Subtotal</th>
-                <th style="width:58px">Alíc.<br>IVA</th>
-                <th style="width:82px">Subtotal<br>c/IVA</th>
+                <th style="width:22px">Cód.</th>
+                <th class="l">Producto / Servicio</th>
+                <th style="width:46px">Cant.</th>
+                <th style="width:38px">U.M.</th>
+                <th style="width:68px">P.Unit.</th>
+                <th style="width:36px">%Bon.</th>
+                <th style="width:68px">Subtotal</th>
+                <th style="width:46px">Alíc.<br>IVA</th>
+                <th style="width:72px">Sub.<br>c/IVA</th>
             </tr>
         </thead>
         <tbody>
@@ -576,23 +586,48 @@ function descargarPDF(btn) {
     btn.textContent = '⏳ Generando...';
     btn.disabled = true;
 
+    var page        = document.querySelector('.page');
+    var bottomBlock = document.querySelector('.bottom-block');
+
+    // Guardar estilos originales (pantalla)
+    var origMinH   = page.style.minHeight;
+    var origH      = page.style.height;
+    var origMT     = bottomBlock ? bottomBlock.style.marginTop : '';
+
+    // Para el PDF: dejar que el contenido dicte la altura real
+    page.style.minHeight = '0';
+    page.style.height    = 'auto';
+    if (bottomBlock) bottomBlock.style.marginTop = '20px';
+
+    var pageW = page.offsetWidth || 794;
+
     var opt = {
-        margin:      [8, 10, 8, 10],
+        margin:      [8, 8, 8, 8],
         filename:    '{{ addslashes($fileNombre) }}.pdf',
-        image:       { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        image:       { type: 'jpeg', quality: 0.97 },
+        html2canvas: {
+            scale:       2,
+            useCORS:     true,
+            allowTaint:  true,
+            logging:     false,
+            windowWidth: pageW,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(document.querySelector('.page')).save()
-        .then(function() {
-            btn.textContent = '⬇ Descargar PDF';
-            btn.disabled = false;
-        })
+    function restaurar() {
+        page.style.minHeight = origMinH;
+        page.style.height    = origH;
+        if (bottomBlock) bottomBlock.style.marginTop = origMT;
+        btn.textContent = '⬇ Descargar PDF';
+        btn.disabled    = false;
+    }
+
+    html2pdf().set(opt).from(page).save()
+        .then(restaurar)
         .catch(function(err) {
             console.error('html2pdf error:', err);
-            btn.textContent = '⬇ Descargar PDF';
-            btn.disabled = false;
+            restaurar();
             alert('No se pudo generar el PDF: ' + err.message);
         });
 }
