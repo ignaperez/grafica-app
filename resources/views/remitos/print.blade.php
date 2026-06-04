@@ -192,13 +192,16 @@
 </div>
 
 @php
-    $cfg    = \App\Models\Configuracion::all()->pluck('valor', 'clave');
-    $empresa = $cfg->get('empresa_nombre', config('app.name'));
-    $cuit    = $cfg->get('empresa_cuit',   '');
-    $dir     = $cfg->get('empresa_direccion', '');
-    $tel     = $cfg->get('empresa_telefono', '');
-    $owner   = $cfg->get('empresa_propietario', '');
-    $email   = $cfg->get('empresa_email', '');
+    $emp     = \App\Models\Configuracion::empresa();
+    $empresa = $emp['nombre_factura'] ?: $emp['nombre'];
+    $cuit    = $emp['cuit'];
+    $dir     = $emp['direccion'];
+    $tel     = $emp['telefono'];
+    $owner   = $emp['propietario'];
+    $email   = $emp['email'];
+    $logoUrl = $emp['logo']
+        ? \Illuminate\Support\Facades\Storage::disk('public')->url($emp['logo'])
+        : null;
     $cai     = $remito->remitoCai;
 @endphp
 
@@ -208,7 +211,9 @@
     <div class="page-hd">
         <header class="head">
             <div class="brand">
-                <img src="{{ asset('images/logo.png') }}" alt="{{ $empresa }}">
+                @if($logoUrl)
+                    <img src="{{ $logoUrl }}" alt="{{ $empresa }}">
+                @endif
                 <div class="brand-text">
                     <h1>{{ $empresa }}</h1>
                     <div class="meta">
