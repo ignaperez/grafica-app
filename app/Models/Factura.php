@@ -90,7 +90,8 @@ class Factura extends Model
         $data = base64_encode(json_encode([
             'ver'        => 1,
             'fecha'      => $this->fecha->format('Y-m-d'),
-            'cuit'       => (int) preg_replace('/\D/', '', \App\Models\Configuracion::get('empresa_cuit', config('arca.cuit'))),
+            // CUIT del EMISOR: siempre del tenant actual (nunca del config global)
+            'cuit'       => (int) preg_replace('/\D/', '', tenant()?->cuit ?: \App\Models\Configuracion::get('empresa_cuit', config('arca.cuit'))),
             'ptoVta'     => $this->punto_venta,
             'tipoCmp'    => $this->tipo,
             'nroCmp'     => $this->numero,
