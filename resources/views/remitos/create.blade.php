@@ -167,11 +167,24 @@
                 @error('cliente_id')<div class="gerr">{{ $message }}</div>@enderror
             </div>
 
-            <div class="gfg">
-                <label class="glabel">Fecha *</label>
-                <input type="date" name="fecha" class="ginput"
-                    value="{{ old('fecha', now()->format('Y-m-d')) }}" required>
-                @error('fecha')<div class="gerr">{{ $message }}</div>@enderror
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="gfg">
+                    <label class="glabel">Fecha *</label>
+                    <input type="date" name="fecha" class="ginput"
+                        value="{{ old('fecha', now()->format('Y-m-d')) }}" required>
+                    @error('fecha')<div class="gerr">{{ $message }}</div>@enderror
+                </div>
+                <div class="gfg">
+                    <label class="glabel">N° Remito</label>
+                    <input type="number" name="numero_manual" class="ginput" min="1"
+                        id="inp-numero"
+                        placeholder="auto">
+                    <div class="txd" style="font-size:11px;margin-top:3px">
+                        Sugerido: <span id="nro-sugerido" style="color:var(--ac)">—</span>
+                        · Dejá vacío para usar el siguiente automático
+                    </div>
+                    @error('numero_manual')<div class="gerr">{{ $message }}</div>@enderror
+                </div>
             </div>
 
             {{-- Tipo de remito --}}
@@ -304,8 +317,20 @@
         width: 'resolve',
     });
 
+    // ── Número sugerido según tipo ───────────────────────────────────────
+    var nroInterno  = {{ \App\Models\Remito::proximoNumero() }};
+    var nroOficial  = {{ \App\Models\Remito::proximoNumeroOficial() }};
+
+    function actualizarNroSugerido() {
+        var tipo = $('input[name="tipo"]:checked').val() || 'interno';
+        var nro  = (tipo === 'oficial') ? nroOficial : nroInterno;
+        $('#nro-sugerido').text('R-' + String(nro).padStart(4, '0'));
+    }
+    actualizarNroSugerido();
+
     // ── Selector tipo remito ─────────────────────────────────────────────
     $(document).on('change', '.tipo-radio', function () {
+        actualizarNroSugerido();
         $('.tipo-radio').each(function () {
             const lbl = $(this).closest('label');
             if ($(this).is(':checked')) {

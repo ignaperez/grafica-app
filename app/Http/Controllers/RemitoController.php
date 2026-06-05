@@ -63,6 +63,7 @@ class RemitoController extends Controller
         $request->validate([
             'cliente_id'           => 'required|exists:clientes,id',
             'fecha'                => 'required|date',
+            'numero_manual'        => 'nullable|integer|min:1',
             'tipo'                 => 'required|in:interno,oficial,electronico',
             'observaciones'        => 'nullable|string',
             'items'                => 'required|array|min:1',
@@ -123,10 +124,15 @@ class RemitoController extends Controller
             }
         }
 
+        // Número: manual si se proporcionó, sino el siguiente automático
+        $numeroFinal = $request->filled('numero_manual')
+            ? (int) $request->numero_manual
+            : (in_array($tipo, ['oficial','electronico'])
+                ? Remito::proximoNumeroOficial()
+                : Remito::proximoNumero());
+
         $remito = Remito::create(array_merge([
-            'numero'           => in_array($tipo, ['oficial','electronico'])
-                                    ? Remito::proximoNumeroOficial()
-                                    : Remito::proximoNumero(),
+            'numero'           => $numeroFinal,
             'cliente_id'       => $request->cliente_id,
             'presupuesto_id'   => $request->presupuesto_id ?: null,
             'factura_id'       => $request->factura_id ?: null,
