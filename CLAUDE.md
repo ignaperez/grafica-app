@@ -360,6 +360,38 @@ apt install -y certbot python3-certbot-nginx
 certbot --nginx -d plote.ar -d www.plote.ar
 ```
 
+### SSL — certificados y subdominios de tenants (2026-06-08)
+**Acceso SSH:** `ssh -i ~/.ssh/plote_vps_claude root@148.113.192.65` (key dedicada de Claude).
+
+**Nginx ya sirve cualquier subdominio:** el server block `/etc/nginx/sites-available/plote-ar`
+tiene `server_name plote.ar www.plote.ar *.plote.ar` (HTTP 80 → 301 a HTTPS, y bloque 443).
+O sea, a nivel HTTP **no hay que tocar Nginx** para un tenant nuevo — el wildcard ya matchea.
+Apunta al cert `live/plote.ar/`.
+
+**Lo que SÍ falta por subdominio = el certificado.** El cert `plote.ar` NO es wildcard (un
+wildcard requeriría challenge DNS-01 + API DNS, que Wiroos no da). Cada subdominio de tenant
+hay que agregarlo al cert `plote.ar` por HTTP-01 (funciona porque el DNS ya resuelve a la IP).
+
+**Receta para habilitar HTTPS en un subdominio nuevo `NUEVO.plote.ar`:**
+1. Verificar que el DNS resuelva: debe haber un A record `NUEVO.plote.ar → 148.113.192.65`.
+2. Expandir el cert existente (incluir SIEMPRE los dominios ya presentes + el nuevo):
+```bash
+certbot certonly --nginx --cert-name plote.ar \
+  -d plote.ar -d www.plote.ar -d app.plote.ar -d NUEVO.plote.ar \
+  --expand --non-interactive --agree-tos
+nginx -t && systemctl reload nginx
+```
+   Tip: hacer primero un `--dry-run` para no gastar el rate limit de Let's Encrypt.
+3. Verificar: `curl -sI https://NUEVO.plote.ar` (302 = OK) y
+   `echo | openssl s_client -connect 127.0.0.1:443 -servername NUEVO.plote.ar 2>/dev/null | openssl x509 -noout -ext subjectAltName`.
+
+Como es el MISMO cert `plote.ar`, la renovación automática de Certbot ya cubre todos los SAN.
+
+**Estado al 2026-06-08** — cert `plote.ar` cubre: `plote.ar`, `www.plote.ar`, `app.plote.ar`,
+`123ploteos.plote.ar` (subdominio agregado este día, HTTPS OK). Vence 2026-09-06, renovación
+automática activa. Otros certs en el VPS: `mail.plote.ar`, `webmail.plote.ar`
+(`123millas.com.ar` quedó EXPIRED/sin uso).
+
 ---
 
 ## Módulo de Facturación Electrónica (ARCA/AFIP) — EN DESARROLLO
@@ -440,6 +472,48 @@ POST /presupuestos/{presupuesto}/facturar → presupuestos.facturar  (desde pres
 - [x] Consulta WSFE OK — PV6 Factura B último nro: 0 (sin facturas aún) ✓
 - [ ] Implementar módulo Laravel completo
 - [ ] Deploy y prueba emisión real
+
+### Factura create — validación cliente + retención de datos en error (2026-06-05)
+Cambios en `resources/views/facturas/create.blade.php`:
+- **Cliente obligatorio (cliente-side):** el botón "Emitir" abre un modal y el "Sí, emitir"
+  hace `form.submit()` por JS, lo que **saltea la validación HTML5** (`required`). Por eso
+  `confirmarEmision()` ahora valida a mano ANTES de abrir el modal: cliente seleccionado,
+  N° documento (salvo Consumidor Final / doc_tipo 99) y al menos un ítem con descripción +
+  cantidad. Si falta algo muestra `alert()` y abre el buscador de cliente. (Server-side ya
+  validaba con `cliente_id => required|exists`, esto es el aviso temprano.)
+- **No perder datos en error (form):** antes la vista solo re-renderizaba el ítem índice 0
+  (o los del presupuesto), así que las filas agregadas por JS se perdían al volver de un error
+  de validación o de ARCA. Ahora el `<tbody>` arma `$filasItems` en este orden de prioridad:
+  `old('items')` (vuelta de error → restaura TODAS las filas) → items del presupuesto → una
+  fila vacía. `rowIndex` JS arranca contando `#items-body tr.item-row` en el DOM. El controller
+  ya usaba `back()->withInput()` tanto en validación como en el `catch` de ARCA.
+
+### Borradores de factura persistidos en DB (2026-06-05)
+Para que la carga **sobreviva aunque se cierre la pestaña** (no solo `old()` en sesión), se
+persiste un borrador en DB cuando una emisión falla.
+
+- **Tabla `factura_borradores`** (per-tenant, SoftDeletes) — migración en
+  `database/migrations/tenant/` Y `database/migrations/` (se mantienen sincronizadas).
+  Campos: `created_by`, `cliente_id` (ambos nullable, nullOnDelete), `datos` (JSON con TODO el
+  request: cliente_id, tipo, fecha, concepto, doc_tipo, doc_nro, observaciones, items[], nc_*),
+  `total` (estimado, para listar), `error` (último motivo).
+- **Modelo `App\Models\FacturaBorrador`** — `datos` casteado a `array`.
+- **Flujo (`FacturaController`):**
+  - Todos los `return back()->withInput()->with('error', ...)` de `store()` (reglas de negocio
+    y `catch` de ARCA) se reemplazaron por `volverConBorrador($request, $msg)`, que llama a
+    `guardarBorrador()` (crea o actualiza si ya viene `borrador_id`) y vuelve al form con el
+    `borrador_id` en `old()`.
+  - **Emisión exitosa** → borra el borrador (`borrador_id` → `FacturaBorrador::delete()`).
+  - `create()` con `?borrador_id=X` → flashea `borrador->datos` como `old()` y redirige a
+    `facturas.create` (reusa el mismo render que la vuelta de error). Muestra aviso `session('info')`.
+- **Vista create:** `<input type="hidden" name="borrador_id" value="{{ old('borrador_id') }}">`
+  tras el `@csrf`, y banner `session('info')` (el layout NO maneja `info`, se renderiza a mano).
+- **Vista index:** card "💾 Borradores pendientes" arriba de las facturas, con **Retomar**
+  (`facturas.create?borrador_id=`) y **Eliminar** (`DELETE facturas.borradores.destroy`).
+- **Ruta nueva:** `DELETE /facturas/borradores/{borrador}` → `facturas.borradores.destroy`
+  (registrada ANTES del `Route::resource('facturas')` en `routes/tenant.php`; no choca con
+  `show` porque es DELETE).
+- Las migraciones se corren con `php artisan tenants:migrate` (tabla per-tenant, NO `migrate`).
 
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)

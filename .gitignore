@@ -5,6 +5,10 @@
 /public/storage
 /storage/*.key
 /storage/app/arca/
+# Material de certificados / CSR y notas temporales (no commitear)
+*.csr
+/certi
+/TEMPORAL.txt
 /storage/pail
 /vendor
 .env

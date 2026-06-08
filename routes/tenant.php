@@ -194,6 +194,7 @@ Route::middleware([
 
         Route::get('/facturas/{factura}/print',              [FacturaController::class, 'print'])->name('facturas.print');
         Route::post('/facturas/preview',                     [FacturaController::class, 'preview'])->name('facturas.preview');
+        Route::delete('/facturas/borradores/{borrador}',     [FacturaController::class, 'destroyBorrador'])->name('facturas.borradores.destroy');
         Route::post('/presupuestos/{presupuesto}/facturar',  [FacturaController::class, 'fromPresupuesto'])->name('facturas.from-presupuesto');
         Route::resource('facturas', FacturaController::class)->only(['index', 'create', 'store', 'show']);
 

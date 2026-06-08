@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Factura;
 use App\Models\FacturaItem;
+use App\Models\FacturaBorrador;
 use App\Models\Cliente;
 use App\Models\Presupuesto;
 use App\Services\ArcaService;
@@ -17,11 +18,25 @@ class FacturaController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        return view('facturas.index', compact('facturas'));
+        // Borradores pendientes (cargas que quedaron a medias por un error)
+        $borradores = FacturaBorrador::with('cliente')->orderByDesc('id')->get();
+
+        return view('facturas.index', compact('facturas', 'borradores'));
     }
 
     public function create(Request $request)
     {
+        // Retomar un borrador guardado: flasheamos sus datos como old() y
+        // reusamos exactamente el mismo render que en la vuelta de un error.
+        if ($request->filled('borrador_id')) {
+            $borrador = FacturaBorrador::find($request->borrador_id);
+            if ($borrador) {
+                return redirect()->route('facturas.create')
+                    ->withInput(array_merge($borrador->datos ?? [], ['borrador_id' => $borrador->id]))
+                    ->with('info', 'Retomando un borrador guardado. Revisá los datos y volvé a emitir.');
+            }
+        }
+
         $presupuesto         = null;
         $clienteSeleccionado = null;
         $condIva             = \App\Models\Configuracion::get('empresa_condicion_iva', '');
@@ -65,6 +80,7 @@ class FacturaController extends Controller
         $request->validate([
             'cliente_id'     => 'required|exists:clientes,id',
             'tipo'           => 'required|in:1,3,6,8,11,13',
+            'fecha'          => 'required|date|before_or_equal:today',
             'concepto'       => 'required|in:1,2,3',
             'doc_tipo'       => 'required|in:80,96,99',
             // doc_nro requerido solo cuando doc_tipo != 99 (Consumidor Final)
@@ -86,7 +102,7 @@ class FacturaController extends Controller
 
         // Validar tipo según condición del EMISOR
         if ($condicionEmisor === 'monotributo' && !in_array($cbteTipo, [11, 13])) {
-            return back()->withInput()->with('error',
+            return $this->volverConBorrador($request,
                 'Como Monotributista solo podés emitir Factura C y Nota de Crédito C.'
             );
         }
@@ -94,7 +110,7 @@ class FacturaController extends Controller
         if ($condicionEmisor === 'responsable_inscripto') {
             $cliente = Cliente::findOrFail($request->cliente_id);
             if ($cbteTipo === 1 && $cliente->condicion_iva !== 'responsable_inscripto') {
-                return back()->withInput()->with('error',
+                return $this->volverConBorrador($request,
                     'Factura A solo se puede emitir a Responsables Inscriptos. ' .
                     'Este cliente es ' . ($cliente->condicionIvaLabel() ?: 'sin condición IVA registrada') . '.'
                 );
@@ -103,7 +119,7 @@ class FacturaController extends Controller
 
         // ARCA no permite que el DocNro del receptor sea igual al CUIT del emisor
         if ((int) $request->doc_nro === (int) \App\Models\Configuracion::get('empresa_cuit')) {
-            return back()->withInput()->with('error',
+            return $this->volverConBorrador($request,
                 'El CUIT del receptor no puede ser igual al CUIT del emisor (ARCA error 10069).'
             );
         }
@@ -136,7 +152,7 @@ class FacturaController extends Controller
 
             $resultado = $arca->solicitarCAE($arcaData);
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error ARCA: ' . $e->getMessage());
+            return $this->volverConBorrador($request, 'Error ARCA: ' . $e->getMessage());
         }
 
         // Calcular importes finales (NC-C sin IVA, igual que Factura C)
@@ -185,8 +201,22 @@ class FacturaController extends Controller
             Presupuesto::find($request->presupuesto_id)?->update(['estado' => 'aprobado']);
         }
 
+        // Emisión exitosa: el borrador (si existía) ya no hace falta
+        if ($request->filled('borrador_id')) {
+            FacturaBorrador::find($request->borrador_id)?->delete();
+        }
+
         return redirect()->route('facturas.show', $factura->id)
             ->with('success', 'Factura ' . $factura->numeroFormateado() . ' emitida. CAE: ' . $factura->cae);
+    }
+
+    /**
+     * Elimina un borrador manualmente desde el listado.
+     */
+    public function destroyBorrador(FacturaBorrador $borrador)
+    {
+        $borrador->delete();
+        return back()->with('success', 'Borrador eliminado.');
     }
 
     public function show(Factura $factura)
@@ -261,6 +291,59 @@ class FacturaController extends Controller
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    /**
+     * Guarda la carga actual como borrador en DB y vuelve al formulario con el
+     * mensaje de error. Así, si ARCA falla (o cualquier regla rechaza), nada se
+     * pierde: queda en `factura_borradores` y se puede retomar aunque se cierre
+     * la pestaña. Reusa el borrador existente si el form ya traía un borrador_id.
+     */
+    private function volverConBorrador(Request $request, string $mensaje)
+    {
+        $borrador = $this->guardarBorrador($request, $mensaje);
+
+        return back()
+            ->withInput(array_merge(
+                $request->except(['_token', 'borrador_id']),
+                ['borrador_id' => $borrador->id]
+            ))
+            ->with('error', $mensaje)
+            ->with('info', 'Los datos quedaron guardados como borrador — no perdiste la carga.');
+    }
+
+    private function guardarBorrador(Request $request, ?string $error = null): FacturaBorrador
+    {
+        // Total estimado solo para mostrar en el listado
+        $total = 0;
+        foreach ((array) $request->items as $it) {
+            $total += round((float) ($it['cantidad'] ?? 0) * (float) ($it['precio_unitario'] ?? 0), 2);
+        }
+
+        $datos = $request->except(['_token', 'borrador_id']);
+
+        $borrador = $request->filled('borrador_id')
+            ? FacturaBorrador::find($request->borrador_id)
+            : null;
+
+        if ($borrador) {
+            $borrador->update([
+                'cliente_id' => $request->cliente_id ?: null,
+                'datos'      => $datos,
+                'total'      => $total,
+                'error'      => $error,
+            ]);
+        } else {
+            $borrador = FacturaBorrador::create([
+                'created_by' => auth()->id(),
+                'cliente_id' => $request->cliente_id ?: null,
+                'datos'      => $datos,
+                'total'      => $total,
+                'error'      => $error,
+            ]);
+        }
+
+        return $borrador;
+    }
 
     private function calcularNeto(int $tipo, float $total): array
     {

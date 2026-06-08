@@ -11,6 +11,18 @@
 <form method="POST" action="{{ route('facturas.store') }}" id="form-factura">
 @csrf
 
+{{-- Borrador: si la carga viene de un borrador guardado (o quedó uno tras un
+     error), su id viaja acá para reusarlo/eliminarlo al re-emitir. --}}
+<input type="hidden" name="borrador_id" value="{{ old('borrador_id') }}">
+{{-- presupuesto_id global: sobrevive también al retomar un borrador (old). --}}
+<input type="hidden" name="presupuesto_id" value="{{ old('presupuesto_id', $presupuesto?->id) }}">
+
+@if(session('info'))
+<div style="padding:11px 14px;background:#0d1a26;border:1px solid #1c3a52;border-radius:8px;font-size:12.5px;color:#6aa9e0;margin-bottom:14px">
+    💾 {{ session('info') }}
+</div>
+@endif
+
 <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
 
 {{-- ── COLUMNA PRINCIPAL ──────────────────────────────────────────────── --}}
@@ -34,20 +46,38 @@
                     </tr>
                 </thead>
                 <tbody id="items-body">
-                    {{-- filas precargadas desde presupuesto o vacías --}}
-                    @if($presupuesto && $presupuesto->items->count())
-                        @foreach($presupuesto->items as $i => $item)
+                    {{-- Filas a renderizar, en orden de prioridad:
+                         1. old('items') → volvemos de un error de validación o de ARCA:
+                            se restauran TODAS las filas (incluidas las agregadas por JS),
+                            así nada se pierde y la carga queda como un borrador.
+                         2. items del presupuesto → carga inicial desde presupuesto.
+                         3. una fila vacía → factura manual desde cero. --}}
+                    @php
+                        if (old('items')) {
+                            $filasItems = array_values(old('items'));
+                        } elseif ($presupuesto && $presupuesto->items->count()) {
+                            $filasItems = $presupuesto->items->map(fn ($item) => [
+                                // medidaTotal(): m2→ancho×alto×cant, ml→largo×cant, unidad→cant
+                                'descripcion'     => $item->descripcion,
+                                'cantidad'        => $item->medidaTotal(),
+                                'precio_unitario' => $item->precio_unitario,
+                            ])->all();
+                        } else {
+                            $filasItems = [['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => '']];
+                        }
+                    @endphp
+                    @foreach($filasItems as $i => $item)
                         @php
-                            // medidaTotal(): m2→ancho×alto×cant, ml→largo×cant, unidad→cant
-                            $cantFac  = old('items.'.$i.'.cantidad',     $item->medidaTotal());
-                            $precioFac = old('items.'.$i.'.precio_unitario', $item->precio_unitario);
-                            $subFac   = round($cantFac * $precioFac, 2);
+                            $descFac   = $item['descripcion']     ?? '';
+                            $cantFac   = $item['cantidad']         ?? 1;
+                            $precioFac = $item['precio_unitario']  ?? '';
+                            $subFac    = round((float) $cantFac * (float) $precioFac, 2);
                         @endphp
                         <tr class="item-row" data-index="{{ $i }}">
                             <td>
                                 <input type="text" name="items[{{ $i }}][descripcion]"
                                     class="ginput ginput-sm"
-                                    value="{{ old('items.'.$i.'.descripcion', $item->descripcion) }}"
+                                    value="{{ $descFac }}"
                                     placeholder="Descripción del servicio" required>
                             </td>
                             <td style="text-align:center">
@@ -73,38 +103,7 @@
                                 <button type="button" class="gbtn gbtn-danger gbtn-xs btn-remove-row">×</button>
                             </td>
                         </tr>
-                        @endforeach
-                    @else
-                        {{-- fila vacía inicial --}}
-                        <tr class="item-row" data-index="0">
-                            <td>
-                                <input type="text" name="items[0][descripcion]"
-                                    class="ginput ginput-sm"
-                                    value="{{ old('items.0.descripcion') }}"
-                                    placeholder="Descripción del servicio" required>
-                            </td>
-                            <td style="text-align:center">
-                                <input type="number" name="items[0][cantidad]"
-                                    class="ginput ginput-sm item-cant"
-                                    value="{{ old('items.0.cantidad', 1) }}"
-                                    min="0.001" step="0.001" required
-                                    style="text-align:center;width:80px">
-                            </td>
-                            <td style="text-align:right">
-                                <input type="number" name="items[0][precio_unitario]"
-                                    class="ginput ginput-sm item-precio"
-                                    value="{{ old('items.0.precio_unitario') }}"
-                                    min="0" step="0.01" required
-                                    style="text-align:right;width:110px">
-                            </td>
-                            <td style="text-align:right">
-                                <span class="mono item-subtotal" style="font-size:13px;color:var(--tx)">$0,00</span>
-                            </td>
-                            <td style="text-align:center">
-                                <button type="button" class="gbtn gbtn-danger gbtn-xs btn-remove-row">×</button>
-                            </td>
-                        </tr>
-                    @endif
+                    @endforeach
                 </tbody>
             </table>
         </div>
@@ -200,6 +199,14 @@
             </div>
 
             <div class="gfg">
+                <label class="glabel">Fecha de emisión *</label>
+                <input type="date" name="fecha" class="ginput"
+                    value="{{ old('fecha', now()->format('Y-m-d')) }}" required>
+                <div class="txd" style="font-size:11px;margin-top:3px">ARCA acepta fechas dentro del período fiscal actual.</div>
+                @error('fecha')<div class="gerr">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="gfg">
                 <label class="glabel">Concepto *</label>
                 <select name="concepto" class="gselect" required>
                     <option value="2" {{ old('concepto', 2) == 2 ? 'selected' : '' }}>Servicios</option>
@@ -244,7 +251,6 @@
             </div>
 
             @if($presupuesto)
-            <input type="hidden" name="presupuesto_id" value="{{ $presupuesto->id }}">
             <div style="padding:10px 12px;background:#0d0d0d;border:1px solid var(--bm);border-radius:8px;font-size:12px;color:var(--txd);margin-top:12px">
                 Basado en presupuesto
                 <span class="mono" style="color:var(--ac)">{{ $presupuesto->numeroFormateado() }}</span>
@@ -296,7 +302,9 @@
 @section('scripts')
 <script>
 (function () {
-    let rowIndex = {{ max(1, $presupuesto?->items->count() ?? 0) }};
+    // Próximo índice para filas nuevas = cantidad de filas ya renderizadas
+    // (así no colisiona con las que vuelven de un borrador / error).
+    let rowIndex = $('#items-body tr.item-row').length;
 
     // ── Helpers ──────────────────────────────────────────────────────────
     function fmt(v) {
@@ -524,8 +532,41 @@
 
 // ── Modal confirmación emisión ──────────────────────────────────────────
 function confirmarEmision() {
-    const modal = document.getElementById('modal-confirmar');
-    modal.style.display = 'flex';
+    // Validación cliente-side ANTES de abrir el modal.
+    // El "Sí, emitir" hace form.submit() por JS y saltea la validación HTML5,
+    // por eso validamos los campos obligatorios acá a mano.
+    const errores = [];
+
+    // Cliente — obligatorio
+    if (!$('#sel-cliente').val()) {
+        errores.push('Seleccioná un cliente (campo obligatorio).');
+    }
+
+    // N° documento — obligatorio salvo Consumidor Final (doc_tipo 99)
+    if ($('#sel-doc-tipo').val() !== '99' && !$('input[name="doc_nro"]').val().trim()) {
+        errores.push('Ingresá el N° de documento del receptor.');
+    }
+
+    // Al menos un ítem con descripción y cantidad > 0
+    let itemsOk = false;
+    $('.item-row').each(function () {
+        const desc = ($(this).find('input[name*="[descripcion]"]').val() || '').trim();
+        const cant = parseFloat($(this).find('.item-cant').val()) || 0;
+        if (desc && cant > 0) itemsOk = true;
+    });
+    if (!itemsOk) {
+        errores.push('Cargá al menos un ítem con descripción y cantidad.');
+    }
+
+    if (errores.length) {
+        alert('No se puede emitir todavía:\n\n• ' + errores.join('\n• '));
+        if (!$('#sel-cliente').val()) {
+            $('#sel-cliente').select2('open'); // abrir el buscador de cliente
+        }
+        return;
+    }
+
+    document.getElementById('modal-confirmar').style.display = 'flex';
 }
 function cerrarModal() {
     document.getElementById('modal-confirmar').style.display = 'none';

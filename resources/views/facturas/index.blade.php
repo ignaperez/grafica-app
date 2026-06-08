@@ -8,6 +8,46 @@
 
 @section('content')
 
+@if(isset($borradores) && $borradores->count())
+<div class="gcard" style="margin-bottom:16px;border-color:#3a2a14">
+    <div class="gcard-hd" style="background:#1a1206">
+        <span class="gcard-title" style="color:#e0a23a">💾 Borradores pendientes</span>
+        <span class="txd" style="font-size:12px">{{ $borradores->count() }} sin emitir</span>
+    </div>
+    <div class="gcard-bd" style="padding:0">
+        <table class="gtable">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th style="text-align:right">Total estimado</th>
+                    <th>Motivo</th>
+                    <th>Guardado</th>
+                    <th style="width:170px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($borradores as $b)
+                <tr>
+                    <td style="color:var(--tx)">{{ $b->cliente->nombre ?? 'Sin cliente' }}</td>
+                    <td style="text-align:right" class="mono">${{ number_format($b->total, 2, ',', '.') }}</td>
+                    <td class="txd" style="font-size:12px;max-width:320px">{{ \Illuminate\Support\Str::limit($b->error, 80) ?: '—' }}</td>
+                    <td class="txd" style="font-size:12px">{{ $b->updated_at->format('d/m/Y H:i') }}</td>
+                    <td style="text-align:right">
+                        <a href="{{ route('facturas.create', ['borrador_id' => $b->id]) }}" class="gbtn gbtn-primary gbtn-xs">Retomar</a>
+                        <form method="POST" action="{{ route('facturas.borradores.destroy', $b->id) }}" style="display:inline"
+                              onsubmit="return confirm('¿Eliminar este borrador?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="gbtn gbtn-danger gbtn-xs">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 <div class="gcard">
     <div class="gcard-hd">
         <span class="gcard-title">Comprobantes emitidos</span>
