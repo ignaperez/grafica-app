@@ -47,12 +47,21 @@ class RemitoController extends Controller
         $puedeOficial = in_array($rol, ['admin', 'ventas']);
         $caiVigente   = $puedeOficial ? RemitoCai::vigente() : null;
 
+        // CAIs utilizables (activos, con stock) para resolver la vigencia por
+        // fecha del remito en el front (no solo contra hoy).
+        $cais = $puedeOficial
+            ? RemitoCai::where('activo', true)
+                ->whereRaw('ultimo_numero < numero_hasta')
+                ->orderByDesc('id')
+                ->get(['id', 'punto_venta', 'vencimiento', 'ultimo_numero', 'numero_hasta'])
+            : collect();
+
         // Remito electrónico disponible si hay PV REM configurado
         $pvRem         = (int) \App\Models\Configuracion::get('arca_pv_rem', 0);
         $puedeElectronico = $puedeOficial && $pvRem > 0;
 
         return view('remitos.create', compact(
-            'presupuesto', 'factura', 'puedeOficial', 'caiVigente', 'puedeElectronico', 'pvRem'
+            'presupuesto', 'factura', 'puedeOficial', 'caiVigente', 'cais', 'puedeElectronico', 'pvRem'
         ));
     }
 
@@ -126,18 +135,28 @@ class RemitoController extends Controller
         }
 
         // ── Asignar CAI si es oficial (papel) ────────────────────────────
+        // La vigencia se evalúa contra la FECHA del remito (no contra hoy),
+        // así un remito fechado el día 4 usa el CAI que vencía el día 4.
         if ($tipo === 'oficial') {
-            $cai = RemitoCai::vigente();
-            if ($cai) {
-                $nroFiscal = $cai->reservarNumero();
-                if ($nroFiscal) {
-                    $remData = [
-                        'remito_cai_id' => $cai->id,
-                        'numero_fiscal' => $nroFiscal,
-                        'punto_venta'   => $cai->punto_venta,
-                    ];
-                }
+            $cai = RemitoCai::vigenteParaFecha($request->fecha);
+            if (!$cai) {
+                return back()->withInput()->with('error',
+                    'No hay ningún CAI válido para la fecha ' .
+                    \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') .
+                    ' con números disponibles. Revisá la fecha del remito o cargá/activá el CAI correspondiente.'
+                );
             }
+            $nroFiscal = $cai->reservarNumero();
+            if (!$nroFiscal) {
+                return back()->withInput()->with('error',
+                    'El CAI ' . $cai->codigo . ' ya no tiene números disponibles (rango agotado).'
+                );
+            }
+            $remData = [
+                'remito_cai_id' => $cai->id,
+                'numero_fiscal' => $nroFiscal,
+                'punto_venta'   => $cai->punto_venta,
+            ];
         }
 
         $remito = Remito::create(array_merge([

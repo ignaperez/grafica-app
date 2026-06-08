@@ -202,12 +202,8 @@
                     <label id="lbl-oficial" style="border:1px solid var(--bm);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s;{{ old('tipo','interno') === 'oficial' ? 'border-color:var(--ac);background:rgba(230,80,42,.08)' : '' }}">
                         <input type="radio" name="tipo" value="oficial" {{ old('tipo','interno') === 'oficial' ? 'checked' : '' }} style="display:none" class="tipo-radio">
                         <div style="font-size:13px;font-weight:600;color:var(--tx)">Oficial (CAI)</div>
-                        <div style="font-size:11px;color:var(--txd);margin-top:2px">
-                            @if($caiVigente)
-                                PV {{ $caiVigente->punto_venta }} · nro {{ $caiVigente->ultimo_numero + 1 }}
-                            @else
-                                <span style="color:var(--ac)">Sin CAI vigente</span>
-                            @endif
+                        <div id="oficial-info" style="font-size:11px;color:var(--txd);margin-top:2px">
+                            {{-- Lo completa el JS según la fecha elegida --}}
                         </div>
                     </label>
 
@@ -330,6 +326,35 @@
         $('#nro-sugerido').text('R-' + String(nro).padStart(4, '0'));
     }
     actualizarNroSugerido();
+
+    // ── CAI vigente según la FECHA del remito (no solo hoy) ──────────────
+    var cais = [
+        @foreach($cais as $c)
+        { venc: '{{ $c->vencimiento->toDateString() }}', pv: {{ $c->punto_venta }}, prox: {{ $c->ultimo_numero + 1 }}, hasta: {{ $c->numero_hasta }} },
+        @endforeach
+    ];
+
+    // Mismo criterio que el server (vigenteParaFecha): activo + venc >= fecha
+    // + con stock, ya vienen ordenados por id desc.
+    function caiParaFecha(fecha) {
+        for (var i = 0; i < cais.length; i++) {
+            if (cais[i].venc >= fecha && cais[i].prox <= cais[i].hasta) return cais[i];
+        }
+        return null;
+    }
+
+    function actualizarLabelOficial() {
+        var fecha = $('input[name="fecha"]').val() || '';
+        var c = caiParaFecha(fecha);
+        if (c) {
+            $('#oficial-info').html('PV ' + String(c.pv).padStart(4, '0') + ' · nro ' + c.prox)
+                              .css('color', 'var(--txd)');
+        } else {
+            $('#oficial-info').html('<span style="color:var(--ac)">Sin CAI para esa fecha</span>');
+        }
+    }
+    actualizarLabelOficial();
+    $(document).on('change', 'input[name="fecha"]', actualizarLabelOficial);
 
     // ── Selector tipo remito ─────────────────────────────────────────────
     $(document).on('change', '.tipo-radio', function () {

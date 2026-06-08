@@ -40,14 +40,27 @@ class RemitoCai extends Model
     // Helpers de estado
     // -------------------------------------------------------
 
-    /** Devuelve el CAI activo vigente (no vencido, con números disponibles) o null. */
-    public static function vigente(): ?self
+    /**
+     * Devuelve el CAI válido PARA UNA FECHA dada (no vencido a esa fecha, activo,
+     * con números disponibles) o null. La vigencia se evalúa contra la fecha del
+     * remito, no contra hoy: así un remito con fecha del día 4 puede usar el CAI
+     * que vencía el día 4 aunque hoy ya esté vencido.
+     */
+    public static function vigenteParaFecha($fecha): ?self
     {
+        $fecha = Carbon::parse($fecha)->toDateString();
+
         return static::where('activo', true)
-            ->whereDate('vencimiento', '>=', now()->toDateString())
+            ->whereDate('vencimiento', '>=', $fecha)
             ->whereRaw('ultimo_numero < numero_hasta')
             ->orderByDesc('id')
             ->first();
+    }
+
+    /** Devuelve el CAI activo vigente HOY (no vencido, con números disponibles) o null. */
+    public static function vigente(): ?self
+    {
+        return static::vigenteParaFecha(now());
     }
 
     /** Reserva el siguiente número. Devuelve el número asignado o null si no hay stock. */
