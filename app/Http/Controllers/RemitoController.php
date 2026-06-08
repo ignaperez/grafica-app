@@ -78,6 +78,22 @@ class RemitoController extends Controller
             $tipo = 'interno';
         }
 
+        // Número interno correlativo: manual si vino, sino el siguiente del tipo.
+        // Cada tipo (interno/oficial/electronico) tiene su PROPIA secuencia.
+        $numeroFinal = $request->filled('numero_manual')
+            ? (int) $request->numero_manual
+            : Remito::proximoNumero($tipo);
+
+        // Guard amistoso: evitar el choque de número dentro del mismo tipo
+        // (incluye soft-deleted) ANTES de pegarle a ARCA/CAI, así no gastamos
+        // un número fiscal ni tiramos un 500 por la restricción única.
+        if (Remito::withTrashed()->where('tipo', $tipo)->where('numero', $numeroFinal)->exists()) {
+            return back()->withInput()->with('error',
+                'Ya existe un remito ' . $tipo . ' con el número R-' .
+                str_pad($numeroFinal, 4, '0', STR_PAD_LEFT) . '. Probá con otro número.'
+            );
+        }
+
         // ── Remito Electrónico (WSREMV1) ────────────────────────────────────
         $remData = [];
         if ($tipo === 'electronico') {
@@ -123,13 +139,6 @@ class RemitoController extends Controller
                 }
             }
         }
-
-        // Número: manual si se proporcionó, sino el siguiente automático
-        $numeroFinal = $request->filled('numero_manual')
-            ? (int) $request->numero_manual
-            : (in_array($tipo, ['oficial','electronico'])
-                ? Remito::proximoNumeroOficial()
-                : Remito::proximoNumero());
 
         $remito = Remito::create(array_merge([
             'numero'           => $numeroFinal,

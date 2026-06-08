@@ -68,16 +68,20 @@ class Remito extends Model
         return $this->numeroFormateado();
     }
 
-    /** Próximo número para remitos INTERNOS (secuencia propia, sin mezclar con oficiales). */
-    public static function proximoNumero(): int
+    /**
+     * Próximo número correlativo para un tipo dado. Cada tipo
+     * (interno / oficial / electronico) tiene su propia secuencia.
+     * Cuenta también los soft-deleted para no reutilizar números.
+     */
+    public static function proximoNumero(string $tipo = 'interno'): int
     {
-        return (static::withTrashed()->where('tipo', 'interno')->max('numero') ?? 0) + 1;
+        return (static::withTrashed()->where('tipo', $tipo)->max('numero') ?? 0) + 1;
     }
 
-    /** Próximo número para remitos OFICIALES (contador separado, solo para referencia interna). */
+    /** Alias para remitos OFICIALES (papel con CAI). */
     public static function proximoNumeroOficial(): int
     {
-        return (static::withTrashed()->where('tipo', 'oficial')->max('numero') ?? 0) + 1;
+        return static::proximoNumero('oficial');
     }
 
     public function estadoLabel(): string

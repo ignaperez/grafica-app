@@ -318,12 +318,15 @@
     });
 
     // ── Número sugerido según tipo ───────────────────────────────────────
-    var nroInterno  = {{ \App\Models\Remito::proximoNumero() }};
-    var nroOficial  = {{ \App\Models\Remito::proximoNumeroOficial() }};
+    var nroInterno     = {{ \App\Models\Remito::proximoNumero('interno') }};
+    var nroOficial     = {{ \App\Models\Remito::proximoNumero('oficial') }};
+    var nroElectronico = {{ \App\Models\Remito::proximoNumero('electronico') }};
 
     function actualizarNroSugerido() {
         var tipo = $('input[name="tipo"]:checked').val() || 'interno';
-        var nro  = (tipo === 'oficial') ? nroOficial : nroInterno;
+        var nro  = tipo === 'oficial'     ? nroOficial
+                 : tipo === 'electronico' ? nroElectronico
+                 : nroInterno;
         $('#nro-sugerido').text('R-' + String(nro).padStart(4, '0'));
     }
     actualizarNroSugerido();
