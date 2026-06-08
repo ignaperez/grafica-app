@@ -4,8 +4,8 @@
 
 @section('topbar-actions')
     <a href="{{ route('facturas.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
-    <a href="{{ route('facturas.print', $factura->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Imprimir</a>
-    <a href="{{ route('facturas.print', $factura->id) }}?auto=1" class="gbtn gbtn-primary gbtn-sm" target="_blank">⬇ Descargar PDF</a>
+    <a href="{{ route('facturas.pdf', $factura->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Ver / Imprimir</a>
+    <a href="{{ route('facturas.pdf', ['factura' => $factura->id, 'download' => 1]) }}" class="gbtn gbtn-primary gbtn-sm">⬇ Descargar PDF</a>
 @endsection
 
 @section('content')

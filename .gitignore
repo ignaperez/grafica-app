@@ -10,6 +10,8 @@
 /certi
 /TEMPORAL.txt
 /storage/pail
+/storage/tenant*
+/storage/app/mpdf
 /vendor
 .env
 .env.backup

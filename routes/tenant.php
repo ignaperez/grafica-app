@@ -193,6 +193,7 @@ Route::middleware([
         Route::resource('listas-precios', ListaPrecioController::class)->parameters(['listas-precios' => 'listaPrecio']);
 
         Route::get('/facturas/{factura}/print',              [FacturaController::class, 'print'])->name('facturas.print');
+        Route::get('/facturas/{factura}/pdf',                [FacturaController::class, 'pdf'])->name('facturas.pdf');
         Route::post('/facturas/preview',                     [FacturaController::class, 'preview'])->name('facturas.preview');
         Route::delete('/facturas/borradores/{borrador}',     [FacturaController::class, 'destroyBorrador'])->name('facturas.borradores.destroy');
         Route::post('/presupuestos/{presupuesto}/facturar',  [FacturaController::class, 'fromPresupuesto'])->name('facturas.from-presupuesto');

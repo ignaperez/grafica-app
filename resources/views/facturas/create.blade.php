@@ -38,10 +38,11 @@
             <table class="gtable" id="tabla-items">
                 <thead>
                     <tr>
-                        <th style="width:45%">Descripción</th>
-                        <th style="width:15%;text-align:center">Cantidad</th>
-                        <th style="width:20%;text-align:right">Precio unitario</th>
-                        <th style="width:15%;text-align:right">Subtotal</th>
+                        <th style="width:40%">Descripción</th>
+                        <th style="width:13%;text-align:center">Cantidad</th>
+                        <th style="width:13%;text-align:center">U. Medida</th>
+                        <th style="width:17%;text-align:right">Precio unitario</th>
+                        <th style="width:12%;text-align:right">Subtotal</th>
                         <th style="width:5%"></th>
                     </tr>
                 </thead>
@@ -70,6 +71,7 @@
                         @php
                             $descFac   = $item['descripcion']     ?? '';
                             $cantFac   = $item['cantidad']         ?? 1;
+                            $unidadFac = $item['unidad']           ?? 'unidad';
                             $precioFac = $item['precio_unitario']  ?? '';
                             $subFac    = round((float) $cantFac * (float) $precioFac, 2);
                         @endphp
@@ -86,6 +88,13 @@
                                     value="{{ $cantFac }}"
                                     min="0.001" step="0.001" required
                                     style="text-align:center;width:80px">
+                            </td>
+                            <td style="text-align:center">
+                                <select name="items[{{ $i }}][unidad]" class="gselect ginput-sm item-unidad" style="width:90px">
+                                    <option value="unidad" {{ $unidadFac === 'unidad' ? 'selected' : '' }}>unidad</option>
+                                    <option value="m2"     {{ $unidadFac === 'm2'     ? 'selected' : '' }}>m²</option>
+                                    <option value="ml"     {{ $unidadFac === 'ml'     ? 'selected' : '' }}>ml</option>
+                                </select>
                             </td>
                             <td style="text-align:right">
                                 <input type="number" name="items[{{ $i }}][precio_unitario]"
@@ -352,6 +361,13 @@
                     class="ginput ginput-sm item-cant"
                     value="1" min="0.001" step="0.001" required
                     style="text-align:center;width:80px">
+            </td>
+            <td style="text-align:center">
+                <select name="items[${i}][unidad]" class="gselect ginput-sm item-unidad" style="width:90px">
+                    <option value="unidad">unidad</option>
+                    <option value="m2">m²</option>
+                    <option value="ml">ml</option>
+                </select>
             </td>
             <td style="text-align:right">
                 <input type="number" name="items[${i}][precio_unitario]"

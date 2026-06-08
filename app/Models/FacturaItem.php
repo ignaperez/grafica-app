@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class FacturaItem extends Model
 {
     protected $fillable = [
-        'factura_id', 'descripcion', 'cantidad',
+        'factura_id', 'descripcion', 'cantidad', 'unidad',
         'precio_unitario', 'subtotal', 'alicuota_iva', 'orden',
     ];
 

@@ -89,6 +89,7 @@ class FacturaController extends Controller
             'items'          => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:255',
             'items.*.cantidad'        => 'required|numeric|min:0.001',
+            'items.*.unidad'          => 'nullable|in:unidad,m2,ml',
             'items.*.precio_unitario' => 'required|numeric|min:0',
             // Comprobante original (solo para NCs)
             'nc_tipo'    => $isNC ? 'required|in:1,6,11' : 'nullable|integer',
@@ -189,6 +190,7 @@ class FacturaController extends Controller
                 'factura_id'      => $factura->id,
                 'descripcion'     => $it['descripcion'],
                 'cantidad'        => $it['cantidad'],
+                'unidad'          => $it['unidad'] ?? 'unidad',
                 'precio_unitario' => $it['precio_unitario'],
                 'subtotal'        => $subtotal,
                 'alicuota_iva'    => $cbteTipo === 11 ? 0 : 21,
@@ -229,6 +231,25 @@ class FacturaController extends Controller
     {
         $factura->load(['cliente', 'items']);
         return view('facturas.print', compact('factura'));
+    }
+
+    /**
+     * PDF A4 generado con mPDF (paginación nativa, encabezado/pie repetidos).
+     * ?download=1 fuerza la descarga; sin eso se muestra inline en el navegador.
+     */
+    public function pdf(Request $request, Factura $factura)
+    {
+        $service = new \App\Services\FacturaPdfService();
+        $mpdf    = $service->generar($factura);
+        $pdf     = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+
+        $nombre      = $service->nombreArchivo($factura) . '.pdf';
+        $disposition = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $nombre . '"',
+        ]);
     }
 
     // ── Vista previa (sin llamar a ARCA) ─────────────────────────────────

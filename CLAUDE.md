@@ -515,6 +515,36 @@ persiste un borrador en DB cuando una emisión falla.
   `show` porque es DELETE).
 - Las migraciones se corren con `php artisan tenants:migrate` (tabla per-tenant, NO `migrate`).
 
+### Factura PDF A4 con mPDF (2026-06-08)
+PDF fiscal generado **en el servidor** con `mpdf/mpdf` (reemplaza el `window.print()` viejo).
+Premisas: A4 fijo sin deformar, paginación real (ítems nunca atrás del pie), encabezado + pie
+repetidos en cada hoja, N° de hoja `X/Y`, y **total solo en la última hoja**.
+
+- **Librerías:** `mpdf/mpdf ^8.3` (PHP puro, sin binarios) + `endroid/qr-code ^6.0` (QR local,
+  NO se usa más `api.qrserver.com`). Requieren `gd` + `mbstring` (presentes en local y VPS).
+- **Servicio:** `App\Services\FacturaPdfService::generar(Factura): Mpdf`.
+  - `SetHTMLHeader` (emisor + letra + comprobante + cliente) y `SetHTMLFooter`
+    (CAE + QR + código de barras AFIP + `Pág. {PAGENO}/{nbpg}`) → se repiten en TODA hoja.
+  - Cuerpo = tabla de ítems (mPDF pagina solo y repite el `<thead>`) + totales/transparencia/
+    monto-en-letras al final → caen en la última hoja.
+  - `margin_top: 55`, `margin_bottom: 40` reservan el alto del header/footer. **Gotcha clave:**
+    el QR debe llevar tamaño explícito (`style="width:20mm;height:20mm"` en el `<img>`), si no
+    mPDF lo renderiza a su tamaño natural (~200px ≈ 53mm) y el pie pisa los últimos ítems.
+  - Código de barras: `<barcode type="I25">` nativo de mPDF; contenido AFIP =
+    CUIT+TipoCbte+PV+CAE+VtoCAE+DV (dígito verificador módulo 10 base 3).
+  - Toda la lógica fiscal (letra, desglose IVA, monto en letras, filename) está portada de
+    `facturas/print.blade.php`.
+- **Vistas mPDF** (HTML compatible: tablas, sin flex/`var()`/`position:absolute`):
+  `resources/views/facturas/pdf/{styles,header,body,footer}.blade.php`.
+- **Ruta:** `GET /facturas/{factura}/pdf` → `facturas.pdf` (inline; `?download=1` fuerza descarga).
+  Registrada ANTES del `Route::resource('facturas')`. Botones de `index`/`show` ya apuntan acá.
+- **U. Medida por ítem:** se agregó `unidad` a `factura_items` (default `unidad`, opciones
+  `unidad`/`m2`/`ml`) + selector en `facturas/create.blade`. Migración en `tenant/` y central.
+- **tempDir mPDF:** `storage/app/mpdf` (el servicio lo crea si falta). En contexto tenant el
+  storage se suffixa (`storage/tenant<id>/...`), pero el servicio usa `storage_path()` que ya
+  resuelve el path del tenant.
+- **Deploy:** requiere `composer install` en el VPS (trae mpdf+endroid) + `tenants:migrate`.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)
