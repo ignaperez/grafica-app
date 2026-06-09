@@ -545,6 +545,23 @@ repetidos en cada hoja, N° de hoja `X/Y`, y **total solo en la última hoja**.
   resuelve el path del tenant.
 - **Deploy:** requiere `composer install` en el VPS (trae mpdf+endroid) + `tenants:migrate`.
 
+### Remito PDF A4 con mPDF (2026-06-08)
+Mismo formato/concepto que la factura PDF, pero **sin precios, sin total y sin QR/CAE**: el
+remito usa su **propio código** (CAI papel, autorización electrónica ARCA, o nada si es interno).
+- **Servicio:** `App\Services\RemitoPdfService` (espeja a `FacturaPdfService`).
+  - Header repetido: emisor + letra **R** + `REMITO` + nº + fecha + tipo + destinatario.
+  - Body: tabla `# · Descripción · Cantidad · Unidad` (sin precios). Sin total.
+  - Cierre (solo última hoja): **Observaciones** + firma **"Recibí conforme"**.
+  - Footer repetido: bloque de código fiscal según `tipo` →
+    `tieneCai()` → CAI (código + vto + nº + barcode), `tieneAutorizacion()` → Código de
+    Autorización ARCA (+ barcode), interno → nada (solo nota). Más empresa + `Pág {PAGENO}/{nbpg}`.
+- **Gotcha barcode:** el `<barcode type="C128">` de mPDF **no renderiza** en ese contexto;
+  se usa **`type="I25"`** (el mismo que la factura). I25 requiere longitud PAR → el servicio
+  antepone `0` si el código tiene dígitos impares.
+- **Vistas:** `resources/views/remitos/pdf/{styles,header,body,footer}.blade.php`.
+- **Ruta:** `GET /remitos/{remito}/pdf` → `remitos.pdf` (inline; `?download=1`). Botones de
+  `index`/`show` ya apuntan acá. NO necesita migración (no toca DB).
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

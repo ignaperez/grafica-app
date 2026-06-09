@@ -4,7 +4,8 @@
 
 @section('topbar-actions')
     <a href="{{ route('remitos.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
-    <a href="{{ route('remitos.print', $remito->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Imprimir</a>
+    <a href="{{ route('remitos.pdf', $remito->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Ver / Imprimir</a>
+    <a href="{{ route('remitos.pdf', ['remito' => $remito->id, 'download' => 1]) }}" class="gbtn gbtn-primary gbtn-sm">⬇ Descargar PDF</a>
 @endsection
 
 @section('content')

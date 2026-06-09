@@ -161,6 +161,7 @@ Route::middleware([
             ->name('vehiculos-ploteo.destroy-foto');
 
         Route::get('/remitos/{remito}/print',   [RemitoController::class, 'print'])->name('remitos.print');
+        Route::get('/remitos/{remito}/pdf',      [RemitoController::class, 'pdf'])->name('remitos.pdf');
         Route::patch('/remitos/{remito}/estado', [RemitoController::class, 'cambiarEstado'])->name('remitos.estado');
         Route::resource('remitos', RemitoController::class)->only(['index', 'create', 'store', 'show', 'destroy']);
 

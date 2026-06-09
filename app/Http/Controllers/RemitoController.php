@@ -198,6 +198,25 @@ class RemitoController extends Controller
         return view('remitos.print', compact('remito'));
     }
 
+    /**
+     * PDF A4 generado con mPDF (mismo formato que la factura, sin precios/total
+     * ni QR/CAE — usa el código propio del remito). ?download=1 fuerza descarga.
+     */
+    public function pdf(Request $request, Remito $remito)
+    {
+        $service = new \App\Services\RemitoPdfService();
+        $mpdf    = $service->generar($remito);
+        $pdf     = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+
+        $nombre      = $service->nombreArchivo($remito) . '.pdf';
+        $disposition = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $nombre . '"',
+        ]);
+    }
+
     public function cambiarEstado(Request $request, Remito $remito)
     {
         $request->validate(['estado' => 'required|in:pendiente,entregado,cancelado']);
