@@ -1,15 +1,15 @@
 <table class="pie">
     <tr>
-        {{-- QR ARCA --}}
+        {{-- QR ARCA (un poco más grande) --}}
         <td class="pie-qr">
             @if($qrData)
-                <img src="{{ $qrData }}" alt="QR ARCA" style="width:20mm;height:20mm">
+                <img src="{{ $qrData }}" alt="QR ARCA" style="width:27mm;height:27mm">
             @else
                 <div class="b" style="color:#c00">Sin<br>CAE</div>
             @endif
         </td>
 
-        {{-- Autorización CAE --}}
+        {{-- Autorización CAE (sin código de barras: el QR ya lo contiene) --}}
         <td class="pie-cae">
             @if($factura->tieneCAE())
                 <div class="cae-auth">Comprobante Autorizado</div>
@@ -20,17 +20,10 @@
             @endif
         </td>
 
-        {{-- Código de barras AFIP --}}
-        <td class="pie-bc">
-            @if($barcode)
-                <barcode code="{{ $barcode }}" type="I25" size="0.5" height="0.7" />
-                <div class="bc-num">{{ $barcode }}</div>
-            @endif
+        <td class="pie-emp">
+            <div>{{ $empresa['nombre'] }}</div>
+            @if($cuitFmt && $cuitFmt !== '—')<div>CUIT {{ $cuitFmt }}</div>@endif
+            <div class="pie-pag">Pág. {PAGENO}/{nbpg}</div>
         </td>
     </tr>
 </table>
-
-<div class="pie-pag">
-    {{ $empresa['nombre'] }}@if($cuitFmt && $cuitFmt !== '—') · CUIT {{ $cuitFmt }}@endif
-    &nbsp;&nbsp;&nbsp; Pág. {PAGENO}/{nbpg}
-</div>

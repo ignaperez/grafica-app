@@ -36,14 +36,23 @@
     </tbody>
 </table>
 
-{{-- ── Totales (caen solo en la última hoja) ── --}}
-<table style="width:100%;border:none;border-collapse:collapse" class="tot-wrap">
+{{-- Régimen de Transparencia Fiscal (Ley 27.743) — solo B y C --}}
+@if(!$ivaDiscriminado)
+<div class="transp">
+    <div class="transp-t">Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>
+    <div>IVA Contenido: $ {{ $fmtMoney($ivaContenido) }} &nbsp;·&nbsp; Otros Impuestos Nacionales Indirectos: $ 0,00</div>
+</div>
+@endif
+
+{{-- ── Banda inferior: Observaciones (izq) + Total (der). Cae en la última hoja, arriba del pie. ── --}}
+<table class="cierre">
     <tr>
-        <td style="border:none;width:52%;vertical-align:bottom">
-            <div class="monto-letras b">Son {{ $montoLetras }}</div>
+        <td class="cierre-obs">
+            <div class="obs-t">Observaciones</div>
+            <div>{{ $factura->observaciones ?: '—' }}</div>
         </td>
-        <td style="border:none;width:48%">
-            <table class="tot" style="width:100%">
+        <td class="cierre-tot">
+            <table style="width:100%;border:none;border-collapse:collapse">
                 @if($ivaDiscriminado)
                     <tr><td class="lbl muted">Subtotal neto:</td><td class="val">$ {{ $fmtMoney($sumaBase) }}</td></tr>
                     @foreach($desgloseIva as $d)
@@ -52,19 +61,7 @@
                 @endif
                 <tr class="tot-final"><td class="lbl">Total (SEUO): ARS</td><td class="val">{{ $fmtMoney($factura->imp_total) }}</td></tr>
             </table>
+            <div class="tot-words">Son {{ $montoLetras }}</div>
         </td>
     </tr>
 </table>
-
-{{-- Régimen de Transparencia Fiscal (Ley 27.743) — solo B y C --}}
-@if(!$ivaDiscriminado)
-<div class="transp">
-    <div class="transp-t">Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>
-    <div>IVA Contenido: $ {{ $fmtMoney($ivaContenido) }}</div>
-    <div>Otros Impuestos Nacionales Indirectos: $ 0,00</div>
-</div>
-@endif
-
-@if($factura->observaciones)
-<div class="obs"><span class="b">Comentarios:</span> {{ $factura->observaciones }}</div>
-@endif

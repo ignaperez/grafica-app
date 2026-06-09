@@ -37,8 +37,8 @@ class FacturaPdfService
             'format'        => 'A4',
             'margin_left'   => 7,
             'margin_right'  => 7,
-            'margin_top'    => 55,   // reserva para el encabezado repetido
-            'margin_bottom' => 40,   // reserva para el pie repetido
+            'margin_top'    => 64,   // reserva para el encabezado repetido (más alto)
+            'margin_bottom' => 38,   // reserva para el pie repetido (QR + CAE)
             'margin_header' => 5,
             'margin_footer' => 5,
             'default_font'  => 'dejavusans',
@@ -128,7 +128,6 @@ class FacturaPdfService
             'cuitFmt'         => $this->fmtCuit($empresa['cuit'] ?? ''),
             'logoData'        => $this->logoDataUri($empresa['logo'] ?? ''),
             'qrData'          => $factura->tieneCAE() ? $this->qrDataUri($factura->qrUrl()) : null,
-            'barcode'         => $factura->tieneCAE() ? $this->barcodeAfip($factura, $empresa) : null,
             'fileNombre'      => $this->fileNombre($factura),
         ];
     }
@@ -163,38 +162,6 @@ class FacturaPdfService
         } catch (\Throwable $e) {
             return null;
         }
-    }
-
-    // ── Código de barras AFIP (Interleaved 2of5): CUIT+TipoCbte+PV+CAE+VtoCAE+DV ──
-
-    private function barcodeAfip(Factura $factura, array $empresa): ?string
-    {
-        $cuit = preg_replace('/\D/', '', $empresa['cuit'] ?? '');
-        if (strlen($cuit) !== 11 || !$factura->cae || !$factura->cae_vencimiento) {
-            return null;
-        }
-
-        $base = $cuit
-            . str_pad((string) $factura->tipo,        2, '0', STR_PAD_LEFT)
-            . str_pad((string) $factura->punto_venta, 4, '0', STR_PAD_LEFT)
-            . str_pad((string) $factura->cae,         14, '0', STR_PAD_LEFT)
-            . $factura->cae_vencimiento->format('Ymd');
-
-        return $base . $this->digitoVerificador($base);
-    }
-
-    /** Dígito verificador módulo 10 base 3 (algoritmo AFIP). */
-    private function digitoVerificador(string $numero): int
-    {
-        $impares = 0;
-        $pares   = 0;
-        $rev     = strrev($numero);
-        for ($i = 0, $n = strlen($rev); $i < $n; $i++) {
-            $d = (int) $rev[$i];
-            if ($i % 2 === 0) $impares += $d; else $pares += $d;
-        }
-        $total = $impares * 3 + $pares;
-        return (10 - ($total % 10)) % 10;
     }
 
     // ── Monto en letras ─────────────────────────────────────────────────────
