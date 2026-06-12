@@ -4,6 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        // Aplica el tema guardado antes de pintar (sin parpadeo)
+        (function () {
+            try {
+                if (localStorage.getItem('theme') === 'light') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <title>{{ \App\Models\Configuracion::empresa()['nombre_factura'] ?: config('app.name') }}@hasSection('page-title') — @yield('page-title')@endif</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -154,6 +164,60 @@
             .page-content{padding:16px 14px 36px}
             .topbar{padding:0 16px}
         }
+
+        /* ── THEME TOGGLE BUTTON ─────────────────────────────── */
+        .theme-toggle{background:none;border:1px solid var(--bm);color:var(--txd);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+        .theme-toggle:hover{color:var(--tx);border-color:var(--txd)}
+        .theme-ico-to-dark{display:none}
+        :root[data-theme="light"] .theme-ico-to-light{display:none}
+        :root[data-theme="light"] .theme-ico-to-dark{display:inline}
+
+        /* ── LIGHT THEME ─────────────────────────────────────── */
+        :root[data-theme="light"]{
+            --bg:#f4f3f1;
+            --bg-s:#ffffff;
+            --bg-h:#eeece8;
+            --b:#e3e0da;
+            --bm:#d3cfc7;
+            --tx:#1f1d1a;
+            --txm:#9b968d;
+            --txd:#6c6760;
+        }
+        /* Sidebar */
+        [data-theme="light"] .s-name{color:#1f1d1a}
+        [data-theme="light"] .s-item{color:#6c6760}
+        [data-theme="light"] .s-item:hover{background:var(--bg-h);color:#1f1d1a}
+        [data-theme="light"] .s-item.on{background:var(--bg-h);color:#1f1d1a}
+        [data-theme="light"] .s-section{color:#9b968d}
+        [data-theme="light"] .dot{background:#c2bcb1}
+        [data-theme="light"] .s-trigger{color:#8a857c}
+        [data-theme="light"] .s-trigger:hover,[data-theme="light"] .s-trigger.open{color:#1f1d1a}
+        [data-theme="light"] .s-arrow{color:#8a857c}
+        [data-theme="light"] .s-trigger.open .s-arrow{color:#1f1d1a}
+        [data-theme="light"] .s-avatar{background:rgba(230,80,42,.1);border-color:rgba(230,80,42,.25)}
+        /* Topbar */
+        [data-theme="light"] .topbar-bc{color:#9b968d}
+        [data-theme="light"] .topbar-bc span{color:#5a5650}
+        /* Tables */
+        [data-theme="light"] .gtable th{color:#9b968d}
+        [data-theme="light"] .gtable td{border-bottom-color:var(--b)}
+        /* Forms */
+        [data-theme="light"] .ginput,[data-theme="light"] .gselect,[data-theme="light"] .gtextarea{background:#fff;color:var(--tx)}
+        [data-theme="light"] .ginput::placeholder{color:#b8b3aa}
+        [data-theme="light"] input[type="date"].ginput,[data-theme="light"] input[type="date"].ginput-date{color-scheme:light}
+        /* Progress */
+        [data-theme="light"] .gprog{background:#e3e0da}
+        /* Badges neutros */
+        [data-theme="light"] .be-borrador,[data-theme="light"] .be-pendiente{color:#6c6760;background:rgba(0,0,0,.03);border-color:#d3cfc7}
+        /* Flash */
+        [data-theme="light"] .flash-ok{background:#e8f6ec;border-color:#bce3c8}
+        [data-theme="light"] .flash-err{background:#fbeaea;border-color:#f0c4c4}
+        /* Botones ghost */
+        [data-theme="light"] .gbtn-ghost:hover{border-color:#c2bcb1}
+        /* Select2 */
+        [data-theme="light"] .select2-container--default .select2-selection--single{background:#fff}
+        [data-theme="light"] .select2-dropdown{background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+        [data-theme="light"] .select2-search--dropdown .select2-search__field{background:#fff}
     </style>
 </head>
 <body>
@@ -333,7 +397,12 @@
                 <strong>@yield('page-title', 'Dashboard')</strong>
             </div>
         </div>
-        <div>@yield('topbar-actions')</div>
+        <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Cambiar modo claro/oscuro" aria-label="Cambiar tema">
+                <span class="theme-ico-to-light">☀</span><span class="theme-ico-to-dark">🌙</span>
+            </button>
+            @yield('topbar-actions')
+        </div>
     </div>
 
     <div class="page-content">
@@ -383,6 +452,18 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+function toggleTheme() {
+    var html = document.documentElement;
+    var esClaro = html.getAttribute('data-theme') === 'light';
+    if (esClaro) {
+        html.removeAttribute('data-theme');
+        try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+    } else {
+        html.setAttribute('data-theme', 'light');
+        try { localStorage.setItem('theme', 'light'); } catch (e) {}
+    }
+}
+
 function toggleGroup(btn) {
     btn.classList.toggle('open');
     btn.nextElementSibling.classList.toggle('open');
