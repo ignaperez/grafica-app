@@ -54,6 +54,15 @@
                           placeholder="Condiciones, notas para el cliente...">{{ old('observaciones', $presupuesto->observaciones) }}</textarea>
             </div>
 
+            <div class="gfg" style="grid-column:1/-1">
+                <label class="glabel">🔒 Nota interna (privada)</label>
+                <textarea name="nota_interna" class="gtextarea" rows="2"
+                          placeholder="Solo para uso interno. NO se imprime ni se muestra al cliente.">{{ old('nota_interna', $presupuesto->nota_interna) }}</textarea>
+                <div class="txd" style="font-size:11px;margin-top:4px">
+                    No aparece en el PDF ni la ve el cliente. Para anotaciones tuyas.
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

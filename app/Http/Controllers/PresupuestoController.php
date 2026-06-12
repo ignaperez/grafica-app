@@ -37,6 +37,7 @@ class PresupuestoController extends Controller
             'fecha'             => 'required|date',
             'fecha_vencimiento' => 'nullable|date|after_or_equal:fecha',
             'observaciones'     => 'nullable|string',
+            'nota_interna'      => 'nullable|string',
             'items'             => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:255',
             'items.*.unidad'          => 'required|in:m2,ml,unidad',
@@ -63,6 +64,7 @@ class PresupuestoController extends Controller
             'fecha'             => $request->fecha,
             'fecha_vencimiento' => $request->fecha_vencimiento,
             'observaciones'     => $request->observaciones,
+            'nota_interna'      => $request->nota_interna,
             'total'             => 0,
             'created_by'        => auth()->id(),
             'updated_by'        => auth()->id(),
@@ -101,6 +103,7 @@ class PresupuestoController extends Controller
             'fecha'             => 'required|date',
             'fecha_vencimiento' => 'nullable|date|after_or_equal:fecha',
             'observaciones'     => 'nullable|string',
+            'nota_interna'      => 'nullable|string',
             'items'             => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:255',
             'items.*.unidad'          => 'required|in:m2,ml,unidad',
@@ -129,6 +132,7 @@ class PresupuestoController extends Controller
             'fecha'             => $request->fecha,
             'fecha_vencimiento' => $request->fecha_vencimiento,
             'observaciones'     => $request->observaciones,
+            'nota_interna'      => $request->nota_interna,
             'updated_by'        => auth()->id(),
         ])->save();
 

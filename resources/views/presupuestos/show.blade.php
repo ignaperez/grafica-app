@@ -69,6 +69,13 @@
                 </div>
                 @endif
 
+                @if($presupuesto->nota_interna)
+                <div style="grid-column:1/-1;border-top:1px solid var(--b);padding-top:12px;margin-top:4px">
+                    <div class="txd" style="font-size:11px;margin-bottom:4px">🔒 NOTA INTERNA (privada — no se imprime)</div>
+                    <div style="font-size:13px;white-space:pre-line;background:#1a1a1a;border-left:3px solid var(--ac);padding:8px 12px;border-radius:4px">{{ $presupuesto->nota_interna }}</div>
+                </div>
+                @endif
+
                 {{-- Auditoría --}}
                 <div style="grid-column:1/-1;border-top:1px solid var(--b);padding-top:12px;margin-top:4px;display:flex;gap:32px">
                     <div>

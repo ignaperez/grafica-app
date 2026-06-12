@@ -15,7 +15,7 @@ class Presupuesto extends Model
     protected $fillable = [
         'numero', 'cliente_id', 'lista_precio_id',
         'multiplicador', 'mo_m2', 'mo_ml', 'mo_unidad',
-        'estado', 'fecha', 'fecha_vencimiento', 'observaciones',
+        'estado', 'fecha', 'fecha_vencimiento', 'observaciones', 'nota_interna',
         'total', 'orden_trabajo_id',
         'created_by', 'updated_by',
     ];
