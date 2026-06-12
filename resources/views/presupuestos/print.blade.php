@@ -243,13 +243,35 @@
 </div>
 
 @php
-    $cfg = \App\Models\Configuracion::all()->pluck('valor', 'clave');
-    $empresa = $cfg->get('empresa_nombre', config('app.name'));
-    $cuit    = $cfg->get('empresa_cuit', '');
-    $dir     = $cfg->get('empresa_direccion', '');
-    $tel     = $cfg->get('empresa_telefono', '');
-    $owner   = $cfg->get('empresa_propietario', '');
-    $email   = $cfg->get('empresa_email', '');
+    // Mismos datos que la factura (helper unificado: tenant + configuracion)
+    $emp = \App\Models\Configuracion::empresa();
+
+    $empresa = $emp['nombre_factura'] ?: config('app.name'); // nombre mostrado
+    $owner   = $emp['propietario'];
+    $cuit    = $emp['cuit'];
+    $dir     = $emp['direccion'];
+    $tel     = $emp['telefono'];
+    $email   = $emp['email'];
+    $iibb    = $emp['iibb'];
+    $inicio  = $emp['inicio_actividades'];
+
+    $ivaLabel = fn ($c) => match ($c) {
+        'responsable_inscripto' => 'Responsable Inscripto',
+        'monotributo'           => 'Responsable Monotributo',
+        'exento'                => 'IVA Exento',
+        'consumidor_final'      => 'Consumidor Final',
+        default                 => $c ? ucfirst(str_replace('_', ' ', $c)) : '',
+    };
+    $empIva = $ivaLabel($emp['condicion_iva']);
+
+    // Logo dinámico: si el tenant cargó logo lo usa; si no, queda solo el nombre
+    $logoUrl = $emp['logo']
+        ? \Illuminate\Support\Facades\Storage::disk('public')->url($emp['logo'])
+        : null;
+
+    // Datos del cliente
+    $cli    = $presupuesto->cliente;
+    $cliIva = $ivaLabel($cli->condicion_iva ?? '');
 @endphp
 
 <div class="v1">
@@ -260,14 +282,20 @@
     <div class="page-hd">
         <header class="head">
             <div class="brand">
-                <img src="{{ asset('images/logo.png') }}" alt="{{ $empresa }}">
+                @if($logoUrl)
+                    <img src="{{ $logoUrl }}" alt="{{ $empresa }}">
+                @endif
                 <div class="brand-text">
                     <h1>{{ $empresa }}</h1>
                     <div class="meta">
                         @if($owner){{ $owner }}<br>@endif
                         @if($cuit)CUIT {{ $cuit }}<br>@endif
+                        @if($empIva){{ $empIva }}<br>@endif
+                        @if($iibb)IIBB {{ $iibb }}<br>@endif
+                        @if($inicio)Inicio activ. {{ $inicio }}<br>@endif
                         @if($dir){{ $dir }}<br>@endif
-                        @if($tel)Tel. {{ $tel }}@endif
+                        @if($tel)Tel. {{ $tel }}<br>@endif
+                        @if($email){{ $email }}@endif
                     </div>
                 </div>
             </div>
@@ -296,11 +324,13 @@
         <section class="who">
             <div class="block">
                 <div class="label">Cliente</div>
-                <div class="name">{{ $presupuesto->cliente->nombre }}</div>
+                <div class="name">{{ $cli->nombre }}</div>
                 <div class="row">
-                    @if($presupuesto->cliente->direccion){{ $presupuesto->cliente->direccion }}<br>@endif
-                    @if($presupuesto->cliente->email){{ $presupuesto->cliente->email }}<br>@endif
-                    @if($presupuesto->cliente->telefono)Tel. {{ $presupuesto->cliente->telefono }}@endif
+                    @if($cli->cuit)CUIT {{ $cli->cuit }}<br>@endif
+                    @if($cliIva){{ $cliIva }}<br>@endif
+                    @if($cli->direccion){{ $cli->direccion }}<br>@endif
+                    @if($cli->email){{ $cli->email }}<br>@endif
+                    @if($cli->telefono)Tel. {{ $cli->telefono }}@endif
                 </div>
             </div>
         </section>
@@ -359,7 +389,7 @@
 
         <div class="cond-pane">
             <h3>Condiciones y notas</h3>
-            <p>{{ $presupuesto->observaciones ?: 'Precios expresados en pesos argentinos. Se requiere seña del 50% para iniciar producción; saldo contra entrega.' }}</p>
+            <p>{{ $presupuesto->observaciones ?: \App\Models\Presupuesto::CONDICIONES_DEFAULT }}</p>
             <div class="cond-dates">
                 Emitido el {{ $presupuesto->fecha->format('d/m/Y') }}
                 @if($presupuesto->fecha_vencimiento)

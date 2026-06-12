@@ -53,8 +53,11 @@
 
             <div class="gfg" style="grid-column:1/-1">
                 <label class="glabel">Observaciones</label>
-                <textarea name="observaciones" class="gtextarea" rows="2"
-                          placeholder="Condiciones, notas para el cliente...">{{ old('observaciones') }}</textarea>
+                <textarea name="observaciones" class="gtextarea" rows="3"
+                          placeholder="Condiciones, notas para el cliente...">{{ old('observaciones', \App\Models\Presupuesto::CONDICIONES_DEFAULT) }}</textarea>
+                <div class="txd" style="font-size:11px;margin-top:4px">
+                    Texto por defecto. Editalo y se cambia solo en este presupuesto.
+                </div>
             </div>
 
         </div>

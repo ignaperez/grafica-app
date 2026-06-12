@@ -9,6 +9,9 @@ class Presupuesto extends Model
 {
     use SoftDeletes;
 
+    /** Texto por defecto del recuadro "Condiciones y notas" (editable por presupuesto en Observaciones). */
+    public const CONDICIONES_DEFAULT = 'Precios expresados en pesos argentinos. Se requiere seña del 50% para iniciar producción; saldo contra entrega.';
+
     protected $fillable = [
         'numero', 'cliente_id', 'lista_precio_id',
         'multiplicador', 'mo_m2', 'mo_ml', 'mo_unidad',
