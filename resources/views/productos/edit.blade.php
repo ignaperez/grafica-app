@@ -101,10 +101,28 @@
                 </div>
             </div>
 
+            {{-- Precio (paquete) --}}
+            <div class="col-md-4">
+                <div class="gfg">
+                    <label class="glabel">Precio del paquete (opcional)</label>
+                    <div style="position:relative">
+                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--txd)">$</span>
+                        <input type="number" step="0.01" min="0" name="precio"
+                               class="ginput" style="padding-left:24px"
+                               value="{{ old('precio', $producto->precio) }}"
+                               placeholder="Ej: 185000">
+                    </div>
+                    <div class="txd" style="font-size:11px;margin-top:4px">
+                        Si lo cargás, el presupuesto lo trae solo. Si lo dejás vacío, el precio se pone a mano.
+                    </div>
+                    @error('precio')<div class="gerr">{{ $message }}</div>@enderror
+                </div>
+            </div>
+
             {{-- Descripción --}}
             <div class="col-12">
                 <div class="gfg">
-                    <label class="glabel">Descripción / notas internas</label>
+                    <label class="glabel">Descripción (se copia al presupuesto)</label>
                     <textarea name="descripcion" class="gtextarea" rows="2">{{ old('descripcion', $producto->descripcion) }}</textarea>
                 </div>
             </div>

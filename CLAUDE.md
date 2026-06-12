@@ -603,6 +603,49 @@ openssl req -new -key private.key -out request.csr \
 
 ---
 
+## Presupuestos — catálogo Grupo → Ítem (servicios/paquetes) (2026-06-10)
+
+El selector de "Servicio" en `presupuestos/create` y `edit` pasó de un solo dropdown a una
+**cascada de dos pasos: Grupo → Ítem**. El catálogo ahora junta DOS fuentes en la misma
+estructura de grupos:
+
+1. **Combos Máquina × Material** (`fuente: 'combo'`) — precio CALCULADO vía AJAX
+   `presupuestos.precio-servicio` `(costo_maq + costo_mat) × mult + MO`. **Igual que antes.**
+2. **Servicios / paquetes** (`fuente: 'producto'`, tabla `productos`) — precio FIJO opcional.
+   Al elegirlo trae **descripción completa + unidad + precio** (si `productos.precio` está
+   cargado; si no, se pone a mano). Pensado para trabajos cerrados tipo "Ploteo cabina camión
+   Iveco Tector" (unidad `unidad`, un precio por vehículo).
+
+**El GRUPO = `producto.tipo_trabajo_id` (TipoTrabajo).** Productos sin tipo caen en
+"Otros servicios". Los combos se agrupan por el TipoTrabajo de la máquina.
+
+### Archivos
+- `PresupuestoController@buildCatalogo()` — arma el array unificado. Cada ítem:
+  `fuente, grupo, label (texto del dropdown), descripcion (autofill), unidad, maquina_id,
+  material_id, producto_id, precio`. (Mantiene clave legacy `tipo` = `grupo`.)
+- `presupuestos/create.blade` + `edit.blade` — la celda "Servicio" tiene `.sel-grupo` +
+  `.sel-item` (ambos Select2). JS: `GRUPOS` agrupa `CATALOGO` por `grupo`; `poblarGrupos(tr)`
+  llena el 1er select, `poblarItems(tr, grupo)` llena el 2do al elegir grupo. Al elegir ítem:
+  si `fuente==='producto'` → autofill desc/unidad/precio; si `'combo'` → comportamiento viejo
+  (fetch precio con cliente). En `edit`, al precargar ítems existentes (`aplicarDatos`) los
+  selects Grupo/Ítem quedan SIN elegir (solo rellena los campos + hidden ids); el ítem ya
+  viene cargado. **No se guarda `producto_id` en `presupuesto_items`** (los selects son solo
+  ayuda de carga) → sin migración.
+- `productos/create.blade` + `edit.blade` — se agregó el campo **Precio del paquete**
+  (`name="precio"`, opcional). El `ProductoController` ya validaba/guardaba `precio` (legacy).
+- `layouts/app.blade` — se agregó el link **"Servicios"** (`productos.index`) en el grupo
+  Ventas del sidebar (antes NO había punto de entrada al ABM de productos) + `productos.*`
+  sumado a `$ventasOn`.
+
+### Cómo carga el usuario los ítems
+- **Vehículo/servicio nuevo** = un Producto nuevo (menú Ventas → **Servicios** → Nuevo),
+  con Tipo de trabajo = el grupo, unidad, precio y descripción larga.
+- **Grupo nuevo** = un TipoTrabajo nuevo (Configuración → Tipos de trabajo).
+
+**Sin migración.** Deploy = `git pull` + `php artisan view:clear`.
+
+---
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

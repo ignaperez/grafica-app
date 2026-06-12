@@ -68,7 +68,7 @@
         <table class="gtable" id="tabla-items">
             <thead>
                 <tr>
-                    <th style="width:280px">Servicio</th>
+                    <th style="width:280px">Grupo / Servicio</th>
                     <th style="width:200px">Descripción</th>
                     <th style="width:80px">Unidad</th>
                     <th style="width:90px">Medida</th>
@@ -98,9 +98,11 @@
 <template id="fila-template">
 <tr class="item-row" data-index="__IDX__">
     <td>
-        <select class="gselect sel-servicio" name="items[__IDX__][_servicio]"
-                style="width:100%;font-size:12px">
-            <option value="">— Seleccionar servicio —</option>
+        <select class="gselect sel-grupo" style="width:100%;font-size:12px;margin-bottom:5px">
+            <option value="">— Grupo —</option>
+        </select>
+        <select class="gselect sel-item" style="width:100%;font-size:12px" disabled>
+            <option value="">— elegí grupo —</option>
         </select>
         <input type="hidden" name="items[__IDX__][maquina_id]"  class="inp-maquina-id">
         <input type="hidden" name="items[__IDX__][material_id]" class="inp-material-id">
@@ -154,6 +156,14 @@
 <script>
 // ── Datos del catálogo y ítems existentes ─────────────────────────────────
 const CATALOGO     = {!! json_encode(collect($catalogo)->values()) !!};
+// Agrupar el catálogo por "grupo" una sola vez
+const GRUPOS = {};
+CATALOGO.forEach((item, i) => {
+    item._idx = i;
+    const g = item.grupo || 'Otros';
+    (GRUPOS[g] = GRUPOS[g] || []).push(item);
+});
+const GRUPOS_ORD = Object.keys(GRUPOS).sort();
 const ITEMS_PREVIOS = {!! json_encode($presupuesto->items->map(fn($it) => [
     'maquina_id'      => $it->maquina_id,
     'material_id'     => $it->material_id,
@@ -208,36 +218,39 @@ function agregarFila(datos = null) {
     tbody.insertAdjacentHTML('beforeend', tpl);
     const tr = tbody.lastElementChild;
 
-    const sel = tr.querySelector('.sel-servicio');
-    poblarServicio(sel);
+    poblarGrupos(tr);
     bindFilaEvents(tr);
     toggleMedidas(tr);
 
     if (datos) aplicarDatos(tr, datos);
 }
 
-function poblarServicio(sel) {
-    const grupos = {};
-    CATALOGO.forEach(item => {
-        const g = item.tipo || 'Sin proceso';
-        if (!grupos[g]) grupos[g] = [];
-        grupos[g].push(item);
+// Llena el primer select (Grupo) y prepara Select2 en ambos
+function poblarGrupos(tr) {
+    const selGrupo = tr.querySelector('.sel-grupo');
+    GRUPOS_ORD.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g;
+        selGrupo.appendChild(opt);
     });
+    $(selGrupo).select2({ width: '100%', placeholder: '— Grupo —' });
+    $(tr.querySelector('.sel-item')).select2({ width: '100%', placeholder: '— elegí grupo —' });
+}
 
-    Object.keys(grupos).sort().forEach(tipo => {
-        const og = document.createElement('optgroup');
-        og.label = tipo;
-        grupos[tipo].forEach(item => {
-            const opt = document.createElement('option');
-            opt.value = JSON.stringify({ maquina_id: item.maquina_id, material_id: item.material_id });
-            opt.textContent = item.descripcion;
-            opt.dataset.unidad = item.unidad;
-            og.appendChild(opt);
-        });
-        sel.appendChild(og);
+// Llena el segundo select (Ítem) con los servicios del grupo elegido
+function poblarItems(tr, grupo) {
+    const selItem = tr.querySelector('.sel-item');
+    selItem.innerHTML = '<option value="">— Ítem —</option>';
+    (GRUPOS[grupo] || []).forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item._idx;
+        opt.textContent = item.label;
+        selItem.appendChild(opt);
     });
-
-    $(sel).select2({ width: '100%', placeholder: '— Seleccionar servicio —' });
+    selItem.disabled = false;
+    if ($(selItem).hasClass('select2-hidden-accessible')) $(selItem).select2('destroy');
+    $(selItem).select2({ width: '100%', placeholder: '— Ítem —' });
 }
 
 // ── Pre-cargar ítems existentes ───────────────────────────────────────────
@@ -253,50 +266,59 @@ function aplicarDatos(tr, datos) {
     if (datos.cantidad) tr.querySelector('.inp-cantidad').value = datos.cantidad;
     if (datos.precio_unitario) tr.querySelector('.inp-precio').value = datos.precio_unitario;
 
-    // Hidden ids
+    // Hidden ids (para que cambiar el cliente recalcule los combos calculados)
     if (datos.maquina_id)  tr.querySelector('.inp-maquina-id').value  = datos.maquina_id;
     if (datos.material_id) tr.querySelector('.inp-material-id').value = datos.material_id;
 
-    // Seleccionar la opción del catálogo que corresponde
-    if (datos.maquina_id && datos.material_id) {
-        const sel = tr.querySelector('.sel-servicio');
-        const clave = JSON.stringify({ maquina_id: datos.maquina_id, material_id: datos.material_id });
-        // Buscar la option con ese value
-        const opt = Array.from(sel.querySelectorAll('option')).find(o => {
-            try { const v = JSON.parse(o.value); return v.maquina_id == datos.maquina_id && v.material_id == datos.material_id; }
-            catch { return false; }
-        });
-        if (opt) {
-            // Select2 requiere crear la option seleccionada si no está en el DOM renderizado
-            $(sel).val(opt.value).trigger('change.select2');
-        }
-    }
-
+    // El ítem ya viene con sus datos cargados; los selects Grupo/Ítem quedan
+    // sin elegir (solo se usan para volver a traer un servicio del catálogo).
     recalcularFila(tr);
 }
 
 // ── Eventos de una fila ───────────────────────────────────────────────────
 function bindFilaEvents(tr) {
-    const selServicio = tr.querySelector('.sel-servicio');
+    const selGrupo   = tr.querySelector('.sel-grupo');
+    const selItem    = tr.querySelector('.sel-item');
     const inpDescripcion = tr.querySelector('.inp-descripcion');
+    const inpPrecio  = tr.querySelector('.inp-precio');
+    const inpMaqId   = tr.querySelector('.inp-maquina-id');
+    const inpMatId   = tr.querySelector('.inp-material-id');
 
-    $(selServicio).on('change', function () {
-        const raw = this.value;
-        if (!raw) return;
-        let ids;
-        try { ids = JSON.parse(raw); } catch(e) { return; }
+    // Elegir GRUPO → cargar sus ítems
+    $(selGrupo).on('change', function () {
+        if (this.value) poblarItems(tr, this.value);
+    });
 
-        tr.querySelector('.inp-maquina-id').value = ids.maquina_id;
-        tr.querySelector('.inp-material-id').value = ids.material_id;
+    // Elegir ÍTEM → autocompletar según la fuente
+    $(selItem).on('change', function () {
+        const idx = this.value;
+        if (idx === '' || idx === null) return;
+        const item = CATALOGO[idx];
+        if (!item) return;
 
-        const clienteId = $('#select-cliente').val();
-        if (!clienteId) {
-            const opt = this.options[this.selectedIndex];
-            setUnidad(tr, opt.dataset.unidad || 'm2');
-            if (!inpDescripcion.value) inpDescripcion.value = this.options[this.selectedIndex].textContent.trim();
+        inpMaqId.value = item.maquina_id || '';
+        inpMatId.value = item.material_id || '';
+
+        // Servicio/paquete: descripción completa + unidad + precio (si lo cargaste)
+        if (item.fuente === 'producto') {
+            inpDescripcion.value = item.descripcion || item.label;
+            setUnidad(tr, item.unidad || 'm2');
+            if (item.precio !== null && item.precio !== undefined) {
+                inpPrecio.value = item.precio;
+            }
+            recalcularFila(tr);
             return;
         }
-        fetchPrecio(tr, ids.maquina_id, ids.material_id, clienteId);
+
+        // Combo Máquina × Material: precio CALCULADO
+        const clienteId = $('#select-cliente').val();
+        if (!clienteId) {
+            setUnidad(tr, item.unidad || 'm2');
+            if (!inpDescripcion.value) inpDescripcion.value = item.descripcion;
+            recalcularFila(tr);
+            return;
+        }
+        fetchPrecio(tr, item.maquina_id, item.material_id, clienteId);
     });
 
     tr.querySelector('.inp-unidad').addEventListener('change', () => toggleMedidas(tr));

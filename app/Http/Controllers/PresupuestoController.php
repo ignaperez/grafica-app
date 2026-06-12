@@ -260,20 +260,47 @@ class PresupuestoController extends Controller
 
     private function buildCatalogo(): array
     {
+        $catalogo = [];
+
+        // 1) Combos Máquina × Material — precio CALCULADO (como hasta ahora)
         $maquinas = Maquina::with(['tipoTrabajo', 'materiales'])
             ->where('activo', true)->orderBy('nombre')->get();
 
-        $catalogo = [];
         foreach ($maquinas as $maq) {
             foreach ($maq->materiales->where('activo', true) as $mat) {
                 $catalogo[] = [
+                    'fuente'      => 'combo',
+                    'grupo'       => $maq->tipoTrabajo?->nombre ?? 'Sin proceso',
+                    'label'       => $maq->nombre . ' — ' . $mat->nombre,
+                    'descripcion' => $maq->nombre . ' — ' . $mat->nombre,
+                    'unidad'      => $mat->unidad ?? 'm2',
                     'maquina_id'  => $maq->id,
                     'material_id' => $mat->id,
-                    'descripcion' => $maq->nombre . ' — ' . $mat->nombre,
+                    'producto_id' => null,
+                    'precio'      => null,
+                    // claves legacy por compatibilidad
                     'tipo'        => $maq->tipoTrabajo?->nombre ?? 'Sin proceso',
-                    'unidad'      => $mat->unidad ?? 'm2',
                 ];
             }
+        }
+
+        // 2) Servicios / paquetes (tabla productos) — precio FIJO opcional
+        $productos = \App\Models\Producto::with('tipoTrabajo')
+            ->where('activo', true)->orderBy('nombre')->get();
+
+        foreach ($productos as $p) {
+            $catalogo[] = [
+                'fuente'      => 'producto',
+                'grupo'       => $p->tipoTrabajo?->nombre ?? 'Otros servicios',
+                'label'       => $p->nombre,
+                'descripcion' => $p->descripcion ?: $p->nombre,
+                'unidad'      => $p->unidad ?? 'm2',
+                'maquina_id'  => null,
+                'material_id' => null,
+                'producto_id' => $p->id,
+                'precio'      => $p->precio !== null ? (float) $p->precio : null,
+                'tipo'        => $p->tipoTrabajo?->nombre ?? 'Otros servicios',
+            ];
         }
 
         return $catalogo;

@@ -180,7 +180,7 @@
     @php
         $rol = auth()->user()->rol;
         $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || request()->routeIs('remitos.*');
-        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('catalogo.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && in_array(auth()->user()->rol ?? '', ['admin','ventas']));
+        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && in_array(auth()->user()->rol ?? '', ['admin','ventas']));
         $configOn     = request()->routeIs('tipo-trabajos.*') || request()->routeIs('materiales.*') || request()->routeIs('maquinas.*') || request()->routeIs('remito-cais.*');
         $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*');
         $rrhhOn       = request()->is('rrhh/*');
@@ -238,6 +238,9 @@
             </a>
             <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') && !request()->routeIs('remito-cais.*') ? 'on' : '' }}">
                 <span class="dot"></span> Remitos
+            </a>
+            <a href="{{ route('productos.index') }}" class="s-item {{ request()->routeIs('productos.*') ? 'on' : '' }}">
+                <span class="dot"></span> Servicios
             </a>
             <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Catálogo
