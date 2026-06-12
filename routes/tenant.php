@@ -29,6 +29,7 @@ use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\RemitoController;
 use App\Http\Controllers\RemitoCaiController;
 use App\Http\Controllers\SaImpersonateController;
+use App\Http\Controllers\PapeleraController;
 use App\Http\Middleware\ValidateTenantSession;
 
 /*
@@ -78,6 +79,10 @@ Route::middleware([
 
         Route::get('/configuracion', [ConfiguracionController::class, 'edit'])->name('configuracion.edit');
         Route::put('/configuracion', [ConfiguracionController::class, 'update'])->name('configuracion.update');
+
+        // Papelera — registros eliminados (soft-delete) con opción de restaurar
+        Route::get('/papelera', [PapeleraController::class, 'index'])->name('papelera.index');
+        Route::post('/papelera/restaurar/{tipo}/{id}', [PapeleraController::class, 'restore'])->name('papelera.restore');
 
     });
 

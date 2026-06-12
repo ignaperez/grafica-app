@@ -182,7 +182,7 @@
         $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || request()->routeIs('remitos.*');
         $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && in_array(auth()->user()->rol ?? '', ['admin','ventas']));
         $configOn     = request()->routeIs('tipo-trabajos.*') || request()->routeIs('materiales.*') || request()->routeIs('maquinas.*') || request()->routeIs('remito-cais.*');
-        $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*');
+        $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*') || request()->routeIs('papelera.*');
         $rrhhOn       = request()->is('rrhh/*');
     @endphp
     <nav class="s-nav">
@@ -285,6 +285,9 @@
             </a>
             <a href="{{ route('configuracion.edit') }}" class="s-item {{ request()->routeIs('configuracion.*') ? 'on' : '' }}">
                 <span class="dot"></span> Configuración
+            </a>
+            <a href="{{ route('papelera.index') }}" class="s-item {{ request()->routeIs('papelera.*') ? 'on' : '' }}">
+                <span class="dot"></span> Papelera
             </a>
         </div>
 
