@@ -21,10 +21,11 @@ class FacturaPdfService
      * - Pie (CAE + QR + código de barras + N° de hoja X/Y) repetido en cada hoja.
      * - Total + transparencia + monto en letras: SOLO al final (última hoja).
      */
-    public function generar(Factura $factura): Mpdf
+    public function generar(Factura $factura, bool $preview = false): Mpdf
     {
         $factura->loadMissing(['cliente', 'items']);
         $data = $this->buildData($factura);
+        $data['preview'] = $preview;
 
         // tempDir escribible para mPDF
         $tempDir = storage_path('app/mpdf');
@@ -45,8 +46,15 @@ class FacturaPdfService
             'tempDir'       => $tempDir,
         ]);
 
-        $mpdf->SetTitle($data['fileNombre']);
+        $mpdf->SetTitle($preview ? 'Previsualización' : $data['fileNombre']);
         $mpdf->showImageErrors = false;
+
+        // Marca de agua en la previa (no se emite, no tiene valor fiscal).
+        if ($preview) {
+            $mpdf->SetWatermarkText('PREVISUALIZACIÓN');
+            $mpdf->showWatermarkText = true;
+            $mpdf->watermarkTextAlpha = 0.08;
+        }
 
         // CSS compartido (se aplica también a header/footer)
         $css = view('facturas.pdf.styles')->render();
@@ -56,10 +64,45 @@ class FacturaPdfService
         $mpdf->SetHTMLHeader(view('facturas.pdf.header', $data)->render());
         $mpdf->SetHTMLFooter(view('facturas.pdf.footer', $data)->render());
 
-        // Cuerpo (ítems + totales al final)
+        // Cuerpo: tabla de ítems (mPDF pagina sola y repite el thead)
         $mpdf->WriteHTML(view('facturas.pdf.body', $data)->render(), HTMLParserMode::HTML_BODY);
 
+        // Cierre (Observaciones + Total + SEUO): SIEMPRE al fondo de la última
+        // hoja, sin importar la cantidad de ítems. Medimos su alto real y bajamos
+        // el cursor para anclarlo justo arriba del pie.
+        $cierreHtml = view('facturas.pdf.cierre', $data)->render();
+        $cierreH    = $this->alturaMm($cierreHtml, $css, $tempDir);
+        $limiteY    = $mpdf->h - $mpdf->bMargin;          // inicio de la zona del pie
+        $targetY    = $limiteY - $cierreH - 3;            // 3mm de aire sobre el pie
+        if ($targetY > $mpdf->y) {
+            $mpdf->SetY($targetY);                        // empujar al fondo
+        }
+        $mpdf->WriteHTML($cierreHtml, HTMLParserMode::HTML_BODY);
+
         return $mpdf;
+    }
+
+    /**
+     * Alto (mm) que ocupa un fragmento HTML al ancho del cuerpo (A4 menos
+     * márgenes 7/7), renderizándolo en una instancia mPDF descartable.
+     */
+    private function alturaMm(string $html, string $css, string $tempDir): float
+    {
+        $m = new Mpdf([
+            'mode'          => 'utf-8',
+            'format'        => 'A4',
+            'margin_left'   => 7,
+            'margin_right'  => 7,
+            'margin_top'    => 0,
+            'margin_bottom' => 0,
+            'default_font'  => 'dejavusans',
+            'tempDir'       => $tempDir,
+        ]);
+        $m->showImageErrors = false;
+        $m->WriteHTML($css, HTMLParserMode::HEADER_CSS);
+        $y0 = $m->y;
+        $m->WriteHTML($html, HTMLParserMode::HTML_BODY);
+        return max(0, $m->y - $y0);
     }
 
     // ── Datos calculados (portado de facturas/print.blade) ──────────────────

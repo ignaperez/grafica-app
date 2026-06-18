@@ -4,6 +4,8 @@
         <td class="pie-qr">
             @if($qrData)
                 <img src="{{ $qrData }}" alt="QR ARCA" style="width:27mm;height:27mm">
+            @elseif($preview ?? false)
+                <div class="b" style="color:#999">QR<br>al emitir</div>
             @else
                 <div class="b" style="color:#c00">Sin<br>CAE</div>
             @endif
@@ -15,6 +17,9 @@
                 <div class="cae-auth">Comprobante Autorizado</div>
                 <div><span class="b">CAE N°:</span> {{ $factura->cae }}</div>
                 <div><span class="b">Fecha de Vto. de CAE:</span> {{ $factura->cae_vencimiento?->format('d/m/Y') }}</div>
+            @elseif($preview ?? false)
+                <div class="b">Previsualización</div>
+                <div>El N° de comprobante y el CAE se asignan al emitir.</div>
             @else
                 <div class="b" style="color:#c00">Sin CAE — No válido fiscalmente</div>
             @endif

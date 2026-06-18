@@ -6,6 +6,8 @@ use App\Models\OrdenTrabajo;
 use App\Models\Trabajo;
 use App\Models\Empleado;
 use App\Models\Fichada;
+use App\Models\Factura;
+use App\Models\Cobro;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -139,6 +141,21 @@ class DashboardController extends Controller
             ->whereBetween('fecha_entrega', [$hoy, $hoy->copy()->addDays(7)])
             ->orderBy('fecha_entrega')->limit(8)->get();
 
+        // ── Facturado vs cobrado del mes (control interno) ──
+        $facturadoBruto = (float) Factura::whereIn('tipo', [1, 6, 11])
+            ->where('estado', '!=', 'anulada')
+            ->whereMonth('fecha', $hoy->month)->whereYear('fecha', $hoy->year)
+            ->sum('imp_total');
+        $notasCredito = (float) Factura::whereIn('tipo', [3, 8, 13])
+            ->where('estado', '!=', 'anulada')
+            ->whereMonth('fecha', $hoy->month)->whereYear('fecha', $hoy->year)
+            ->sum('imp_total');
+        $facturadoMes = round($facturadoBruto - $notasCredito, 2);
+
+        $cobradoMes = round((float) Cobro::whereMonth('fecha', $hoy->month)
+            ->whereYear('fecha', $hoy->year)
+            ->sum('monto'), 2);
+
         $empleados   = Empleado::where('activo', true)->orderBy('apellido')->orderBy('nombre')->get();
         $fichadasHoy = Fichada::whereDate('momento', $hoy)->orderBy('momento')->get()->groupBy('empleado_id');
 
@@ -166,7 +183,8 @@ class DashboardController extends Controller
 
         return view($view, compact(
             'contadores', 'ordenes', 'trabajosLibresPendientes',
-            'proximasEntregas', 'resumenEmpleados', 'fichadasStats', 'm2Mes'
+            'proximasEntregas', 'resumenEmpleados', 'fichadasStats', 'm2Mes',
+            'facturadoMes', 'cobradoMes'
         ));
     }
 }

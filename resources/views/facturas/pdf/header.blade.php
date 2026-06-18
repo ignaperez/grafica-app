@@ -10,7 +10,7 @@
     $nroFmt  = str_pad((string) $factura->numero,      8, '0', STR_PAD_LEFT);
 @endphp
 
-<div class="hd-strip">ORIGINAL</div>
+<div class="hd-strip">{{ ($preview ?? false) ? 'PREVISUALIZACIÓN — SIN VALOR FISCAL' : 'ORIGINAL' }}</div>
 
 <table class="hd">
     <tr>
@@ -44,7 +44,7 @@
         <td class="hd-right">
             <div class="doc-title">{{ $tipoLabel }}</div>
             <div class="doc-row"><span class="muted">Punto de Venta:</span> <span class="b">{{ $pvFmt }}</span></div>
-            <div class="doc-row"><span class="muted">Comp. Nro:</span> <span class="b">{{ $nroFmt }}</span></div>
+            <div class="doc-row"><span class="muted">Comp. Nro:</span> <span class="b">{{ ($preview ?? false) ? '????????' : $nroFmt }}</span></div>
             <div class="doc-row"><span class="muted">Fecha de Emisión:</span> <span class="b">{{ $factura->fecha->format('d/m/Y') }}</span></div>
             <div class="doc-sep"></div>
             <div class="doc-row"><span class="muted">CUIT:</span> <span class="b">{{ $cuitFmt }}</span></div>

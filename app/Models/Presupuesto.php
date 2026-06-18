@@ -36,6 +36,8 @@ class Presupuesto extends Model
     public function listaPrecio()  { return $this->belongsTo(ListaPrecio::class); }
     public function ordenTrabajo() { return $this->belongsTo(OrdenTrabajo::class); }
     public function items()        { return $this->hasMany(PresupuestoItem::class)->orderBy('orden'); }
+    public function facturas()     { return $this->hasMany(Factura::class)->orderByDesc('id'); }
+    public function remitos()      { return $this->hasMany(Remito::class)->orderByDesc('id'); }
     public function createdBy()    { return $this->belongsTo(\App\Models\User::class, 'created_by'); }
     public function updatedBy()    { return $this->belongsTo(\App\Models\User::class, 'updated_by'); }
 

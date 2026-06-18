@@ -15,7 +15,7 @@ class Factura extends Model
         'cae', 'cae_vencimiento', 'estado',
         'doc_tipo', 'doc_nro', 'concepto',
         'imp_neto', 'imp_iva', 'imp_total',
-        'observaciones',
+        'observaciones', 'forma_pago',
         'nc_tipo', 'nc_pto_vta', 'nc_nro',
     ];
 
@@ -33,6 +33,8 @@ class Factura extends Model
     public function presupuesto()  { return $this->belongsTo(Presupuesto::class); }
     public function createdBy()    { return $this->belongsTo(User::class, 'created_by'); }
     public function items()        { return $this->hasMany(FacturaItem::class)->orderBy('orden'); }
+    public function cobros()       { return $this->hasMany(Cobro::class)->orderBy('fecha'); }
+    public function remitos()      { return $this->hasMany(Remito::class)->orderByDesc('id'); }
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -110,5 +112,54 @@ class Factura extends Model
     public function tieneCAE(): bool
     {
         return ! empty($this->cae);
+    }
+
+    // ── Cobranza (control interno, no fiscal) ────────────────────────────────
+
+    /** ¿Es una factura (no nota de crédito)? Solo las facturas se cobran. */
+    public function esFactura(): bool
+    {
+        return in_array((int) $this->tipo, [1, 6, 11]);
+    }
+
+    public function totalCobrado(): float
+    {
+        return round((float) $this->cobros->sum('monto'), 2);
+    }
+
+    public function saldoPendiente(): float
+    {
+        return round((float) $this->imp_total - $this->totalCobrado(), 2);
+    }
+
+    /** pendiente | parcial | cobrada */
+    public function estadoCobro(): string
+    {
+        if ($this->totalCobrado() <= 0) return 'pendiente';
+        if ($this->saldoPendiente() > 0.009) return 'parcial';
+        return 'cobrada';
+    }
+
+    public function estadoCobroLabel(): string
+    {
+        return match ($this->estadoCobro()) {
+            'cobrada' => 'Cobrada',
+            'parcial' => 'Parcial',
+            default   => 'Pendiente',
+        };
+    }
+
+    public function estadoCobroColor(): string
+    {
+        return match ($this->estadoCobro()) {
+            'cobrada' => '#22c55e',
+            'parcial' => '#f59e0b',
+            default   => '#888',
+        };
+    }
+
+    public function formaPagoLabel(): ?string
+    {
+        return $this->forma_pago ? (Cobro::FORMAS[$this->forma_pago] ?? $this->forma_pago) : null;
     }
 }

@@ -82,6 +82,7 @@ class PresupuestoController extends Controller
         $presupuesto->load([
             'cliente', 'listaPrecio', 'items.maquina', 'items.material',
             'ordenTrabajo', 'createdBy', 'updatedBy',
+            'facturas', 'remitos',
         ]);
         return view('presupuestos.show', compact('presupuesto'));
     }

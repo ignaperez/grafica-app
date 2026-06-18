@@ -26,6 +26,7 @@ use App\Http\Controllers\CatalogoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\PresupuestoController;
 use App\Http\Controllers\FacturaController;
+use App\Http\Controllers\CobroController;
 use App\Http\Controllers\RemitoController;
 use App\Http\Controllers\RemitoCaiController;
 use App\Http\Controllers\SaImpersonateController;
@@ -203,6 +204,8 @@ Route::middleware([
         Route::post('/facturas/preview',                     [FacturaController::class, 'preview'])->name('facturas.preview');
         Route::delete('/facturas/borradores/{borrador}',     [FacturaController::class, 'destroyBorrador'])->name('facturas.borradores.destroy');
         Route::post('/presupuestos/{presupuesto}/facturar',  [FacturaController::class, 'fromPresupuesto'])->name('facturas.from-presupuesto');
+        Route::post('/facturas/{factura}/cobros',            [CobroController::class, 'store'])->name('facturas.cobros.store');
+        Route::delete('/cobros/{cobro}',                     [CobroController::class, 'destroy'])->name('cobros.destroy');
         Route::resource('facturas', FacturaController::class)->only(['index', 'create', 'store', 'show']);
 
         Route::resource('remito-cais', RemitoCaiController::class)

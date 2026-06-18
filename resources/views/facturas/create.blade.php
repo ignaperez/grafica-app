@@ -225,6 +225,18 @@
                 @error('concepto')<div class="gerr">{{ $message }}</div>@enderror
             </div>
 
+            <div class="gfg">
+                <label class="glabel">Forma de pago acordada</label>
+                <select name="forma_pago" class="gselect">
+                    <option value="">— Sin especificar —</option>
+                    @foreach(\App\Models\Cobro::FORMAS as $val => $label)
+                        <option value="{{ $val }}" {{ old('forma_pago') == $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <div class="txd" style="font-size:11px;margin-top:3px">Control interno (no fiscal). Pre-carga el cobro y se ve en el listado.</div>
+                @error('forma_pago')<div class="gerr">{{ $message }}</div>@enderror
+            </div>
+
             {{-- Comprobante original — solo para Notas de Crédito --}}
             <div id="nc-ref-box" style="display:none;border-top:1px solid var(--b);padding-top:14px;margin-top:4px">
                 <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">

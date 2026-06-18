@@ -44,12 +44,50 @@ class RemitoPdfService
         $mpdf->SetTitle($data['fileNombre']);
         $mpdf->showImageErrors = false;
 
-        $mpdf->WriteHTML(view('remitos.pdf.styles')->render(), HTMLParserMode::HEADER_CSS);
+        $css = view('remitos.pdf.styles')->render();
+        $mpdf->WriteHTML($css, HTMLParserMode::HEADER_CSS);
         $mpdf->SetHTMLHeader(view('remitos.pdf.header', $data)->render());
         $mpdf->SetHTMLFooter(view('remitos.pdf.footer', $data)->render());
+
+        // Cuerpo: tabla de ítems (mPDF pagina sola y repite el thead)
         $mpdf->WriteHTML(view('remitos.pdf.body', $data)->render(), HTMLParserMode::HTML_BODY);
 
+        // Cierre (Observaciones + "Recibí conforme"): SIEMPRE al fondo de la última
+        // hoja, sin importar la cantidad de ítems. Medimos su alto y bajamos el
+        // cursor para anclarlo justo arriba del pie.
+        $cierreHtml = view('remitos.pdf.cierre', $data)->render();
+        $cierreH    = $this->alturaMm($cierreHtml, $css, $tempDir);
+        $limiteY    = $mpdf->h - $mpdf->bMargin;          // inicio de la zona del pie
+        $targetY    = $limiteY - $cierreH - 3;            // 3mm de aire sobre el pie
+        if ($targetY > $mpdf->y) {
+            $mpdf->SetY($targetY);
+        }
+        $mpdf->WriteHTML($cierreHtml, HTMLParserMode::HTML_BODY);
+
         return $mpdf;
+    }
+
+    /**
+     * Alto (mm) que ocupa un fragmento HTML al ancho del cuerpo (A4 menos
+     * márgenes 7/7), renderizándolo en una instancia mPDF descartable.
+     */
+    private function alturaMm(string $html, string $css, string $tempDir): float
+    {
+        $m = new Mpdf([
+            'mode'          => 'utf-8',
+            'format'        => 'A4',
+            'margin_left'   => 7,
+            'margin_right'  => 7,
+            'margin_top'    => 0,
+            'margin_bottom' => 0,
+            'default_font'  => 'dejavusans',
+            'tempDir'       => $tempDir,
+        ]);
+        $m->showImageErrors = false;
+        $m->WriteHTML($css, HTMLParserMode::HEADER_CSS);
+        $y0 = $m->y;
+        $m->WriteHTML($html, HTMLParserMode::HTML_BODY);
+        return max(0, $m->y - $y0);
     }
 
     public function nombreArchivo(Remito $remito): string

@@ -9,7 +9,7 @@
     .l   { text-align: left; }
 
     /* ── Encabezado ───────────────────────────────────────────── */
-    .hd-strip { text-align: center; font-size: 8px; font-weight: bold; letter-spacing: 2px; padding-bottom: 2px; }
+    .hd-strip { text-align: center; font-size: 9px; font-weight: bold; letter-spacing: 2px; padding-bottom: 2px; }
 
     table.hd { width: 100%; border-collapse: collapse; }
     table.hd td { border: 0.4mm solid #111; vertical-align: top; padding: 8px 10px; }
@@ -17,20 +17,20 @@
     td.hd-letra { width: 14mm; border-left: none; border-right: none; text-align: center; vertical-align: middle; }
     td.hd-right { width: 50%; }
 
-    .emp-name { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
-    .emp-row  { font-size: 8px; line-height: 1.6; }
+    .emp-name { font-size: 15.5px; font-weight: bold; margin-bottom: 4px; }
+    .emp-row  { font-size: 9px; line-height: 1.6; }
     .emp-logo { width: 48px; height: 48px; }
 
     .letra-big { font-size: 30px; font-weight: bold; line-height: 1; }
-    .letra-cod { font-size: 7px; font-weight: bold; }
+    .letra-cod { font-size: 8px; font-weight: bold; }
 
-    .doc-title { font-size: 15px; font-weight: bold; letter-spacing: 1px; margin-bottom: 4px; }
-    .doc-row   { font-size: 8.5px; line-height: 1.7; }
+    .doc-title { font-size: 16.5px; font-weight: bold; letter-spacing: 1px; margin-bottom: 4px; }
+    .doc-row   { font-size: 9.5px; line-height: 1.7; }
     .doc-sep   { border-top: 0.2mm solid #bbb; margin: 4px 0; }
 
     /* Datos del cliente */
     table.cli { width: 100%; border-collapse: collapse; border: 0.4mm solid #111; border-top: none; }
-    table.cli td { padding: 5px 10px; font-size: 8.5px; vertical-align: top; }
+    table.cli td { padding: 5px 10px; font-size: 9.5px; vertical-align: top; }
 
     /* ── Tabla de ítems ───────────────────────────────────────── */
     table.items { width: 100%; border-collapse: collapse; }

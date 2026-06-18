@@ -408,6 +408,47 @@
     </div>
 </div>
 
+{{-- ── Facturación del mes: facturado vs cobrado ──────────────── --}}
+@php
+    $pctCobr = $facturadoMes > 0 ? min(100, round($cobradoMes / $facturadoMes * 100)) : 0;
+    $porCobrarMes = round($facturadoMes - $cobradoMes, 2);
+@endphp
+<div class="pnl" style="margin-bottom:20px">
+    <div class="pnl-hd">
+        <span class="pnl-title">Facturación — {{ \Carbon\Carbon::now()->isoFormat('MMMM') }}</span>
+        <a href="{{ route('facturas.index') }}" class="pnl-action">Ver facturas →</a>
+    </div>
+    <div style="padding:18px 20px">
+        <div style="display:flex;gap:40px;flex-wrap:wrap;margin-bottom:16px">
+            <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txd);margin-bottom:6px">Facturado</div>
+                <div style="font-family:var(--mono);font-size:30px;font-weight:700;color:var(--blue);letter-spacing:-1px">
+                    ${{ number_format($facturadoMes, 2, ',', '.') }}
+                </div>
+            </div>
+            <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txd);margin-bottom:6px">Cobrado</div>
+                <div style="font-family:var(--mono);font-size:30px;font-weight:700;color:var(--green);letter-spacing:-1px">
+                    ${{ number_format($cobradoMes, 2, ',', '.') }}
+                </div>
+            </div>
+            <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txd);margin-bottom:6px">Por cobrar</div>
+                <div style="font-family:var(--mono);font-size:30px;font-weight:700;color:{{ $porCobrarMes > 0 ? 'var(--amber)' : 'var(--txd)' }};letter-spacing:-1px">
+                    ${{ number_format(max(0, $porCobrarMes), 2, ',', '.') }}
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txd);font-family:var(--mono);margin-bottom:4px">
+            <span>Cobrado del facturado</span>
+            <span style="color:{{ $pctCobr >= 100 ? 'var(--green)' : 'var(--ac)' }}">{{ $pctCobr }}%</span>
+        </div>
+        <div class="tprog" style="height:6px">
+            <div class="tprog-fill {{ $pctCobr >= 100 ? 'done' : '' }}" style="width:{{ $pctCobr }}%"></div>
+        </div>
+    </div>
+</div>
+
 {{-- ── Órdenes + sidebar ────────────────────────────────────── --}}
 <div class="{{ $proximasEntregas->isNotEmpty() ? 'dash-grid' : 'dash-grid full' }} mb-3">
 

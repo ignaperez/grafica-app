@@ -182,6 +182,61 @@
     </div>
     @endif
 
+    {{-- Comprobantes relacionados (facturas + remitos generados desde este presupuesto) --}}
+    @if($presupuesto->facturas->count() || $presupuesto->remitos->count())
+    <div class="gcard" style="margin-bottom:16px">
+        <div class="gcard-hd">
+            <span class="gcard-title">Comprobantes relacionados</span>
+        </div>
+        <div class="gcard-bd" style="padding:0">
+            <table class="gtable">
+                <thead>
+                    <tr>
+                        <th>Comprobante</th>
+                        <th>N°</th>
+                        <th>Fecha</th>
+                        <th style="text-align:right">Total</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($presupuesto->facturas as $f)
+                    <tr>
+                        <td>{{ $f->tipoLabel() }}</td>
+                        <td>
+                            <a href="{{ route('facturas.show', $f->id) }}" class="mono" style="color:var(--ac);text-decoration:none">
+                                {{ $f->numeroFormateado() }}
+                            </a>
+                        </td>
+                        <td class="txd">{{ $f->fecha->format('d/m/Y') }}</td>
+                        <td style="text-align:right" class="mono">${{ number_format($f->imp_total, 2, ',', '.') }}</td>
+                        <td>
+                            <span style="color:{{ $f->estadoColor() }};font-size:12px">● {{ $f->estadoLabel() }}</span>
+                            @if($f->esFactura())
+                                <span style="color:{{ $f->estadoCobroColor() }};font-size:11px">· 💲{{ $f->estadoCobroLabel() }}</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                    @foreach($presupuesto->remitos as $r)
+                    <tr>
+                        <td>Remito</td>
+                        <td>
+                            <a href="{{ route('remitos.show', $r->id) }}" class="mono" style="color:var(--ac);text-decoration:none">
+                                {{ $r->numeroFormateado() }}
+                            </a>
+                        </td>
+                        <td class="txd">{{ $r->fecha->format('d/m/Y') }}</td>
+                        <td style="text-align:right" class="txd">—</td>
+                        <td><span style="color:{{ $r->estadoColor() }};font-size:12px">● {{ $r->estadoLabel() }}</span></td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
 </div>
 
 {{-- ── Columna lateral: acciones ─────────────────────────────────────────── --}}

@@ -14,7 +14,7 @@ class FacturaController extends Controller
 {
     public function index()
     {
-        $facturas = Factura::with(['cliente', 'presupuesto', 'createdBy'])
+        $facturas = Factura::with(['cliente', 'presupuesto', 'createdBy', 'cobros'])
             ->orderByDesc('id')
             ->get();
 
@@ -86,6 +86,7 @@ class FacturaController extends Controller
             // doc_nro requerido solo cuando doc_tipo != 99 (Consumidor Final)
             'doc_nro'        => 'required_unless:doc_tipo,99|nullable|string|max:20',
             'observaciones'  => 'nullable|string',
+            'forma_pago'     => 'nullable|in:' . implode(',', array_keys(\App\Models\Cobro::FORMAS)),
             'items'          => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:255',
             'items.*.cantidad'        => 'required|numeric|min:0.001',
@@ -178,6 +179,7 @@ class FacturaController extends Controller
             'imp_iva'         => $impIva,
             'imp_total'       => $total,
             'observaciones'   => $request->observaciones,
+            'forma_pago'      => $request->forma_pago ?: null,
             'nc_tipo'         => $isNC ? (int) $request->nc_tipo    : null,
             'nc_pto_vta'      => $isNC ? (int) $request->nc_pto_vta : null,
             'nc_nro'          => $isNC ? (int) $request->nc_nro     : null,
@@ -223,7 +225,7 @@ class FacturaController extends Controller
 
     public function show(Factura $factura)
     {
-        $factura->load(['cliente', 'presupuesto', 'items', 'createdBy']);
+        $factura->load(['cliente', 'presupuesto', 'items', 'createdBy', 'cobros.createdBy', 'remitos']);
         return view('facturas.show', compact('factura'));
     }
 
@@ -254,50 +256,74 @@ class FacturaController extends Controller
 
     // ── Vista previa (sin llamar a ARCA) ─────────────────────────────────
 
+    /**
+     * Vista previa de la factura ANTES de emitir (sin llamar a ARCA).
+     * Genera el MISMO PDF que la factura emitida (FacturaPdfService) sobre una
+     * Factura en memoria sin CAE ni número → la previa es visualmente idéntica.
+     */
     public function preview(Request $request)
     {
-        $cliente  = Cliente::find($request->cliente_id);
-        $tipo     = (int) $request->tipo;
-        $docTipo  = (int) $request->doc_tipo;
-        $docNro   = $request->doc_nro;
-        $concepto = (int) $request->concepto;
+        $tipo = (int) $request->tipo;
 
-        // Calcular ítems y totales
-        $items = [];
+        // Armar los ítems en memoria (sin guardar) y el total.
+        $items = collect();
         $total = 0;
-        foreach ($request->items ?? [] as $item) {
-            $sub     = round((float)($item['cantidad'] ?? 0) * (float)($item['precio_unitario'] ?? 0), 2);
-            $total  += $sub;
-            $items[] = [
-                'descripcion'     => $item['descripcion'] ?? '',
-                'cantidad'        => $item['cantidad']     ?? 0,
-                'precio_unitario' => $item['precio_unitario'] ?? 0,
+        foreach ($request->items ?? [] as $i => $it) {
+            if (trim((string) ($it['descripcion'] ?? '')) === '') continue;
+            $cant = (float) ($it['cantidad'] ?? 0);
+            $pu   = (float) ($it['precio_unitario'] ?? 0);
+            $sub  = round($cant * $pu, 2);
+            $total += $sub;
+            $items->push(new FacturaItem([
+                'descripcion'     => $it['descripcion'] ?? '',
+                'cantidad'        => $cant ?: 1,
+                'unidad'          => $it['unidad'] ?? 'unidad',
+                'precio_unitario' => $pu,
                 'subtotal'        => $sub,
-            ];
+                'alicuota_iva'    => in_array($tipo, [11, 13]) ? 0 : 21,
+                'orden'           => $i,
+            ]));
         }
 
         [$impNeto, $impIva] = $this->calcularNeto($tipo, $total);
 
-        $cfg = \App\Models\Configuracion::all()->pluck('valor', 'clave');
+        $ptoVta = (int) (\App\Models\Configuracion::get('arca_punto_venta') ?: config('arca.punto_venta', 1));
 
-        $docTipoLabel = match($docTipo) {
-            80 => 'CUIT',
-            96 => 'DNI',
-            default => 'Consumidor Final',
-        };
+        $factura = new Factura([
+            'cliente_id'   => $request->cliente_id,
+            'tipo'         => $tipo,
+            'punto_venta'  => $ptoVta,
+            'numero'       => 0,
+            'fecha'        => $request->fecha ?: now()->toDateString(),
+            'cae'          => null,
+            'estado'       => 'pendiente',
+            'doc_tipo'     => (int) $request->doc_tipo,
+            'doc_nro'      => $request->doc_nro ?: null,
+            'concepto'     => (int) $request->concepto,
+            'imp_neto'     => $impNeto,
+            'imp_iva'      => $impIva,
+            'imp_total'    => $total,
+            'observaciones'=> $request->observaciones,
+            'nc_tipo'      => $request->nc_tipo    ?: null,
+            'nc_pto_vta'   => $request->nc_pto_vta ?: null,
+            'nc_nro'       => $request->nc_nro     ?: null,
+        ]);
 
-        $conceptoLabel = match($concepto) {
-            1 => 'Productos',
-            3 => 'Productos y servicios',
-            default => 'Servicios',
-        };
+        // Cargar relaciones en memoria para que el servicio no toque la DB.
+        $cliente = $request->cliente_id
+            ? Cliente::find($request->cliente_id)
+            : new Cliente(['nombre' => 'Consumidor Final']);
+        $factura->setRelation('cliente', $cliente);
+        $factura->setRelation('items', $items);
 
-        $observaciones = $request->observaciones;
+        $service = new \App\Services\FacturaPdfService();
+        $mpdf    = $service->generar($factura, preview: true);
+        $pdf     = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
 
-        return view('facturas.preview', compact(
-            'cliente', 'tipo', 'items', 'total', 'impNeto', 'impIva',
-            'cfg', 'docTipo', 'docNro', 'docTipoLabel', 'conceptoLabel', 'observaciones'
-        ));
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="previsualizacion.pdf"',
+        ]);
     }
 
     // ── Desde presupuesto ─────────────────────────────────────────────────

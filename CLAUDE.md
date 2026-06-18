@@ -562,6 +562,57 @@ remito usa su **propio código** (CAI papel, autorización electrónica ARCA, o 
 - **Ruta:** `GET /remitos/{remito}/pdf` → `remitos.pdf` (inline; `?download=1`). Botones de
   `index`/`show` ya apuntan acá. NO necesita migración (no toca DB).
 
+### Cobros (cobranza interna, NO fiscal) (2026-06-17)
+Control interno de qué facturas están cobradas y cómo. **Nada que ver con ARCA.**
+- **Tabla `cobros`** (per-tenant + central sincronizadas, SoftDeletes): `factura_id`,
+  `created_by`, `monto`, `forma_pago`, `fecha`, `observaciones`. Se eligió **tabla aparte**
+  (no campos en factura) porque cta cte/cheque/echeq implican **pagos parciales/múltiples**.
+- **Columna nueva `facturas.forma_pago`** (nullable) = forma de pago ACORDADA al emitir
+  (pre-carga el cobro y se ve en el listado). Migraciones `2026_06_17_000001/000002`.
+- **Modelo `App\Models\Cobro`** con const `FORMAS` (efectivo, transferencia, cuenta_corriente,
+  cheque, echeq, tarjeta, otro). **`Factura`**: `cobros()`, `totalCobrado()`, `saldoPendiente()`,
+  `estadoCobro()` (pendiente|parcial|cobrada), `estadoCobroLabel/Color()`, `formaPagoLabel()`,
+  `esFactura()` (tipo 1/6/11; las NC 3/8/13 NO se cobran).
+- **`CobroController`**: `store(Factura)` (valida monto ≤ saldo) + `destroy(Cobro)`. Rutas
+  `POST /facturas/{factura}/cobros` → `facturas.cobros.store` y `DELETE /cobros/{cobro}` →
+  `cobros.destroy` (grupo `rol:admin,ventas`).
+- **UI:** selector "Forma de pago acordada" en `facturas/create`; columna **Cobro** (badge
+  Pendiente/Parcial/Cobrada + saldo) y botón **COBRAR** (modal pre-cargado con saldo+forma) en
+  `facturas/index`; panel **Cobranza** (resumen + lista + form registrar/eliminar) en
+  `facturas/show`. El estado de cobro se DERIVA de Σ cobros vs `imp_total` (no es columna).
+
+### Comprobantes relacionados (2026-06-17)
+Las FK ya existían (`facturas.presupuesto_id`, `remitos.presupuesto_id/factura_id`). Solo se
+agregaron relaciones inversas + UI, **sin migración**:
+- `Presupuesto::facturas()` y `::remitos()`; `Factura::remitos()`.
+- `presupuestos/show`: card "Comprobantes relacionados" (facturas + remitos linkeados por N°).
+- `facturas/show`: lista de remitos relacionados (el presupuesto ya estaba en el encabezado).
+- `remitos/show`: ya tenía links a presupuesto + factura (no se tocó).
+
+### Dashboard — Facturado vs Cobrado del mes (2026-06-17)
+`DashboardController@renderView` calcula `facturadoMes` (Σ facturas 1/6/11 − Σ NC 3/8/13 del
+mes, por `fecha`) y `cobradoMes` (Σ `cobros.monto` del mes). Panel en `dashboard.blade` (solo
+dashboard **admin**): Facturado / Cobrado / Por cobrar + barra de % cobrado.
+
+### Preview de factura = PDF real (2026-06-17)
+Antes el preview era una vista HTML aparte (`facturas/preview.blade`, ELIMINADA) con otro
+diseño. Ahora `FacturaController@preview` arma una **`Factura` en memoria** (numero=0, cae=null)
++ items y la pasa por **`FacturaPdfService::generar($f, preview: true)`** → PDF inline idéntico
+al emitido. Flag `$preview` en el service: `SetWatermarkText('PREVISUALIZACIÓN')`, header muestra
+`????????` y el pie "se asigna al emitir" (el QR ya era null sin CAE). El botón "Vista previa"
+(POST a `facturas.preview` en pestaña nueva) ahora abre ese PDF.
+
+### PDF gráfica — encabezados + cierre al fondo (2026-06-17)
+- **Encabezados más grandes** (~+1px) en `facturas/pdf/styles` y `remitos/pdf/styles`: datos de
+  emisor/comprobante/cliente, títulos y cód. de letra.
+- **Bloque de cierre anclado SIEMPRE al fondo de la última hoja** (sin importar la cantidad de
+  ítems): se separó en su propio partial (`facturas/pdf/cierre.blade` = Obs + Total/SEUO +
+  transparencia; `remitos/pdf/cierre.blade` = Obs + "Recibí conforme"). Los `body.blade`
+  quedaron solo con la tabla de ítems. En `FacturaPdfService`/`RemitoPdfService`: tras escribir
+  los ítems se mide el alto del cierre con un mPDF descartable (`alturaMm()`, mismo ancho 196mm)
+  y se hace `SetY($limiteY - $cierreH - 3mm)` para apoyarlo justo sobre el pie. Si los ítems ya
+  llenan la hoja, el cierre fluye normal.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)
