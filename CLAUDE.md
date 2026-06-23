@@ -613,6 +613,40 @@ al emitido. Flag `$preview` en el service: `SetWatermarkText('PREVISUALIZACIÓN'
   y se hace `SetY($limiteY - $cierreH - 3mm)` para apoyarlo justo sobre el pie. Si los ítems ya
   llenan la hoja, el cierre fluye normal.
 
+### Remitos editables + obs sin leyenda default + tipografía PDF remito (2026-06-23)
+Tres ajustes sobre remitos/facturas. **Commiteado a main (`3e4cdcd` + `e91c4b6`) y DEPLOYADO
+a prod** (git pull + view:clear + route:cache; health check 123ploteos `/remitos` HTTP 302).
+
+1. **Remitos editables (fiscales Y comunes):** se agregaron `edit`/`update` al
+   `Route::resource('remitos')` de `routes/tenant.php` (`->only([... 'edit','update' ...])`).
+   `RemitoController@edit/@update` editan SOLO el **contenido**: `cliente_id`, `fecha`,
+   `observaciones` e ítems (se reemplazan: `items()->delete()` —RemitoItem NO usa SoftDeletes,
+   borrado físico— + recrear). **NO se toca la numeración fiscal** (`numero`, `numero_fiscal`,
+   `remito_cai_id`, `cod_autorizacion`/`_vto`) ni el `tipo` → editar un oficial/electrónico
+   conserva su CAI/ARCA. Producción solo edita internos (`abort(403)` si `tipo !== 'interno'`,
+   coherente con el filtro del index). Vista nueva `resources/views/remitos/edit.blade.php`
+   (espeja `create`: N° y Tipo se muestran read-only; el cliente precargado; ítems desde
+   `old('items')` → ítems guardados → fila vacía). Botón **✎ Editar** en el topbar de
+   `remitos/show` y en cada fila de `remitos/index`.
+   > Decisión: al editar NO se regenera número fiscal (no se re-emite contra ARCA/CAI). Si en el
+   > futuro se quiere eso, es un cambio aparte.
+
+2. **Observaciones sin leyenda por defecto (remito + factura):** el textarea de observaciones
+   en `remitos/create` y `facturas/create` arrastraba `$presupuesto?->observaciones`
+   (= `Presupuesto::CONDICIONES_DEFAULT`, "Precios expresados en pesos... seña del 50%..."). Se
+   cambió a `{{ old('observaciones') }}` a secas → arranca **vacío**. (Los borradores de factura
+   siguen recuperando lo cargado vía `old()`.)
+
+3. **Tipografía del PDF de remito agrandada:** `remitos/pdf/styles.blade` subió todos los
+   tamaños a un mínimo ≥ factura (body 8.5→10px, ítems 8→10px, emisor/cliente/encabezados, etc.;
+   `.letra-cod` quedó en 7px para que "REMITO" no parta en 2 líneas en la columna de 14mm). En
+   `RemitoPdfService` se subió `margin_top` 50→**57mm** (reserva para el header más alto, evita
+   que pise el cuerpo). **Y se sacó el recuadro de la caja Observaciones del cierre**
+   (`.obs-box`: se eliminó `border: 0.3mm solid #9a9a9a` → queda limpio, solo título + texto).
+
+**Sin migración.** Deploy = `git pull` + `php artisan view:clear` (+ `route:cache` por las rutas
+nuevas).
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)
