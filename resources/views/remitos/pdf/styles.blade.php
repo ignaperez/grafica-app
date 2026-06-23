@@ -47,7 +47,7 @@
     }
 
     /* ── Cierre (solo última hoja): observaciones + firma ── */
-    .obs-box { border: 0.3mm solid #9a9a9a; padding: 7px 10px; margin-top: 12px; font-size: 10px; }
+    .obs-box { padding: 0; margin-top: 12px; font-size: 10px; }
     .obs-t   { font-weight: bold; margin-bottom: 3px; font-size: 10.5px; }
     .obs-meta{ color: #555; font-size: 9px; margin-top: 5px; }
 
