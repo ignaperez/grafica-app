@@ -141,7 +141,7 @@
         <div class="gcard-bd">
             <div class="gfg" style="margin-bottom:0">
                 <textarea name="observaciones" class="gtextarea" rows="3"
-                    placeholder="Observaciones opcionales...">{{ old('observaciones', $presupuesto?->observaciones) }}</textarea>
+                    placeholder="Observaciones opcionales...">{{ old('observaciones') }}</textarea>
             </div>
         </div>
     </div>

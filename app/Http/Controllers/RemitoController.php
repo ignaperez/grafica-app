@@ -192,6 +192,58 @@ class RemitoController extends Controller
         return view('remitos.show', compact('remito'));
     }
 
+    public function edit(Remito $remito)
+    {
+        // Producción solo puede editar remitos internos (coherente con index)
+        if (auth()->user()->rol === 'produccion' && $remito->tipo !== 'interno') {
+            abort(403);
+        }
+
+        $remito->load(['cliente', 'items']);
+        return view('remitos.edit', compact('remito'));
+    }
+
+    public function update(Request $request, Remito $remito)
+    {
+        if (auth()->user()->rol === 'produccion' && $remito->tipo !== 'interno') {
+            abort(403);
+        }
+
+        $request->validate([
+            'cliente_id'           => 'required|exists:clientes,id',
+            'fecha'                => 'required|date',
+            'observaciones'        => 'nullable|string',
+            'items'                => 'required|array|min:1',
+            'items.*.descripcion'  => 'required|string|max:255',
+            'items.*.cantidad'     => 'required|numeric|min:0.001',
+            'items.*.unidad'       => 'required|string|max:30',
+        ]);
+
+        // Al editar NO se toca el tipo ni la numeración fiscal (numero,
+        // numero_fiscal, CAI, autorización ARCA quedan intactos). Solo el
+        // contenido: cliente, fecha, observaciones e ítems.
+        $remito->update([
+            'cliente_id'    => $request->cliente_id,
+            'fecha'         => $request->fecha,
+            'observaciones' => $request->observaciones,
+        ]);
+
+        // Reemplazar ítems (RemitoItem no usa SoftDeletes → borrado físico)
+        $remito->items()->delete();
+        foreach ($request->items as $i => $it) {
+            RemitoItem::create([
+                'remito_id'   => $remito->id,
+                'descripcion' => $it['descripcion'],
+                'cantidad'    => $it['cantidad'],
+                'unidad'      => $it['unidad'],
+                'orden'       => $i,
+            ]);
+        }
+
+        return redirect()->route('remitos.show', $remito->id)
+            ->with('success', 'Remito ' . $remito->numeroFormateado() . ' actualizado correctamente.');
+    }
+
     public function print(Remito $remito)
     {
         $remito->load(['cliente', 'items', 'remitoCai']);

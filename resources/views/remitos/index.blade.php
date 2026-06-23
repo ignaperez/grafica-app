@@ -49,6 +49,7 @@
                     <td class="txd" style="font-size:12px">{{ $r->createdBy?->name ?? '—' }}</td>
                     <td style="text-align:right">
                         <a href="{{ route('remitos.show', $r->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
+                        <a href="{{ route('remitos.edit', $r->id) }}" class="gbtn gbtn-ghost gbtn-xs" title="Editar">✎</a>
                         <a href="{{ route('remitos.pdf', $r->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Ver / Imprimir PDF">🖨</a>
                         <form action="{{ route('remitos.destroy', $r->id) }}" method="POST" class="d-inline"
                               onsubmit="return confirm('¿Eliminar {{ $r->numeroFormateado() }}?')">

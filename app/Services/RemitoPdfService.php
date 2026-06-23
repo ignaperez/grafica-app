@@ -33,7 +33,7 @@ class RemitoPdfService
             'format'        => 'A4',
             'margin_left'   => 7,
             'margin_right'  => 7,
-            'margin_top'    => 50,
+            'margin_top'    => 57,   // reserva para el encabezado repetido (tipografía agrandada)
             'margin_bottom' => 45,
             'margin_header' => 5,
             'margin_footer' => 5,
