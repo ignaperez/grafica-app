@@ -688,6 +688,14 @@ Guard server-side en `FacturaController@store`: si viene `presupuesto_id` (y no 
 una factura no anulada de ese presupuesto → redirige a `presupuestos.index` con error (no llega
 a ARCA). Así no se puede facturar dos veces ni entrando por URL directa.
 
+### Presupuesto — botón Descargar PDF (2026-07-02)
+`presupuestos/print.blade` (vista HTML `window.print()`, NO mPDF) ahora arma `$fileNombre` =
+`P{numero}_CLIENTE(26)_OBS(5)` (mismo criterio que la factura) y tiene botón **⬇ Descargar PDF**
+que hace `document.title = fileNombre; window.print()` → el "Guardar como PDF" del navegador
+sugiere ese nombre. Soporta `?auto=1` para auto-disparar la descarga al cargar. Botones **⬇** en
+`presupuestos/index` (por fila) y `presupuestos/show` (topbar) apuntan a `presupuestos.print?auto=1`.
+No usa mPDF a propósito: conserva la estética de la vista de impresión existente. Sin migración.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

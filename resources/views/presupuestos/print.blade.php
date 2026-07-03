@@ -239,7 +239,10 @@
 {{-- Barra de pantalla --}}
 <div class="screen-bar">
     <a href="{{ route('presupuestos.show', $presupuesto->id) }}">← Volver al presupuesto</a>
-    <button onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    <div style="display:flex;gap:8px">
+        <button onclick="window.print()" style="background:transparent;border:1px solid #555;color:#ccc">🖨 Imprimir</button>
+        <button onclick="descargarPDF()">⬇ Descargar PDF</button>
+    </div>
 </div>
 
 @php
@@ -272,6 +275,21 @@
     // Datos del cliente
     $cli    = $presupuesto->cliente;
     $cliIva = $ivaLabel($cli->condicion_iva ?? '');
+
+    // Nombre de archivo para la descarga: P0001_CLIENTE_OBS (igual que la factura)
+    $sanFile = function (string $s, int $max): string {
+        $s = \Illuminate\Support\Str::ascii($s);
+        $s = strtoupper($s);
+        $s = preg_replace('/\s+/', '_', trim($s));
+        $s = preg_replace('/[^A-Z0-9_]/', '', $s);
+        $s = preg_replace('/_+/', '_', $s);
+        return substr($s, 0, $max);
+    };
+    $fileNombre = implode('_', array_filter([
+        'P' . str_pad((string) $presupuesto->numero, 4, '0', STR_PAD_LEFT),
+        $sanFile($cli->nombre ?? '', 26),
+        $sanFile($presupuesto->observaciones ?? '', 5),
+    ]));
 @endphp
 
 <div class="v1">
@@ -412,5 +430,19 @@
     </div>{{-- /page-ft --}}
 
 </div>{{-- /v1 --}}
+
+<script>
+// Descargar como PDF con nombre = P0001_CLIENTE_OBS.
+// Chrome/Edge: en el diálogo elegir "Guardar como PDF" → el nombre sugerido es el título.
+function descargarPDF() {
+    var t = document.title;
+    document.title = '{{ addslashes($fileNombre) }}';
+    window.print();
+    setTimeout(function () { document.title = t; }, 1000);
+}
+@if(request('auto') == '1')
+window.addEventListener('load', function () { setTimeout(descargarPDF, 500); });
+@endif
+</script>
 </body>
 </html>

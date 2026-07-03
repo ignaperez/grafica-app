@@ -6,6 +6,7 @@
     <a href="{{ route('presupuestos.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
     <a href="{{ route('presupuestos.edit', $presupuesto->id) }}" class="gbtn gbtn-ghost gbtn-sm">Editar</a>
     <a href="{{ route('presupuestos.print', $presupuesto->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Imprimir</a>
+    <a href="{{ route('presupuestos.print', ['presupuesto' => $presupuesto->id, 'auto' => 1]) }}" class="gbtn gbtn-primary gbtn-sm" target="_blank">⬇ Descargar PDF</a>
 @endsection
 
 @section('content')
