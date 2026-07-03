@@ -647,6 +647,39 @@ a prod** (git pull + view:clear + route:cache; health check 123ploteos `/remitos
 **Sin migración.** Deploy = `git pull` + `php artisan view:clear` (+ `route:cache` por las rutas
 nuevas).
 
+### Seguimiento — tabla de control de facturación (2026-07-02)
+Planilla interna (estilo Excel del cliente) que se auto-alimenta de presupuestos y facturas.
+**Solo admin.**
+- **Tabla `seguimientos`** (tenant + central sincronizadas, SoftDeletes): `presupuesto_id`
+  (única, cascadeOnDelete), `factura_id` (nullOnDelete) + campos manuales `area_oficina`,
+  `detalle`, `orden_compra` (máx 4), `monto_op`, `estado`, `observaciones`, `pasado_a`,
+  `fecha_pago`. Fecha/monto/N° NO se guardan: se leen por relación (siempre sincronizados).
+  Migración `2026_06_17_000003` con **backfill** (una fila por presupuesto existente + factura
+  vinculada + estado inicial cobrado/facturado/presupuestado).
+- **Auto-alimentación por eventos de modelo:** `Presupuesto::created` → crea la fila;
+  `Factura::created` (si tiene `presupuesto_id`) → setea `factura_id` en la fila. (El preview
+  arma una Factura en memoria, no se guarda → no dispara el evento.)
+- **Modelo `App\Models\Seguimiento`**: const `ESTADOS` (7, con label+bg+text) —
+  presupuestado/suministro/orden_compra/devengado/facturado/orden_pago/cobrado. Cálculos:
+  `iva21()` = monto×0.21/1.21 (IVA contenido), `cinco()` = **monto×0.79×0.05** (5% sobre el
+  monto con el 21% ya descontado), `totalHernan()` = 21%+5%; se muestran solo con `fecha_pago`
+  cargada (`mostrarCalculos()`).
+- **`SeguimientoController`**: `index` (filtro por año — default actual —, paginación 30,
+  panel de totales presupuestado/facturado/cobrado/**pendiente=presupuestado−cobrado**),
+  `print` (vista apaisada A4), `update` (edición en línea AJAX de los campos manuales).
+- **Rutas** (grupo `rol:admin`): `GET /seguimiento` (index), `GET /seguimiento/print` (ANTES
+  del update), `PATCH /seguimiento/{seguimiento}` (update).
+- **Vistas:** `seguimientos/index.blade` (tabla editable inline, chip de estado coloreado,
+  fila **verde pastel** al pasar a Cobrado + `confirm()` SOLO al pasar a Cobrado, auto-guardado
+  por fila) y `seguimientos/print.blade` (`@page size:A4 landscape`).
+- **Sidebar:** link "Seguimiento" en grupo Ventas, dentro de `@if($rol === 'admin')`.
+- Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+
+### Remito — código de barras del PDF agrandado (2026-07-02)
+`remitos/pdf/footer.blade`: el `<barcode type="I25">` pasó de `size=0.5 height=0.7` a
+`size=0.6 height=1.5` (crece sobre todo en alto, más escaneable) y la celda de 55→62mm. Aplica
+a remitos oficiales (CAI) y electrónicos (autorización ARCA); el interno no lleva barcode.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

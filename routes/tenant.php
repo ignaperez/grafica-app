@@ -31,6 +31,7 @@ use App\Http\Controllers\RemitoController;
 use App\Http\Controllers\RemitoCaiController;
 use App\Http\Controllers\SaImpersonateController;
 use App\Http\Controllers\PapeleraController;
+use App\Http\Controllers\SeguimientoController;
 use App\Http\Middleware\ValidateTenantSession;
 
 /*
@@ -84,6 +85,11 @@ Route::middleware([
         // Papelera — registros eliminados (soft-delete) con opción de restaurar
         Route::get('/papelera', [PapeleraController::class, 'index'])->name('papelera.index');
         Route::post('/papelera/restaurar/{tipo}/{id}', [PapeleraController::class, 'restore'])->name('papelera.restore');
+
+        // Seguimiento — tabla de control de facturación (solo admin)
+        Route::get('/seguimiento', [SeguimientoController::class, 'index'])->name('seguimientos.index');
+        Route::get('/seguimiento/print', [SeguimientoController::class, 'print'])->name('seguimientos.print');
+        Route::patch('/seguimiento/{seguimiento}', [SeguimientoController::class, 'update'])->name('seguimientos.update');
 
     });
 

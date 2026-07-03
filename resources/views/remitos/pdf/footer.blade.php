@@ -8,8 +8,8 @@
             <div class="cai-row"><span class="muted">N° comprobante:</span> {{ $remito->numeroFormateado() }} · Tipo: R (Remito)</div>
         </td>
         @if($codigoBarras)
-        <td style="border:none;width:55mm;text-align:right;vertical-align:middle">
-            <barcode code="{{ $codigoBarras }}" type="I25" size="0.5" height="0.7" />
+        <td style="border:none;width:62mm;text-align:right;vertical-align:middle">
+            <barcode code="{{ $codigoBarras }}" type="I25" size="0.6" height="1.5" />
         </td>
         @endif
     </tr>
@@ -26,8 +26,8 @@
             <div class="cai-row"><span class="muted">N° comprobante:</span> {{ $remito->numeroElectronicoFormateado() }} · Tipo: 91 — Remito R (Electrónico)</div>
         </td>
         @if($codigoBarras)
-        <td style="border:none;width:55mm;text-align:right;vertical-align:middle">
-            <barcode code="{{ $codigoBarras }}" type="I25" size="0.5" height="0.7" />
+        <td style="border:none;width:62mm;text-align:right;vertical-align:middle">
+            <barcode code="{{ $codigoBarras }}" type="I25" size="0.6" height="1.5" />
         </td>
         @endif
     </tr>

@@ -9,6 +9,19 @@ class Factura extends Model
 {
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        // Al emitir una factura ligada a un presupuesto, se completa su fila de
+        // Seguimiento con la factura (N° y fecha se leen por relación).
+        static::created(function (self $factura) {
+            if ($factura->presupuesto_id) {
+                Seguimiento::where('presupuesto_id', $factura->presupuesto_id)
+                    ->whereNull('factura_id')
+                    ->update(['factura_id' => $factura->id]);
+            }
+        });
+    }
+
     protected $fillable = [
         'presupuesto_id', 'cliente_id', 'created_by',
         'tipo', 'punto_venta', 'numero', 'fecha',

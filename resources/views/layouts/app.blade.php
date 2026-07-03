@@ -300,6 +300,11 @@
             <a href="{{ route('facturas.index') }}" class="s-item {{ request()->routeIs('facturas.*') ? 'on' : '' }}">
                 <span class="dot"></span> Facturas
             </a>
+            @if($rol === 'admin')
+            <a href="{{ route('seguimientos.index') }}" class="s-item {{ request()->routeIs('seguimientos.*') ? 'on' : '' }}">
+                <span class="dot"></span> Seguimiento
+            </a>
+            @endif
             <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') && !request()->routeIs('remito-cais.*') ? 'on' : '' }}">
                 <span class="dot"></span> Remitos
             </a>

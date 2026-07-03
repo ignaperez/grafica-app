@@ -12,6 +12,17 @@ class Presupuesto extends Model
     /** Texto por defecto del recuadro "Condiciones y notas" (editable por presupuesto en Observaciones). */
     public const CONDICIONES_DEFAULT = 'Precios expresados en pesos argentinos. Se requiere seña del 50% para iniciar producción; saldo contra entrega.';
 
+    protected static function booted(): void
+    {
+        // Cada presupuesto nuevo genera automáticamente su fila de Seguimiento.
+        static::created(function (self $presupuesto) {
+            Seguimiento::firstOrCreate(
+                ['presupuesto_id' => $presupuesto->id],
+                ['estado' => 'presupuestado']
+            );
+        });
+    }
+
     protected $fillable = [
         'numero', 'cliente_id', 'lista_precio_id',
         'multiplicador', 'mo_m2', 'mo_ml', 'mo_unidad',
