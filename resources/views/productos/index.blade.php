@@ -3,6 +3,16 @@
 @section('page-title', 'Catálogo de servicios')
 
 @section('topbar-actions')
+    <form method="GET" style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">
+        <span class="txd" style="font-size:12px">Proceso</span>
+        <select name="tipo_trabajo_id" class="gselect" style="width:auto;padding:6px 10px;font-size:12.5px"
+                onchange="this.form.submit()">
+            <option value="">Todos</option>
+            @foreach($tipos as $t)
+                <option value="{{ $t->id }}" {{ (string) $tipoFiltro === (string) $t->id ? 'selected' : '' }}>{{ $t->nombre }}</option>
+            @endforeach
+        </select>
+    </form>
     <a href="{{ route('productos.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo servicio</a>
 @endsection
 

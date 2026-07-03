@@ -17,13 +17,22 @@ class ProductoController extends Controller
         ];
     }
 
-    public function index()
+    public function index(Request $request)
     {
+        // Tipos para el filtro (los que existen, ordenados alfabéticamente)
+        $tipos      = TipoTrabajo::orderBy('nombre')->get();
+        $tipoFiltro = $request->input('tipo_trabajo_id');
+
+        // Orden: por tipo de proceso (nulls al final) y luego alfabético por nombre
         $productos = Producto::with(['tipoTrabajo', 'material'])
-            ->orderBy('nombre')
+            ->leftJoin('tipo_trabajos', 'tipo_trabajos.id', '=', 'productos.tipo_trabajo_id')
+            ->when($tipoFiltro, fn ($q) => $q->where('productos.tipo_trabajo_id', $tipoFiltro))
+            ->orderByRaw('tipo_trabajos.nombre IS NULL, tipo_trabajos.nombre ASC')
+            ->orderBy('productos.nombre')
+            ->select('productos.*')
             ->get();
 
-        return view('productos.index', compact('productos'));
+        return view('productos.index', compact('productos', 'tipos', 'tipoFiltro'));
     }
 
     public function create()
