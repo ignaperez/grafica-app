@@ -15,6 +15,8 @@ class PresupuestoController extends Controller
     public function index()
     {
         $presupuestos = Presupuesto::with(['cliente', 'createdBy', 'updatedBy'])
+            // Cantidad de facturas NO anuladas → para bloquear el botón "Facturar"
+            ->withCount(['facturas as facturado_count' => fn ($q) => $q->where('estado', '!=', 'anulada')])
             ->orderByDesc('numero')
             ->get();
 

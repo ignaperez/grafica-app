@@ -98,6 +98,17 @@ class FacturaController extends Controller
             'nc_nro'     => $isNC ? 'required|integer|min:1' : 'nullable|integer',
         ]);
 
+        // Evitar facturar dos veces el mismo presupuesto (las NC no cuentan).
+        if ($request->presupuesto_id && ! $isNC) {
+            $yaFacturado = Factura::where('presupuesto_id', $request->presupuesto_id)
+                ->where('estado', '!=', 'anulada')
+                ->first();
+            if ($yaFacturado) {
+                return redirect()->route('presupuestos.index')->with('error',
+                    'El presupuesto ya fue facturado (' . $yaFacturado->numeroFormateado() . '). No se puede facturar dos veces.');
+            }
+        }
+
         $cbteTipo        = (int) $request->tipo;
         $condIvaEm       = \App\Models\Configuracion::get('empresa_condicion_iva', '');
         $condicionEmisor = $condIvaEm === 'responsable_inscripto' ? 'responsable_inscripto' : 'monotributo';

@@ -70,8 +70,13 @@
                         <a href="{{ route('presupuestos.print', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank">🖨</a>
 
                         {{-- Emitir: factura y remito --}}
-                        <a href="{{ route('facturas.create', ['presupuesto_id' => $p->id]) }}"
-                           class="gbtn gbtn-primary gbtn-xs">⚡ Factura</a>
+                        @if($p->facturado_count > 0)
+                            <span class="gbtn gbtn-ghost gbtn-xs" style="opacity:.55;cursor:default"
+                                  title="Este presupuesto ya fue facturado">✓ Facturado</span>
+                        @else
+                            <a href="{{ route('facturas.create', ['presupuesto_id' => $p->id]) }}"
+                               class="gbtn gbtn-primary gbtn-xs">⚡ Factura</a>
+                        @endif
                         <a href="{{ route('remitos.create', ['presupuesto_id' => $p->id]) }}"
                            class="gbtn gbtn-ghost gbtn-xs">📦 Remito</a>
 

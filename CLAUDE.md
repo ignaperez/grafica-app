@@ -680,6 +680,14 @@ Planilla interna (estilo Excel del cliente) que se auto-alimenta de presupuestos
 `size=0.6 height=1.5` (crece sobre todo en alto, más escaneable) y la celda de 55→62mm. Aplica
 a remitos oficiales (CAI) y electrónicos (autorización ARCA); el interno no lleva barcode.
 
+### Presupuesto ya facturado — no facturar dos veces (2026-07-02)
+`presupuestos/index`: el botón "⚡ Factura" se reemplaza por "✓ Facturado" (deshabilitado) si el
+presupuesto ya tiene una factura NO anulada. `PresupuestoController@index` agrega
+`withCount(['facturas as facturado_count' => fn($q) => $q->where('estado','!=','anulada')])`.
+Guard server-side en `FacturaController@store`: si viene `presupuesto_id` (y no es NC) y ya hay
+una factura no anulada de ese presupuesto → redirige a `presupuestos.index` con error (no llega
+a ARCA). Así no se puede facturar dos veces ni entrando por URL directa.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)
