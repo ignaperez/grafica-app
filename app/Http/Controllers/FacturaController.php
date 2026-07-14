@@ -88,7 +88,7 @@ class FacturaController extends Controller
             'observaciones'  => 'nullable|string',
             'forma_pago'     => 'nullable|in:' . implode(',', array_keys(\App\Models\Cobro::FORMAS)),
             'items'          => 'required|array|min:1',
-            'items.*.descripcion'     => 'required|string|max:255',
+            'items.*.descripcion'     => 'required|string|max:1000',
             'items.*.cantidad'        => 'required|numeric|min:0.001',
             'items.*.unidad'          => 'nullable|in:unidad,m2,ml',
             'items.*.precio_unitario' => 'required|numeric|min:0',

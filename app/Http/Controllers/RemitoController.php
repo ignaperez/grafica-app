@@ -76,7 +76,7 @@ class RemitoController extends Controller
             'tipo'                 => 'required|in:interno,oficial,electronico',
             'observaciones'        => 'nullable|string',
             'items'                => 'required|array|min:1',
-            'items.*.descripcion'  => 'required|string|max:255',
+            'items.*.descripcion'  => 'required|string|max:1000',
             'items.*.cantidad'     => 'required|numeric|min:0.001',
             'items.*.unidad'       => 'required|string|max:30',
         ]);
@@ -214,7 +214,7 @@ class RemitoController extends Controller
             'fecha'                => 'required|date',
             'observaciones'        => 'nullable|string',
             'items'                => 'required|array|min:1',
-            'items.*.descripcion'  => 'required|string|max:255',
+            'items.*.descripcion'  => 'required|string|max:1000',
             'items.*.cantidad'     => 'required|numeric|min:0.001',
             'items.*.unidad'       => 'required|string|max:30',
         ]);
