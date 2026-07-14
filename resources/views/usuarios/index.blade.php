@@ -56,11 +56,24 @@
                                  border:1px solid {{ $rolColor['border'] }}">
                         {{ ucfirst($u->rol) }}
                     </span>
+                    @if($u->esSuper())
+                        <span title="Administrador principal — acceso total"
+                              style="margin-left:6px;font-size:10.5px;font-weight:700;color:var(--ac)">★ Principal</span>
+                    @else
+                        <div class="txd" style="font-size:10.5px;margin-top:4px">
+                            {{ count($u->modulos ?? []) }} de {{ count(\App\Models\User::MODULOS) }} módulos
+                        </div>
+                    @endif
                 </td>
                 <td style="text-align:right">
                     <div style="display:flex;gap:6px;justify-content:flex-end">
                         <a href="{{ route('usuarios.edit', $u->id) }}" class="gbtn gbtn-ghost gbtn-xs">✎ Editar</a>
-                        @if($u->id !== auth()->id())
+                        <form method="POST" action="{{ route('usuarios.cerrar-sesiones', $u->id) }}"
+                              onsubmit="return confirm('¿Cerrar las sesiones activas de {{ addslashes($u->name) }}?')">
+                            @csrf
+                            <button type="submit" class="gbtn gbtn-ghost gbtn-xs" title="Forzar cierre de sesión en todas las PCs">⎋ Cerrar sesión</button>
+                        </form>
+                        @if($u->id !== auth()->id() && !$u->esSuper())
                         <form method="POST" action="{{ route('usuarios.destroy', $u->id) }}"
                               onsubmit="return confirm('¿Eliminar a {{ addslashes($u->name) }}?')">
                             @csrf @method('DELETE')

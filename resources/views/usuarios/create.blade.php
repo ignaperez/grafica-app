@@ -56,10 +56,33 @@
     </div>
 </div>
 
+@include('usuarios._modulos', ['seleccionados' => old('modulos', [])])
+
 <div style="margin-top:16px;display:flex;gap:8px">
     <button type="submit" class="gbtn gbtn-primary">Crear usuario</button>
     <a href="{{ route('usuarios.index') }}" class="gbtn gbtn-ghost">Cancelar</a>
 </div>
 </form>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+// Al elegir el rol, pre-tildar los módulos default de esa plantilla.
+(function () {
+    const DEFAULTS = {
+        admin:      @json(array_keys(\App\Models\User::MODULOS)),
+        ventas:     @json(\App\Models\User::modulosPorRol('ventas')),
+        produccion: @json(\App\Models\User::modulosPorRol('produccion')),
+    };
+    const $rol = document.querySelector('select[name="rol"]');
+    if (!$rol) return;
+    $rol.addEventListener('change', function () {
+        const mods = DEFAULTS[this.value] || [];
+        document.querySelectorAll('#modulos-grid input[type="checkbox"]').forEach(function (chk) {
+            chk.checked = mods.includes(chk.value);
+        });
+    });
+})();
+</script>
 @endsection

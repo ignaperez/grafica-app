@@ -696,6 +696,50 @@ sugiere ese nombre. Soporta `?auto=1` para auto-disparar la descarga al cargar. 
 `presupuestos/index` (por fila) y `presupuestos/show` (topbar) apuntan a `presupuestos.print?auto=1`.
 No usa mPDF a propósito: conserva la estética de la vista de impresión existente. Sin migración.
 
+### Permisos por módulo + Administrador principal + sesión única (2026-07-02)
+Control de acceso granular por usuario dentro del tenant. **NO confundir con el Super Admin
+central** (`plote.ar/super-admin`, que gestiona empresas) — esto es por-empresa.
+
+**Administrador principal** (uno por tenant): `users.es_super` (bool). Acceso TOTAL siempre,
+único que ve/gestiona Usuarios y permisos. La migración marca al primer admin (menor id).
+NO editable por UI (queda fijo; para transferirlo, cambiar `es_super` a mano en DB).
+
+**Permisos por módulo:** `users.modulos` (JSON con las keys habilitadas). Const
+`User::MODULOS` (10: ordenes, clientes, presupuestos, facturas, remitos, seguimiento, servicios,
+configuracion, rrhh, papelera). `User::modulosPorRol($rol)` = plantilla default (admin=todos,
+ventas=ordenes/clientes/presupuestos/facturas/remitos/servicios, produccion=ordenes). Helpers
+`esSuper()`, `puedeModulo($k)`.
+
+**Enforcement:** `ModuloAccessMiddleware` (alias `modulo.access`, aplicado al grupo externo de
+`routes/tenant.php`) mapea el **nombre de ruta → módulo** (`self::MAPA`) y bloquea si el usuario
+no lo tiene (super pasa siempre; ruta sin módulo = libre; `usuarios.*` = solo super). Redirige a
+dashboard/inicio con error. **Los módulos RESTRINGEN dentro del rol** (las rutas siguen con su
+`rol:` middleware): se puede sacar Facturas a un ventas, pero no dar una ruta admin-only a un
+ventas. Es "rol como plantilla" + restricción por módulo (subtractivo).
+
+**Sidebar** (`layouts/app.blade`): reescrito con flags `$verX = $rolPermite && $u->puedeModulo(X)`;
+grupos se ocultan si quedan vacíos. Usuarios solo si `esSuper()`.
+
+**UI usuarios:** partial `usuarios/_modulos.blade` (checkboxes + hidden `modulos_marcado`).
+`create` tiene JS que auto-tilda los defaults al elegir rol. `edit` precarga los actuales (al
+super le muestra "acceso total", sin checkboxes). `index` muestra badge ★ Principal / "X de N
+módulos" + botón **⎋ Cerrar sesión**. `UserController@modulosDesde()` guarda lo tildado (o el
+default del rol si no vino la sección); al super NO se le tocan módulos.
+
+**Sesión única:** `users.session_id` guarda el id de la sesión activa. En login
+(`AuthenticatedSessionController@store`) se setea; en logout se limpia. `SingleSessionMiddleware`
+(alias `single.session`, grupo externo) cierra la sesión si `session_id` no coincide → el nuevo
+login expulsa al anterior (se cae en su próximo request). **Gotcha:** las sesiones se guardan en
+la **DB central** compartida (no en el tenant) y los `user_id` colisionan entre empresas, por eso
+NO se borra de `sessions` por `user_id` — se usa el `session_id` en el usuario (tenant-safe).
+Forzar cierre: `UserController@cerrarSesiones` setea `session_id` a un sentinel random →
+`POST /usuarios/{usuario}/cerrar-sesiones` (`usuarios.cerrar-sesiones`, grupo `rol:admin`).
+
+**Migraciones** `2026_07_02_000002` (es_super + modulos, con backfill) y `000003` (session_id),
+tenant + central. Deploy = `git pull` + `migrate` + `tenants:migrate` + `optimize:clear` +
+cache. **Al deployar, el primer admin de cada tenant queda como principal y el resto con los
+módulos de su rol.**
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

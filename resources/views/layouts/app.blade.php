@@ -242,9 +242,34 @@
         @endif
     </div>
     @php
-        $rol = auth()->user()->rol;
-        $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || request()->routeIs('remitos.*');
-        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && in_array(auth()->user()->rol ?? '', ['admin','ventas']));
+        $u   = auth()->user();
+        $rol = $u->rol;
+
+        // Acceso por módulo, respetando la restricción de rol de cada ruta.
+        $esAdmin      = $rol === 'admin';
+        $adminVentas  = in_array($rol, ['admin', 'ventas']);
+
+        $verOrdenes   = $u->puedeModulo('ordenes');
+        $verClientes  = $adminVentas && $u->puedeModulo('clientes');
+        $verPresup    = $adminVentas && $u->puedeModulo('presupuestos');
+        $verFacturas  = $adminVentas && $u->puedeModulo('facturas');
+        $verServicios = $adminVentas && $u->puedeModulo('servicios');
+        $verRemitosV  = $adminVentas && $u->puedeModulo('remitos');       // en grupo Ventas
+        $verRemitosP  = $rol === 'produccion' && $u->puedeModulo('remitos'); // en grupo Producción
+        $verSeg       = $esAdmin && $u->puedeModulo('seguimiento');
+        $verConfig    = $adminVentas && $u->puedeModulo('configuracion');  // tipos/materiales/máquinas
+        $verCai       = $esAdmin && $u->puedeModulo('remitos');
+        $verConfEmp   = $esAdmin && $u->puedeModulo('configuracion');      // config empresa
+        $verPapelera  = $esAdmin && $u->puedeModulo('papelera');
+        $verRrhh      = $esAdmin && $u->puedeModulo('rrhh');
+        $verUsuarios  = $u->esSuper();
+
+        $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg;
+        $grupoConfig  = $verConfig || $verCai;
+        $grupoSistema = $verUsuarios || $verConfEmp || $verPapelera;
+
+        $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || (request()->routeIs('remitos.*') && $rol === 'produccion');
+        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('seguimientos.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && $rol !== 'produccion');
         $configOn     = request()->routeIs('tipo-trabajos.*') || request()->routeIs('materiales.*') || request()->routeIs('maquinas.*') || request()->routeIs('remito-cais.*');
         $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*') || request()->routeIs('papelera.*');
         $rrhhOn       = request()->is('rrhh/*');
@@ -268,6 +293,7 @@
                     <span class="dot"></span> Inicio
                 </a>
             @endif
+            @if($verOrdenes)
             <a href="{{ route('ordenes-trabajo.index') }}" class="s-item {{ request()->routeIs('ordenes-trabajo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Órdenes de trabajo
             </a>
@@ -277,8 +303,8 @@
             <a href="{{ route('vehiculos-ploteo.index') }}" class="s-item {{ request()->routeIs('vehiculos-ploteo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Vehículos
             </a>
-            {{-- Remitos solo aparece aquí para producción; admin/ventas lo ven en Ventas --}}
-            @if($rol === 'produccion')
+            @endif
+            @if($verRemitosP)
             <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Remitos
             </a>
@@ -286,46 +312,59 @@
         </div>
 
         {{-- ══ VENTAS ══ --}}
-        @if(in_array($rol, ['admin', 'ventas']))
+        @if($grupoVentas)
         <button class="s-trigger {{ $ventasOn ? 'open' : '' }}" onclick="toggleGroup(this)">
             <span class="tl">Ventas</span><span class="s-arrow">›</span>
         </button>
         <div class="s-sub {{ $ventasOn ? 'open' : '' }}">
+            @if($verClientes)
             <a href="{{ route('clientes.index') }}" class="s-item {{ request()->routeIs('clientes.*') ? 'on' : '' }}">
                 <span class="dot"></span> Clientes
             </a>
+            @endif
+            @if($verPresup)
             <a href="{{ route('presupuestos.index') }}" class="s-item {{ request()->routeIs('presupuestos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Presupuestos
             </a>
+            @endif
+            @if($verFacturas)
             <a href="{{ route('facturas.index') }}" class="s-item {{ request()->routeIs('facturas.*') ? 'on' : '' }}">
                 <span class="dot"></span> Facturas
             </a>
-            @if($rol === 'admin')
+            @endif
+            @if($verSeg)
             <a href="{{ route('seguimientos.index') }}" class="s-item {{ request()->routeIs('seguimientos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Seguimiento
             </a>
             @endif
+            @if($verRemitosV)
             <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') && !request()->routeIs('remito-cais.*') ? 'on' : '' }}">
                 <span class="dot"></span> Remitos
             </a>
+            @endif
+            @if($verServicios)
             <a href="{{ route('productos.index') }}" class="s-item {{ request()->routeIs('productos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Servicios
             </a>
             <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Catálogo
             </a>
-            @if($rol === 'admin')
+            @if($esAdmin)
             <a href="{{ route('listas-precios.index') }}" class="s-item {{ request()->routeIs('listas-precios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Listas de precios
             </a>
             @endif
+            @endif
         </div>
+        @endif
 
         {{-- ══ CONFIGURACIÓN ══ --}}
+        @if($grupoConfig)
         <button class="s-trigger {{ $configOn ? 'open' : '' }}" onclick="toggleGroup(this)">
             <span class="tl">Configuración</span><span class="s-arrow">›</span>
         </button>
         <div class="s-sub {{ $configOn ? 'open' : '' }}">
+            @if($verConfig)
             <a href="{{ route('tipo-trabajos.index') }}" class="s-item {{ request()->routeIs('tipo-trabajos.*') ? 'on' : '' }}">
                 <span class="dot"></span> Tipos de trabajo
             </a>
@@ -335,7 +374,8 @@
             <a href="{{ route('maquinas.index') }}" class="s-item {{ request()->routeIs('maquinas.*') ? 'on' : '' }}">
                 <span class="dot"></span> Máquinas
             </a>
-            @if($rol === 'admin')
+            @endif
+            @if($verCai)
             <a href="{{ route('remito-cais.index') }}" class="s-item {{ request()->routeIs('remito-cais.*') ? 'on' : '' }}">
                 <span class="dot"></span> CAI remitos
             </a>
@@ -343,23 +383,32 @@
         </div>
         @endif
 
-        {{-- ══ SISTEMA + RRHH (solo admin) ══ --}}
-        @if($rol === 'admin')
+        {{-- ══ SISTEMA ══ --}}
+        @if($grupoSistema)
         <button class="s-trigger {{ $sistemaOn ? 'open' : '' }}" onclick="toggleGroup(this)">
             <span class="tl">Sistema</span><span class="s-arrow">›</span>
         </button>
         <div class="s-sub {{ $sistemaOn ? 'open' : '' }}">
+            @if($verUsuarios)
             <a href="{{ route('usuarios.index') }}" class="s-item {{ request()->routeIs('usuarios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Usuarios
             </a>
+            @endif
+            @if($verConfEmp)
             <a href="{{ route('configuracion.edit') }}" class="s-item {{ request()->routeIs('configuracion.*') ? 'on' : '' }}">
                 <span class="dot"></span> Configuración
             </a>
+            @endif
+            @if($verPapelera)
             <a href="{{ route('papelera.index') }}" class="s-item {{ request()->routeIs('papelera.*') ? 'on' : '' }}">
                 <span class="dot"></span> Papelera
             </a>
+            @endif
         </div>
+        @endif
 
+        {{-- ══ RRHH ══ --}}
+        @if($verRrhh)
         <button class="s-trigger {{ $rrhhOn ? 'open' : '' }}" onclick="toggleGroup(this)">
             <span class="tl">RRHH</span><span class="s-arrow">›</span>
         </button>

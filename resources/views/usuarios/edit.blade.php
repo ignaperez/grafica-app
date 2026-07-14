@@ -61,6 +61,16 @@
     </div>
 </div>
 
+@if($usuario->esSuper())
+    <div class="gcard" style="margin-top:12px;border-color:rgba(230,80,42,.3)">
+        <div class="gcard-bd" style="color:var(--txd);font-size:13px">
+            ★ <strong style="color:var(--ac)">Administrador principal</strong> — acceso total a todos los módulos (no se limita).
+        </div>
+    </div>
+@else
+    @include('usuarios._modulos', ['seleccionados' => old('modulos', $usuario->modulos ?? [])])
+@endif
+
 <div style="margin-top:16px;display:flex;gap:8px">
     <button type="submit" class="gbtn gbtn-primary">Guardar cambios</button>
     <a href="{{ route('usuarios.index') }}" class="gbtn gbtn-ghost">Cancelar</a>

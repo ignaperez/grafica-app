@@ -31,6 +31,10 @@ class AuthenticatedSessionController extends Controller
         // Estampar el tenant en la sesión para evitar session bleeding entre contextos
         session(['_tenant_id' => tenant('id')]);
 
+        // Sesión única: registramos el id de esta sesión en el usuario. Cualquier
+        // sesión anterior (otra PC) deja de coincidir → se cierra en su próximo request.
+        $request->user()->forceFill(['session_id' => $request->session()->getId()])->saveQuietly();
+
         $rol = $request->user()->rol;
 
         $destino = match($rol) {
@@ -48,6 +52,9 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Limpiar el marcador de sesión única
+        $request->user()?->forceFill(['session_id' => null])->saveQuietly();
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

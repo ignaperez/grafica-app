@@ -49,6 +49,8 @@ Route::middleware([
     InitializeTenancyBySubdomain::class,
     PreventAccessFromCentralDomains::class,
     ValidateTenantSession::class,
+    'single.session',
+    'modulo.access',
 ])->group(function () {
 
     // Kiosco de fichada — tablet en recepción, sin autenticación
@@ -77,6 +79,7 @@ Route::middleware([
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
         Route::get('/admin', fn () => 'Bienvenido administrador.');
+        Route::post('/usuarios/{usuario}/cerrar-sesiones', [UserController::class, 'cerrarSesiones'])->name('usuarios.cerrar-sesiones');
         Route::resource('usuarios', UserController::class)->except(['show']);
 
         Route::get('/configuracion', [ConfiguracionController::class, 'edit'])->name('configuracion.edit');
