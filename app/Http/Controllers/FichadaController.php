@@ -111,7 +111,19 @@ class FichadaController extends Controller
         $totalHoy  = Fichada::whereBetween('momento', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])->count();
         $empleados = Empleado::where('activo', true)->count();
 
-        return view('rrhh.dashboard', compact('totalHoy', 'empleados', 'hoy'));
+        // Ingresos de hoy: una fila por empleado (su primer ENTRADA), hasta 6,
+        // mostrando los ingresos más recientes arriba.
+        $ingresosHoy = Fichada::with('empleado')
+            ->where('tipo', 'entrada')
+            ->whereBetween('momento', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
+            ->orderBy('momento')          // asc → unique conserva el PRIMER ingreso del día
+            ->get()
+            ->unique('empleado_id')
+            ->sortByDesc('momento')       // los ingresos más recientes primero
+            ->take(6)
+            ->values();
+
+        return view('rrhh.dashboard', compact('totalHoy', 'empleados', 'hoy', 'ingresosHoy'));
     }
 
     public function index(Request $request)
