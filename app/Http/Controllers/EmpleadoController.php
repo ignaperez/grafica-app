@@ -42,6 +42,8 @@ class EmpleadoController extends Controller
             'categoria'        => ['nullable', 'string', 'max:100'],
             'valor_hora'       => ['nullable', 'numeric'],
             'horas_jornada'    => ['nullable', 'integer', 'min:1', 'max:24'],
+            'horario_ingreso'  => ['nullable', 'date_format:H:i'],
+            'horario_egreso'   => ['nullable', 'date_format:H:i'],
             'observaciones'    => ['nullable', 'string'],
         ]);
 
@@ -64,6 +66,8 @@ class EmpleadoController extends Controller
             'categoria'        => $data['categoria'] ?? null,
             'valor_hora'       => $data['valor_hora'] ?? null,
             'horas_jornada'    => $data['horas_jornada'] ?? 8,
+            'horario_ingreso'  => $data['horario_ingreso'] ?? null,
+            'horario_egreso'   => $data['horario_egreso'] ?? null,
             'observaciones'    => $data['observaciones'] ?? null,
         ]);
 
@@ -96,6 +100,8 @@ class EmpleadoController extends Controller
             'categoria'        => ['nullable', 'string', 'max:100'],
             'valor_hora'       => ['nullable', 'numeric'],
             'horas_jornada'    => ['nullable', 'integer', 'min:1', 'max:24'],
+            'horario_ingreso'  => ['nullable', 'date_format:H:i'],
+            'horario_egreso'   => ['nullable', 'date_format:H:i'],
             'observaciones'    => ['nullable', 'string'],
         ]);
 
@@ -118,6 +124,8 @@ class EmpleadoController extends Controller
             'categoria'        => $data['categoria'] ?? null,
             'valor_hora'       => $data['valor_hora'] ?? null,
             'horas_jornada'    => $data['horas_jornada'] ?? 8,
+            'horario_ingreso'  => $data['horario_ingreso'] ?? null,
+            'horario_egreso'   => $data['horario_egreso'] ?? null,
             'observaciones'    => $data['observaciones'] ?? null,
         ])->save();
 

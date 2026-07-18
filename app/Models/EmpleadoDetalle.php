@@ -23,6 +23,8 @@ class EmpleadoDetalle extends Model
         'categoria',
         'valor_hora',
         'horas_jornada',
+        'horario_ingreso',
+        'horario_egreso',
         'observaciones',
     ];
 
