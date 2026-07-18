@@ -108,6 +108,7 @@ Route::middleware([
 
         Route::get('/fichadas',     [FichadaController::class, 'index'])->name('fichadas.index');
         Route::get('/fichadas/hoy', [FichadaController::class, 'hoy'])->name('fichadas.hoy');
+        Route::get('/fichadas/{fichada}/foto', [FichadaController::class, 'foto'])->name('fichadas.foto');
 
         Route::get('/empleados',                  [EmpleadoController::class, 'index'])->name('empleados.index');
         Route::get('/empleados/crear',            [EmpleadoController::class, 'create'])->name('empleados.create');

@@ -753,8 +753,17 @@ que quedó para más adelante.
   si no hay cámara, ficha sin foto.
 - **`FichadaController@store`**: valida `foto` (nullable string dataURL) y
   `guardarFoto()` decodea el base64 (cap 3 MB), guarda en `storage/app/public/fichadas/{emp}/…jpg`
-  (disco public, per-tenant) y setea la ruta en la fichada. `Fichada::fotoUrl()` da la URL.
-- **RRHH** (`rrhh/fichadas/index`): columna **Foto** con miniatura (clic → amplía).
+  (disco public, per-tenant) y setea la ruta en la fichada.
+- **GOTCHA multi-tenancy — servir archivos:** los archivos de tenant viven en
+  `storage/tenant{id}/app/public/…` (por `suffix_storage_path`), pero `public/storage` apunta al
+  storage **central** → una URL `/storage/…` da **404**. Por eso la foto NO se sirve por
+  `Storage::url()` sino por una **ruta de la app**: `FichadaController@foto` hace
+  `Storage::disk('public')->response($fichada->foto)` (en contexto tenant el disco resuelve al
+  storage del tenant). `Fichada::fotoUrl()` → `route('rrhh.fichadas.foto', id)` (grupo RRHH, detrás
+  de login — dato sensible). **Nota:** `TrabajoArchivo`, logos, etc. usan `Storage::url()` y tienen
+  el MISMO bug latente; si alguna vez hay que mostrarlos en prod, aplicar este mismo patrón.
+- **RRHH** (`rrhh/fichadas/index`): columna **Foto** con miniatura (clic → amplía), vía
+  `route('rrhh.fichadas.foto', $f->id)`.
 - **GOTCHA cámara:** `getUserMedia` solo corre en **HTTPS** (o localhost). En local por HTTP
   (`grafica-app.test`) la cámara NO arranca → hay que probar la foto en producción (HTTPS) o en
   la tablet real. La lógica de guardado/display se probó inyectando la dataURL directo.

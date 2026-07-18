@@ -29,11 +29,13 @@ class Fichada extends Model
         return $this->belongsTo(Empleado::class);
     }
 
-    /** URL pública de la foto de la fichada (o null). */
+    /**
+     * URL de la foto de la fichada. Se sirve por una ruta de la app (no por
+     * /storage/…) porque los archivos viven en el storage del tenant y el symlink
+     * central no los alcanza.
+     */
     public function fotoUrl(): ?string
     {
-        return $this->foto
-            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->foto)
-            : null;
+        return $this->foto ? route('rrhh.fichadas.foto', $this->id) : null;
     }
 }

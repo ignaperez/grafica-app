@@ -7,6 +7,7 @@ use App\Models\Fichada;
 use App\Services\HorasService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class FichadaController extends Controller
 {
@@ -133,6 +134,18 @@ class FichadaController extends Controller
         $empleados = Empleado::orderBy('nombre')->orderBy('apellido')->get();
 
         return view('rrhh.fichadas.index', compact('fichadas', 'empleados'));
+    }
+
+    /**
+     * Sirve la foto de una fichada leyéndola del storage del tenant (en contexto
+     * tenant el disco public resuelve a storage/tenant{id}/app/public). Detrás de
+     * login RRHH — es dato sensible. Evita el 404 del symlink central.
+     */
+    public function foto(Fichada $fichada)
+    {
+        abort_unless($fichada->foto && Storage::disk('public')->exists($fichada->foto), 404);
+
+        return Storage::disk('public')->response($fichada->foto);
     }
 
     public function hoy()
