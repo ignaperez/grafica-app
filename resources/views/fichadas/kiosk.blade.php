@@ -99,6 +99,7 @@
             </div>
 
             <input type="hidden" name="tipo" id="tipo-input" value="{{ old('tipo', 'entrada') }}">
+            <input type="hidden" name="foto" id="foto-input">
 
             <div class="tipo-group" id="tipo-group">
                 <div class="tipo-btn" data-tipo="entrada">ENTRADA</div>
@@ -111,10 +112,11 @@
         </form>
 
         <div class="tip" style="margin-top:14px;">
-            Si querés, activá el lector de QR debajo.
+            📷 Se toma una <strong>foto</strong> al fichar. Poné tu cara en cámara.
         </div>
 
         <div id="reader"></div>
+        <canvas id="foto-canvas" style="display:none"></canvas>
 
     </div>
 </div>
@@ -147,20 +149,29 @@
 
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script>
+    // Cámara FRONTAL: muestra el video (para la foto) y de paso lee QR si querés.
     if (window.Html5Qrcode) {
         const scanner = new Html5Qrcode("reader");
-        
-        Html5Qrcode.getCameras().then(cameras => {
-            if (!cameras?.length) return;
-            scanner.start(
-                cameras[0].id,
-                { fps: 10, qrbox: 220 },
-                decodedText => {
-                    document.getElementById('codigo').value = decodedText;
-                }
-            );
-        }).catch(console.error);
+        scanner.start(
+            { facingMode: "user" },
+            { fps: 10, qrbox: 220 },
+            decodedText => { document.getElementById('codigo').value = decodedText; }
+        ).catch(console.error);
     }
+
+    // Al fichar, capturar una foto del video de la cámara (best-effort).
+    document.querySelector('form').addEventListener('submit', function () {
+        try {
+            const video = document.querySelector('#reader video');
+            if (video && video.videoWidth) {
+                const c = document.getElementById('foto-canvas');
+                c.width  = video.videoWidth;
+                c.height = video.videoHeight;
+                c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+                document.getElementById('foto-input').value = c.toDataURL('image/jpeg', 0.6);
+            }
+        } catch (e) { /* si falla, se ficha sin foto */ }
+    });
 </script>
 </body>
 </html>

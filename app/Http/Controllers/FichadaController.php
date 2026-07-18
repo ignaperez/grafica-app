@@ -28,6 +28,7 @@ class FichadaController extends Controller
         $data = $request->validate([
             'codigo' => ['required', 'string'],
             'tipo'   => ['required', 'in:entrada,salida,pausa_inicio,pausa_fin'],
+            'foto'   => ['nullable', 'string'],  // dataURL capturada por la tablet
         ]);
 
         $empleado = Empleado::where('codigo', $data['codigo'])
@@ -58,6 +59,7 @@ class FichadaController extends Controller
             'tipo'        => $data['tipo'],
             'momento'     => $momento,
             'origen'      => 'tablet-recepcion',
+            'foto'        => $this->guardarFoto($request->input('foto'), $empleado),
         ]);
 
         $tipoLabel = match ($data['tipo']) {
@@ -71,6 +73,30 @@ class FichadaController extends Controller
             'ok',
             "✅ {$empleado->nombre_completo} – {$tipoLabel} registrada a las " . $momento->format('H:i')
         );
+    }
+
+    /**
+     * Guarda la foto (dataURL base64) capturada por la tablet al fichar.
+     * Best-effort: si no vino o es inválida, devuelve null (la fichada igual se registra).
+     */
+    private function guardarFoto(?string $dataUrl, Empleado $empleado): ?string
+    {
+        if (!$dataUrl || !preg_match('#^data:image/(\w+);base64,#', $dataUrl, $m)) {
+            return null;
+        }
+
+        $bin = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
+        if ($bin === false || strlen($bin) > 3_000_000) {  // cap 3 MB
+            return null;
+        }
+
+        $ext  = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+        $ruta = 'fichadas/' . $empleado->id . '/' . Carbon::now()->format('Ymd_His')
+              . '_' . \Illuminate\Support\Str::random(6) . '.' . $ext;
+
+        \Illuminate\Support\Facades\Storage::disk('public')->put($ruta, $bin);
+
+        return $ruta;
     }
 
     // ======================

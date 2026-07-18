@@ -74,6 +74,7 @@
                     <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Hora</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Empleado</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Tipo</th>
+                    <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Foto</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Origen</th>
                 </tr>
             </thead>
@@ -95,12 +96,22 @@
                             {{ $f->tipo }}
                         </td>
                         <td class="px-3 py-2">
+                            @if($f->fotoUrl())
+                                <a href="{{ $f->fotoUrl() }}" target="_blank" title="Ver foto de la fichada">
+                                    <img src="{{ $f->fotoUrl() }}" alt="foto"
+                                         style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #ccc">
+                                </a>
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2">
                             {{ $f->origen ?? '-' }}
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-3 py-4 text-center text-gray-500">
+                        <td colspan="6" class="px-3 py-4 text-center text-gray-500">
                             No hay fichadas para los filtros seleccionados.
                         </td>
                     </tr>

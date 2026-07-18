@@ -740,6 +740,25 @@ tenant + central. Deploy = `git pull` + `migrate` + `tenants:migrate` + `optimiz
 cache. **Al deployar, el primer admin de cada tenant queda como principal y el resto con los
 módulos de su rol.**
 
+### Fichaje — foto en cada fichada (2026-07-02)
+Anti-fraude (evita el "fichaje por otro"): la tablet saca una foto de quien ficha y la guarda
+junto a la fichada, como evidencia auditable. **NO es un bloqueo automático** (el código sigue
+identificando al empleado); es disuasivo + prueba. Se descartó QR dinámico/link porque el
+secreto se puede compartir; lo único infalsificable sería biometría (reconocimiento facial),
+que quedó para más adelante.
+- **`fichadas.foto`** (string nullable, migración `2026_07_02_000004` tenant + central).
+- **Kiosco** (`fichadas/kiosk`): la cámara arranca en `facingMode: "user"` (frontal) con
+  html5-qrcode (que ya estaba para leer QR). Al hacer submit, un handler captura un frame del
+  `#reader video` a un canvas → `toDataURL('image/jpeg',0.6)` → input oculto `foto`. Best-effort:
+  si no hay cámara, ficha sin foto.
+- **`FichadaController@store`**: valida `foto` (nullable string dataURL) y
+  `guardarFoto()` decodea el base64 (cap 3 MB), guarda en `storage/app/public/fichadas/{emp}/…jpg`
+  (disco public, per-tenant) y setea la ruta en la fichada. `Fichada::fotoUrl()` da la URL.
+- **RRHH** (`rrhh/fichadas/index`): columna **Foto** con miniatura (clic → amplía).
+- **GOTCHA cámara:** `getUserMedia` solo corre en **HTTPS** (o localhost). En local por HTTP
+  (`grafica-app.test`) la cámara NO arranca → hay que probar la foto en producción (HTTPS) o en
+  la tablet real. La lógica de guardado/display se probó inyectando la dataURL directo.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

@@ -17,6 +17,7 @@ class Fichada extends Model
         'tipo',
         'momento',
         'origen',
+        'foto',
     ];
 
     protected $casts = [
@@ -26,5 +27,13 @@ class Fichada extends Model
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class);
+    }
+
+    /** URL pública de la foto de la fichada (o null). */
+    public function fotoUrl(): ?string
+    {
+        return $this->foto
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->foto)
+            : null;
     }
 }
