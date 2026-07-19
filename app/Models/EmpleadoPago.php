@@ -17,6 +17,10 @@ class EmpleadoPago extends Model
         'monto_hora_normal',
         'monto_hora_extra',
         'monto_total',
+        'bonificaciones',
+        'descuentos',
+        'adelantos',
+        'neto',
         'observaciones',
     ];
 
@@ -28,5 +32,11 @@ class EmpleadoPago extends Model
     public function empleado()
     {
         return $this->belongsTo(Empleado::class);
+    }
+
+    /** Adelantos saldados por este pago. */
+    public function adelantosSaldados()
+    {
+        return $this->hasMany(Adelanto::class, 'empleado_pago_id');
     }
 }

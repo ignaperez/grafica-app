@@ -14,6 +14,8 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ListaPrecioController;
 use App\Http\Controllers\FichadaController;
 use App\Http\Controllers\EmpleadoController;
+use App\Http\Controllers\AdelantoController;
+use App\Http\Controllers\ParametroSueldoController;
 use App\Http\Controllers\TipoTrabajoController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaquinaController;
@@ -120,6 +122,17 @@ Route::middleware([
         Route::get('/empleados/{empleado}/fichadas', [FichadaController::class, 'porEmpleado'])->name('empleados.fichadas');
         Route::get('/empleados/{empleado}/liquidar', [EmpleadoController::class, 'liquidar'])->name('empleados.liquidar');
         Route::post('/empleados/{empleado}/pagos',   [EmpleadoController::class, 'registrarPago'])->name('empleados.pagos.store');
+
+        // Adelantos (historial editable + vale imprimible)
+        Route::get('/empleados/{empleado}/adelantos',  [AdelantoController::class, 'index'])->name('empleados.adelantos');
+        Route::post('/empleados/{empleado}/adelantos', [AdelantoController::class, 'store'])->name('empleados.adelantos.store');
+        Route::put('/adelantos/{adelanto}',            [AdelantoController::class, 'update'])->name('adelantos.update');
+        Route::delete('/adelantos/{adelanto}',         [AdelantoController::class, 'destroy'])->name('adelantos.destroy');
+        Route::get('/adelantos/{adelanto}/vale',       [AdelantoController::class, 'vale'])->name('adelantos.vale');
+
+        // Parámetros de sueldo (coeficientes)
+        Route::get('/sueldos/parametros',  [ParametroSueldoController::class, 'edit'])->name('sueldos.parametros');
+        Route::put('/sueldos/parametros',  [ParametroSueldoController::class, 'update'])->name('sueldos.parametros.update');
 
     });
 

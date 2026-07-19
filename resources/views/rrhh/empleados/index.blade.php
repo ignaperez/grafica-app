@@ -10,10 +10,14 @@
         </div>
     @endif
 
-    <div class="mb-3">
+    <div class="mb-3 flex gap-2">
         <a href="{{ route('rrhh.empleados.create') }}"
            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700">
             Nuevo empleado
+        </a>
+        <a href="{{ route('rrhh.sueldos.parametros') }}"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-xs font-semibold rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
+            Coeficientes de sueldo
         </a>
     </div>
 
@@ -47,6 +51,14 @@
                             <a href="{{ route('rrhh.empleados.fichadas', $empleado) }}"
                                class="text-xs text-green-700 hover:underline">
                                 Ver horas
+                            </a>
+                            <a href="{{ route('rrhh.empleados.liquidar', $empleado) }}"
+                               class="text-xs text-green-700 hover:underline font-semibold">
+                                Liquidar
+                            </a>
+                            <a href="{{ route('rrhh.empleados.adelantos', $empleado) }}"
+                               class="text-xs text-orange-700 hover:underline">
+                                Adelantos
                             </a>
                             <a href="{{ route('rrhh.empleados.edit', $empleado) }}"
                                class="text-xs text-blue-700 hover:underline">

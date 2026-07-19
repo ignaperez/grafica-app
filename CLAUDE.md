@@ -768,6 +768,34 @@ que quedó para más adelante.
   (`grafica-app.test`) la cámara NO arranca → hay que probar la foto en producción (HTTPS) o en
   la tablet real. La lógica de guardado/display se probó inyectando la dataURL directo.
 
+### RRHH — Sueldos: coeficientes + adelantos + liquidación semanal (2026-07-02, etapa 2)
+Cálculo de sueldo semanal (lun-sáb) a partir de las fichadas reales. **Solo admin (RRHH).**
+- **Horarios del empleado:** `empleados_detalles.horario_ingreso/egreso` (migración `000005`,
+  etapa 1) — usados para detectar tardanzas.
+- **Coeficientes** (multiplican el `valor_hora` según el día) en `Configuracion` (key-value):
+  `sueldo_coef_normal/sabado/domingo/extra` (default 1), `sueldo_jornada_sabado` (4h),
+  `sueldo_tolerancia_min` (10). `ParametroSueldoController@edit/update` + vista
+  `rrhh/parametros-sueldo.blade`. Helper `ParametroSueldoController::actuales()`.
+- **`HorasService::calcular()`** ampliado: además de normales/extras totales, devuelve el
+  desglose por categoría (`horasNormalSemana`, `horasSabado`, `horasDomingo`, `horasExtraSemana`,
+  `horasExtraSabado`) y tardanzas (`tardanzasMin/Dias`). Regla: lun-vie base = jornada del
+  empleado; sábado base = `sueldo_jornada_sabado`; domingo = todo especial. Tardanza = 1ª entrada
+  del día vs `horario_ingreso` + tolerancia (informativo, NO descuenta — así lo pidió el usuario).
+- **Adelantos** (tabla `adelantos`, tenant+central, migración `000006`, SoftDeletes):
+  `empleado_id`, `empleado_pago_id` (nullable = saldado), `fecha`, `monto`, `observaciones`,
+  `created_by`. Modelo `Adelanto` (`saldado()`). `AdelantoController` (index/store/update/destroy
+  + `vale` imprimible). Editable/borrable SOLO mientras esté pendiente (`abort_if($saldado)`).
+  Rutas: `empleados.adelantos[.store]`, `adelantos.update/destroy/vale` (grupo RRHH).
+- **Liquidación** (`EmpleadoController@liquidar` reescrito): período por defecto = semana actual
+  (lun-sáb). Calcula bruto (normales × coef) + extras (extra × coef_extra + domingo × coef_domingo),
+  lista adelantos pendientes del período, muestra tardanzas. **Neto = bruto + extras + bonif −
+  descuentos − adelantos** (recalculado en vivo por JS). `registrarPago`: guarda en `empleado_pagos`
+  (columnas nuevas `bonificaciones/descuentos/adelantos/neto`, migración `000007`), **recalcula
+  adelantos server-side** y los **salda** (setea `empleado_pago_id`). Vista `rrhh/empleados/liquidar`.
+- **Feriados:** por ahora solo el domingo usa el coef domingo/feriado; feriados puntuales = pendiente.
+- Accesos: botones "Liquidar / Adelantos" por fila en `rrhh/empleados/index` + "Coeficientes de sueldo".
+- Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

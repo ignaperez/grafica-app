@@ -41,4 +41,9 @@ class Empleado extends Model
     {
         return $this->hasMany(EmpleadoPago::class);
     }
+
+    public function adelantos()
+    {
+        return $this->hasMany(Adelanto::class);
+    }
     }

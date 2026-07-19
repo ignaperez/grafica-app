@@ -35,13 +35,26 @@ class HorasService
         $detalle         = $empleado->detalle;
         $horasBaseSemana = $detalle->horas_jornada ?? 8;
         $minBaseSemana   = $horasBaseSemana * 60;
-        $minBaseSabado   = 4 * 60;
-        $minBaseDomingo  = 0;
+        $jornadaSabado   = (float) \App\Models\Configuracion::get('sueldo_jornada_sabado', 4);
+        $minBaseSabado   = (int) round($jornadaSabado * 60);
+        $toleranciaMin   = (int) \App\Models\Configuracion::get('sueldo_tolerancia_min', 10);
+        $horarioIngreso  = $detalle->horario_ingreso ?? null; // 'HH:MM:SS' o null
 
         $resumen        = [];
         $totalTrabMin   = 0;
         $totalExtrasMin = 0;
         $totalNormMin   = 0;
+
+        // Desglose por categoría (minutos)
+        $catNormal   = 0;  // lun-vie, hasta jornada
+        $catSabado   = 0;  // sábado, hasta jornada sábado
+        $catDomingo  = 0;  // domingo/feriado, todo
+        $extraSemana = 0;  // lun-vie, sobre jornada
+        $extraSabado = 0;  // sábado, sobre jornada sábado
+
+        // Tardanzas (informativo)
+        $tardanzasMin  = 0;
+        $tardanzasDias = 0;
 
         $porDia = $fichadas->groupBy(fn ($f) => $f->momento->toDateString());
 
@@ -52,18 +65,47 @@ class HorasService
 
             $dow = Carbon::parse($fecha)->dayOfWeekIso; // 1=lun, 7=dom
 
-            $minBaseDia = match (true) {
-                $dow === 6 => $minBaseSabado,
-                $dow === 7 => $minBaseDomingo,
-                default    => $minBaseSemana,
-            };
+            // Categorizar por tipo de día
+            if ($dow === 7) {                 // domingo (feriados: a futuro)
+                $catDomingo += $minTrabajados;
+                $minBaseDia  = 0;
+                $minExtras   = $minTrabajados;
+            } elseif ($dow === 6) {           // sábado
+                $base = min($minTrabajados, $minBaseSabado);
+                $ext  = max($minTrabajados - $minBaseSabado, 0);
+                $catSabado   += $base;
+                $extraSabado += $ext;
+                $minBaseDia   = $minBaseSabado;
+                $minExtras    = $ext;
+            } else {                          // lun-vie
+                $base = min($minTrabajados, $minBaseSemana);
+                $ext  = max($minTrabajados - $minBaseSemana, 0);
+                $catNormal   += $base;
+                $extraSemana += $ext;
+                $minBaseDia   = $minBaseSemana;
+                $minExtras    = $ext;
+            }
 
-            $minExtras   = max($minTrabajados - $minBaseDia, 0);
-            $minNormales = $minTrabajados - $minExtras;
-
+            $minNormales     = $minTrabajados - $minExtras;
             $totalTrabMin   += $minTrabajados;
             $totalExtrasMin += $minExtras;
             $totalNormMin   += $minNormales;
+
+            // Tardanza (informativo): primera ENTRADA del día vs horario de ingreso.
+            // Solo cuenta si supera la tolerancia; los minutos son desde el horario.
+            $tarde = 0;
+            if ($horarioIngreso) {
+                $entrada = $items->firstWhere('tipo', 'entrada');
+                if ($entrada) {
+                    $esperado = Carbon::parse($fecha . ' ' . $horarioIngreso);
+                    $limite   = $esperado->copy()->addMinutes($toleranciaMin);
+                    if ($entrada->momento->gt($limite)) {
+                        $tarde = $esperado->diffInMinutes($entrada->momento);
+                        $tardanzasMin  += $tarde;
+                        $tardanzasDias += 1;
+                    }
+                }
+            }
 
             $resumen[$fecha] = [
                 'fichadas'         => $items,
@@ -71,6 +113,7 @@ class HorasService
                 'min_normales'     => $minNormales,
                 'min_extras'       => $minExtras,
                 'min_base_jornada' => $minBaseDia,
+                'tarde_min'        => $tarde,
             ];
         }
 
@@ -82,6 +125,17 @@ class HorasService
             'horasNormales'   => round($totalNormMin / 60, 2),
             'horasExtras'     => round($totalExtrasMin / 60, 2),
             'horasBaseSemana' => $horasBaseSemana,
+
+            // Desglose por categoría (horas)
+            'horasNormalSemana' => round($catNormal / 60, 2),
+            'horasSabado'       => round($catSabado / 60, 2),
+            'horasDomingo'      => round($catDomingo / 60, 2),
+            'horasExtraSemana'  => round($extraSemana / 60, 2),
+            'horasExtraSabado'  => round($extraSabado / 60, 2),
+
+            // Tardanzas (informativo)
+            'tardanzasMin'  => $tardanzasMin,
+            'tardanzasDias' => $tardanzasDias,
         ];
     }
 
