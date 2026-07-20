@@ -68,8 +68,8 @@
     <tbody>
         @forelse($seguimientos as $s)
         <tr class="{{ $s->estado === 'cobrado' ? 'cobrado' : '' }}">
-            <td>{{ $s->presupuesto->fecha?->format('d/m/y') ?? '—' }}</td>
-            <td>{{ $s->presupuesto->numeroFormateado() }}</td>
+            <td>{{ $s->fechaRef()?->format('d/m/y') ?? '—' }}</td>
+            <td>{{ $s->numeroRef() }}</td>
             <td class="r">${{ number_format($s->montoBase(), 2, ',', '.') }}</td>
             <td>{{ $s->area_oficina }}</td>
             <td>{{ $s->detalle }}</td>

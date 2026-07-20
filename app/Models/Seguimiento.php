@@ -24,13 +24,16 @@ class Seguimiento extends Model
 
     protected $fillable = [
         'presupuesto_id', 'factura_id',
+        'fecha_manual', 'numero_manual', 'monto_manual',
         'area_oficina', 'detalle', 'orden_compra', 'monto_op',
         'estado', 'observaciones', 'pasado_a', 'fecha_pago',
     ];
 
     protected $casts = [
-        'fecha_pago' => 'date',
-        'monto_op'   => 'decimal:2',
+        'fecha_pago'   => 'date',
+        'fecha_manual' => 'date',
+        'monto_op'     => 'decimal:2',
+        'monto_manual' => 'decimal:2',
     ];
 
     // ── Relaciones ──────────────────────────────────────────────────────────
@@ -40,9 +43,30 @@ class Seguimiento extends Model
 
     // ── Datos automáticos (leídos del presupuesto / factura) ─────────────────
 
+    /** Fila cargada a mano (proceso que viene del sistema anterior). */
+    public function esManual(): bool
+    {
+        return is_null($this->presupuesto_id);
+    }
+
+    /** Fecha de referencia: la del presupuesto o la cargada a mano. */
+    public function fechaRef()
+    {
+        return $this->presupuesto?->fecha ?? $this->fecha_manual;
+    }
+
+    /** N° de presupuesto: el del sistema o el cargado a mano. */
+    public function numeroRef(): string
+    {
+        return $this->presupuesto?->numeroFormateado()
+            ?? ($this->numero_manual ?: '—');
+    }
+
     public function montoBase(): float
     {
-        return (float) ($this->presupuesto->total ?? 0);
+        return $this->presupuesto
+            ? (float) $this->presupuesto->total
+            : (float) ($this->monto_manual ?? 0);
     }
 
     // ── Cálculos (sobre el MONTO del presupuesto) ────────────────────────────

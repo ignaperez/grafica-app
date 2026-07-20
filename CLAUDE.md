@@ -673,6 +673,14 @@ Planilla interna (estilo Excel del cliente) que se auto-alimenta de presupuestos
   fila **verde pastel** al pasar a Cobrado + `confirm()` SOLO al pasar a Cobrado, auto-guardado
   por fila) y `seguimientos/print.blade` (`@page size:A4 landscape`).
 - **Sidebar:** link "Seguimiento" en grupo Ventas, dentro de `@if($rol === 'admin')`.
+- **Alta manual (2026-07-02):** para procesos que vienen del sistema anterior (presupuesto viejo,
+  factura nueva). Migración `000008`: `presupuesto_id` pasó a **nullable** (drop+re-add FK) + campos
+  `fecha_manual`, `numero_manual`, `monto_manual`. `Seguimiento::esManual()` (presupuesto_id null),
+  `fechaRef()`/`numeroRef()`/`montoBase()` con fallback a los manuales. Las queries del controller
+  usan `leftJoin` + `COALESCE(presupuestos.fecha, seguimientos.fecha_manual)` para el año/orden, e
+  **incluyen las manuales**. `store` (alta) + `destroy` (solo manuales, `abort_unless(esManual)`).
+  En la vista: `<details>` con form de alta arriba; en filas manuales fecha/N°/monto son editables
+  y hay un **select de factura** (facturas no vinculadas) + botón eliminar; borde naranja las marca.
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
 ### Remito — código de barras del PDF agrandado (2026-07-02)

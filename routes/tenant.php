@@ -94,7 +94,9 @@ Route::middleware([
         // Seguimiento — tabla de control de facturación (solo admin)
         Route::get('/seguimiento', [SeguimientoController::class, 'index'])->name('seguimientos.index');
         Route::get('/seguimiento/print', [SeguimientoController::class, 'print'])->name('seguimientos.print');
+        Route::post('/seguimiento', [SeguimientoController::class, 'store'])->name('seguimientos.store');
         Route::patch('/seguimiento/{seguimiento}', [SeguimientoController::class, 'update'])->name('seguimientos.update');
+        Route::delete('/seguimiento/{seguimiento}', [SeguimientoController::class, 'destroy'])->name('seguimientos.destroy');
 
     });
 
