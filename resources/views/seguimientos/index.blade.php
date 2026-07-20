@@ -142,7 +142,7 @@
 
             {{-- Monto --}}
             @if($s->esManual())
-                <td><input type="number" step="0.01" class="seg-input num" data-f="monto_manual" value="{{ $s->monto_manual !== null ? rtrim(rtrim(number_format($s->monto_manual,2,'.',''),'0'),'.') : '' }}" style="min-width:100px"></td>
+                <td><input type="text" inputmode="decimal" class="seg-input num seg-money" data-f="monto_manual" value="{{ $s->monto_manual !== null ? number_format($s->monto_manual, 2, ',', '.') : '' }}" style="min-width:110px"></td>
             @else
                 <td class="auto mono" style="text-align:right">${{ number_format($s->montoBase(), 2, ',', '.') }}</td>
             @endif
@@ -150,7 +150,7 @@
             <td><input type="text" class="seg-input mid" data-f="area_oficina" value="{{ $s->area_oficina }}"></td>
             <td><input type="text" class="seg-input wide" data-f="detalle" value="{{ $s->detalle }}"></td>
             <td><input type="text" inputmode="numeric" maxlength="4" class="seg-input oc" data-f="orden_compra" value="{{ $s->orden_compra }}"></td>
-            <td><input type="number" step="0.01" class="seg-input num" data-f="monto_op" value="{{ $s->monto_op !== null ? rtrim(rtrim(number_format($s->monto_op,2,'.',''),'0'),'.') : '' }}" style="min-width:100px"></td>
+            <td><input type="text" inputmode="decimal" class="seg-input num seg-money" data-f="monto_op" value="{{ $s->monto_op !== null ? number_format($s->monto_op, 2, ',', '.') : '' }}" style="min-width:110px"></td>
 
             {{-- Fecha factura --}}
             <td class="auto cell-ffact">{{ $s->factura?->fecha?->format('d/m/y') ?? '—' }}</td>
@@ -229,11 +229,26 @@
 (function () {
     const CSRF = '{{ csrf_token() }}';
 
+    // es-AR: puntos = miles, coma = decimal
+    function parseMoney(v) {
+        v = String(v ?? '').trim();
+        if (v === '') return '';
+        v = v.replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '');
+        return v;
+    }
+    function fmtMoney(v) {
+        const n = parseFloat(v);
+        if (isNaN(n)) return '';
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function guardarFila($row) {
         const url  = $row.data('url');
         const data = {};
         $row.find('.seg-input, .seg-select').each(function () {
-            data[$(this).data('f')] = $(this).val();
+            let v = $(this).val();
+            if ($(this).hasClass('seg-money')) v = parseMoney(v);
+            data[$(this).data('f')] = v;
         });
 
         fetch(url, {
@@ -271,6 +286,12 @@
 
     $(document).on('input', '.seg-input.oc', function () {
         this.value = this.value.replace(/\D/g, '').slice(0, 4);
+    });
+
+    // Formatear montos al salir del campo
+    $(document).on('blur', '.seg-money', function () {
+        const p = parseMoney(this.value);
+        this.value = (p === '') ? '' : fmtMoney(p);
     });
 })();
 </script>
