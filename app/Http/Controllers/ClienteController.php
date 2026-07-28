@@ -41,6 +41,33 @@ class ClienteController extends Controller
         return redirect()->route('clientes.index')->with('success', 'Cliente creado correctamente.');
     }
 
+    /**
+     * Alta rápida de cliente (JSON) desde otros formularios (trabajo, remito…).
+     * Sólo pide el nombre; la lista de precio toma la primera por defecto.
+     */
+    public function quickStore(Request $request)
+    {
+        $data = $request->validate([
+            'nombre'        => 'required|string|max:255',
+            'cuit'          => 'nullable|string|max:20',
+            'condicion_iva' => 'nullable|in:responsable_inscripto,monotributo,exento,consumidor_final',
+            'telefono'      => 'nullable|string|max:50',
+            'email'         => 'nullable|email|max:255',
+            'direccion'     => 'nullable|string',
+        ]);
+
+        $data['lista_precio_id'] = ListaPrecio::orderBy('id')->value('id');
+        if (!$data['lista_precio_id']) {
+            return response()->json([
+                'error' => 'No hay listas de precio configuradas. Pedile a un administrador que cree una.',
+            ], 422);
+        }
+
+        $cliente = Cliente::create($data);
+
+        return response()->json(['id' => $cliente->id, 'text' => $cliente->nombre]);
+    }
+
     public function show(Cliente $cliente)
     {
         $cliente->load('listaPrecio', 'ordenesTrabajo');

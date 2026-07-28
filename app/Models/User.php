@@ -80,6 +80,19 @@ class User extends Authenticatable
         return $this->esSuper() || in_array($modulo, $this->modulos ?? [], true);
     }
 
+    /**
+     * ¿Puede dar de alta / buscar clientes al vuelo? Cualquiera que cargue
+     * trabajos, remitos, presupuestos o facturas necesita poder crear un
+     * cliente nuevo aunque no tenga el módulo Clientes completo.
+     */
+    public function puedeCrearClientes(): bool
+    {
+        foreach (['ordenes', 'remitos', 'presupuestos', 'facturas', 'servicios'] as $m) {
+            if ($this->puedeModulo($m)) return true;
+        }
+        return false;
+    }
+
     /** Módulos por defecto según el rol (plantilla inicial). */
     public static function modulosPorRol(string $rol): array
     {

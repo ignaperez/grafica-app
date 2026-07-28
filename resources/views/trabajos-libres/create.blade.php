@@ -24,9 +24,13 @@
         <div class="gcard-bd">
             <div class="gfg" style="margin:0;max-width:420px">
                 <label class="glabel">Cliente *</label>
-                <select name="cliente_id" id="sel-cliente" class="gselect" required style="width:100%">
-                    <option value=""></option>
-                </select>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                    <select name="cliente_id" id="sel-cliente" class="gselect" required style="flex:1">
+                        <option value=""></option>
+                    </select>
+                    <button type="button" class="gbtn gbtn-ghost gbtn-sm" style="white-space:nowrap"
+                            onclick="abrirNuevoCliente()" title="Dar de alta un cliente nuevo">+ Nuevo</button>
+                </div>
             </div>
         </div>
     </div>
@@ -36,6 +40,8 @@
     </div>
 
     @include('trabajos._catalogo-items')
+
+    @include('clientes._quick-add')
 
     <div style="display:flex;gap:10px;margin-top:16px">
         <button type="submit" class="gbtn gbtn-primary">Guardar</button>

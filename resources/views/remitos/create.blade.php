@@ -158,12 +158,16 @@
                         $clientePresel = $factura->cliente;
                     }
                 @endphp
-                <select name="cliente_id" class="gselect" id="sel-cliente" required style="width:100%">
-                    <option value=""></option>
-                    @if($clientePresel)
-                        <option value="{{ $clientePresel->id }}" selected>{{ $clientePresel->nombre }}</option>
-                    @endif
-                </select>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                    <select name="cliente_id" class="gselect" id="sel-cliente" required style="flex:1">
+                        <option value=""></option>
+                        @if($clientePresel)
+                            <option value="{{ $clientePresel->id }}" selected>{{ $clientePresel->nombre }}</option>
+                        @endif
+                    </select>
+                    <button type="button" class="gbtn gbtn-ghost gbtn-sm" style="white-space:nowrap"
+                            onclick="abrirNuevoCliente()" title="Dar de alta un cliente nuevo">+ Nuevo</button>
+                </div>
                 @error('cliente_id')<div class="gerr">{{ $message }}</div>@enderror
             </div>
 
@@ -249,6 +253,8 @@
 </div>{{-- /grid --}}
 
 </form>
+
+@include('clientes._quick-add')
 
 @endsection
 

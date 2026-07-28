@@ -931,6 +931,34 @@ estructura de grupos:
 
 ---
 
+## Alta rápida de cliente desde otros módulos (2026-07-28)
+
+Producción (u otros roles sin el módulo **Clientes** completo) necesita poder **dar de
+alta un cliente al vuelo** al cargar un trabajo o hacer un remito — antes ni siquiera podía
+**buscar** clientes (el `clientes.search` del Select2 le daba 403 por módulo). Solución: crear
+y buscar clientes es una **capacidad compartida**, no el módulo Clientes completo.
+
+- **`User::puedeCrearClientes()`** = tiene alguno de `ordenes/remitos/presupuestos/facturas/servicios`.
+- **`ModuloAccessMiddleware`**: const `CLIENTE_COMPARTIDAS` (`clientes.search`, `clientes.quick`,
+  `clientes.consultar-cuit`). Esas rutas **no** exigen el módulo `clientes` — pasan si
+  `puedeCrearClientes()`. El resto de `clientes.*` (index/edit/destroy) sigue detrás del módulo.
+- **`ClienteController@quickStore`** → `POST /clientes/quick` (`clientes.quick`, grupo `auth`,
+  junto a `clientes.search`). JSON: valida sólo `nombre` (resto opcional), asigna
+  `lista_precio_id` = primera lista por defecto, devuelve `{id, text}`.
+- **Partial reutilizable `clientes/_quick-add.blade.php`**: modal (nombre + cuit + condición IVA
+  + tel/email/dirección) + JS autocontenido (se activa en `DOMContentLoaded`, cuando jQuery ya
+  cargó). Expone `abrirNuevoCliente()`; al guardar hace `fetch` a `clientes.quick`, agrega el
+  cliente al `<select id="sel-cliente">` (Select2) y lo deja seleccionado. Se incluye en un form
+  que tenga ese select + un botón `+ Nuevo` al lado.
+- **Usado en:** `trabajos-libres/create` y `remitos/create` (ambos ya tenían `#sel-cliente` con
+  Select2 AJAX). No se tocó `ordenes-trabajo/trabajos` (ahí el cliente es el de la orden, fijo).
+- **NO se agregó el link Clientes al sidebar de producción** a propósito: sólo puede crear/buscar
+  al vuelo, no ver el listado ni editar/borrar.
+
+**Sin migración.** Deploy = `git pull` + `php artisan view:clear` + `route:clear`.
+
+---
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

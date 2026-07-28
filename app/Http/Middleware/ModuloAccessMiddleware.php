@@ -41,6 +41,17 @@ class ModuloAccessMiddleware
         'usuarios'         => '__super__',   // solo Administrador principal
     ];
 
+    /**
+     * Rutas "compartidas": buscar / crear un cliente al vuelo desde otros
+     * módulos (cargar un trabajo, hacer un remito, etc.). No requieren el
+     * módulo Clientes completo — alcanza con poder crear trabajo/remito/etc.
+     */
+    private const CLIENTE_COMPARTIDAS = [
+        'clientes.search',
+        'clientes.quick',
+        'clientes.consultar-cuit',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $usuario = auth()->user();
@@ -51,6 +62,15 @@ class ModuloAccessMiddleware
         }
 
         $nombre = $request->route()?->getName() ?? '';
+
+        // Alta / búsqueda de cliente al vuelo: libre para quien cargue trabajos,
+        // remitos, presupuestos o facturas (sin necesidad del módulo Clientes).
+        if (in_array($nombre, self::CLIENTE_COMPARTIDAS, true)) {
+            return $usuario->puedeCrearClientes()
+                ? $next($request)
+                : $this->denegar($request, $usuario);
+        }
+
         $modulo = $this->moduloDeRuta($nombre);
 
         if ($modulo === null) {

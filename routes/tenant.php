@@ -146,6 +146,7 @@ Route::middleware([
 
     Route::middleware('auth')->group(function () {
         Route::get('/clientes/search',         [ClienteController::class,   'search'])->name('clientes.search');
+        Route::post('/clientes/quick',         [ClienteController::class,   'quickStore'])->name('clientes.quick');
         Route::get('/clientes/consultar-cuit', [ClienteController::class,   'consultarCuit'])->name('clientes.consultar-cuit');
         Route::get('/clientes/debug-padron',   [ClienteController::class,   'debugPadron'])->name('clientes.debug-padron');
         Route::get('/productos/search',        [ProductoController::class,  'search'])->name('productos.search');
