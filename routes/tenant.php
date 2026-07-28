@@ -180,6 +180,7 @@ Route::middleware([
         Route::resource('trabajos', TrabajoController::class);
 
         Route::post('/trabajos/{trabajo}/archivos',         [TrabajoArchivoController::class, 'store'])->name('trabajo-archivos.store');
+        Route::get('/trabajo-archivos/{trabajoArchivo}/ver', [TrabajoArchivoController::class, 'ver'])->name('trabajo-archivos.ver');
         Route::delete('/trabajo-archivos/{trabajoArchivo}', [TrabajoArchivoController::class, 'destroy'])->name('trabajo-archivos.destroy');
 
         Route::get('/trabajos-libres',                 [TrabajoLibreController::class, 'index'])->name('trabajos-libres.index');

@@ -20,8 +20,8 @@ class TrabajoLibreController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Trabajo::with(['cliente', 'tipoTrabajo', 'material', 'maquina'])
-            ->whereNull('orden_trabajo_id')
+        // Se muestran TODOS los trabajos (asignados o no); el filtro permite acotar.
+        $query = Trabajo::with(['cliente', 'tipoTrabajo', 'material', 'maquina', 'orden'])
             ->orderByDesc('id');
 
         if ($request->filled('cliente_id')) {
@@ -29,6 +29,11 @@ class TrabajoLibreController extends Controller
         }
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
+        }
+        if ($request->input('asignado') === 'si') {
+            $query->whereNotNull('orden_trabajo_id');
+        } elseif ($request->input('asignado') === 'no') {
+            $query->whereNull('orden_trabajo_id');
         }
 
         $trabajos  = $query->paginate(20)->withQueryString();

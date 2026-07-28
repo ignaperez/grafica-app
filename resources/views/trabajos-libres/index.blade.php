@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Trabajos sin asignar')
+@section('page-title', 'Trabajos')
 
 @section('topbar-actions')
     <a href="{{ route('trabajos-libres.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Cargar trabajo(s)</a>
@@ -23,6 +23,11 @@
         <option value="pendiente"     {{ request('estado') === 'pendiente'     ? 'selected' : '' }}>Pendiente</option>
         <option value="en_produccion" {{ request('estado') === 'en_produccion' ? 'selected' : '' }}>En producción</option>
         <option value="terminado"     {{ request('estado') === 'terminado'     ? 'selected' : '' }}>Terminado</option>
+    </select>
+    <select name="asignado" class="gselect" style="width:170px">
+        <option value="">Asignados y no</option>
+        <option value="no" {{ request('asignado') === 'no' ? 'selected' : '' }}>Sin asignar</option>
+        <option value="si" {{ request('asignado') === 'si' ? 'selected' : '' }}>Asignados a orden</option>
     </select>
     <button class="gbtn gbtn-ghost gbtn-sm">Filtrar</button>
     <a href="{{ route('trabajos-libres.index') }}" class="gbtn gbtn-ghost gbtn-sm">Limpiar</a>
@@ -121,6 +126,7 @@
                     </th>
                     <th>#</th>
                     <th>Cliente</th>
+                    <th>Orden</th>
                     <th>Tipo trabajo</th>
                     <th>Material</th>
                     <th>Máquina</th>
@@ -137,15 +143,25 @@
                 @forelse($trabajos as $t)
                     <tr>
                         <td>
+                            @if(!$t->orden_trabajo_id)
                             <input type="checkbox"
                                    class="sel-trabajo"
                                    value="{{ $t->id }}"
                                    data-cliente-id="{{ $t->cliente_id }}"
                                    data-cliente-nombre="{{ $t->cliente->nombre ?? '' }}"
                                    style="cursor:pointer">
+                            @endif
                         </td>
                         <td><span class="mono txd">{{ $t->id }}</span></td>
                         <td>{{ $t->cliente->nombre ?? '-' }}</td>
+                        <td>
+                            @if($t->orden_trabajo_id)
+                                <a href="{{ route('ordenes-trabajo.show', $t->orden_trabajo_id) }}"
+                                   class="mono" style="color:var(--ac);text-decoration:none">OT #{{ $t->orden_trabajo_id }}</a>
+                            @else
+                                <span class="txd" style="font-size:11px">sin asignar</span>
+                            @endif
+                        </td>
                         <td>{{ $t->tipoTrabajo->nombre ?? '-' }}</td>
                         <td>{{ $t->material->nombre ?? '-' }}</td>
                         <td>{{ $t->maquina->nombre ?? '-' }}</td>
@@ -191,8 +207,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="13" style="text-align:center;padding:32px;color:var(--txd)">
-                            No hay trabajos sin asignar.
+                        <td colspan="14" style="text-align:center;padding:32px;color:var(--txd)">
+                            No hay trabajos.
                             <a href="{{ route('trabajos-libres.create') }}" style="color:var(--ac)">Cargar el primero</a>
                         </td>
                     </tr>

@@ -51,6 +51,20 @@ class TrabajoArchivoController extends Controller
         return back()->with('success', 'Archivo(s) subido(s) correctamente.');
     }
 
+    /**
+     * Sirve el archivo leyéndolo del storage del tenant (el symlink /storage
+     * central no alcanza los archivos per-tenant → daría 404). Detrás de login.
+     */
+    public function ver(TrabajoArchivo $trabajoArchivo)
+    {
+        abort_unless(
+            $trabajoArchivo->ruta && Storage::disk('public')->exists($trabajoArchivo->ruta),
+            404
+        );
+
+        return Storage::disk('public')->response($trabajoArchivo->ruta, $trabajoArchivo->nombre_original);
+    }
+
     public function destroy(TrabajoArchivo $trabajoArchivo)
     {
         $trabajoArchivo->delete(); // soft delete — el archivo físico se conserva para auditoría

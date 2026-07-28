@@ -838,6 +838,14 @@ Rework: cargar un trabajo/OT usa **el mismo selector Grupo→Ítem** que el pres
   tipo_trabajo_id/maquina_id/material_id. `store` de libres ahora toma **un cliente arriba** (no
   por fila). `PresupuestoController@desdeTrabajos` usa `trabajo->unidad/largo` directo → mapeo 1:1.
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+- **Listado "Trabajos"** (`trabajos-libres/index`): ahora muestra **todos** los trabajos (asignados
+  o no), con columna **Orden** (link a la OT o "sin asignar") + filtro `asignado` (todos/no/si). El
+  checkbox de asignar aparece solo en los sin asignar. `TrabajoLibreController@index` sacó el
+  `whereNull('orden_trabajo_id')`.
+- **Archivos de trabajo (imprimir/referencia) no se veían** (mismo bug de storage tenant que la
+  foto de fichada): `TrabajoArchivo->url` usaba `Storage::url()` → 404. Ahora `getUrlAttribute` →
+  `route('trabajo-archivos.ver', id)` y `TrabajoArchivoController@ver` hace
+  `Storage::disk('public')->response($ruta, $nombre)` (lee del storage del tenant, detrás de login).
 
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)

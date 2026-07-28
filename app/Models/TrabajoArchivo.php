@@ -28,7 +28,9 @@ class TrabajoArchivo extends Model
 
     public function getUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->ruta);
+        // Se sirve por ruta de la app: los archivos viven en el storage del tenant
+        // y el symlink /storage central no los alcanza (daría 404).
+        return route('trabajo-archivos.ver', $this->id);
     }
 
     public function getTamanioFormateadoAttribute(): string
