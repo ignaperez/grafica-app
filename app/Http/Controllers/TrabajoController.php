@@ -253,10 +253,15 @@ class TrabajoController extends Controller
     {
         $trabajo = Trabajo::findOrFail($id);
         $ordenId = $trabajo->orden_trabajo_id;
-        $trabajo->delete();
+        $trabajo->delete(); // baja lógica (SoftDeletes)
 
-        return redirect()->route('ordenes.trabajos', ['orden' => $ordenId])
-            ->with('success', 'Trabajo eliminado.');
+        // Volver a la orden si pertenecía a una; si era libre, volver atrás.
+        if ($ordenId) {
+            return redirect()->route('ordenes-trabajo.show', $ordenId)
+                ->with('success', 'Trabajo eliminado.');
+        }
+
+        return back()->with('success', 'Trabajo eliminado.');
     }
 
     /**

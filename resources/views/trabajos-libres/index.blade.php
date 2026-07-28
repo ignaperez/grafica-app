@@ -203,6 +203,11 @@
                                 <button class="gbtn gbtn-primary gbtn-xs" title="Presupuestar este trabajo">⚡ Presupuestar</button>
                             </form>
                             @endif
+                            <form method="POST" action="{{ route('trabajos.destroy', $t->id) }}" style="display:inline"
+                                  onsubmit="return confirm('¿Eliminar este trabajo? (se puede recuperar)')">
+                                @csrf @method('DELETE')
+                                <button class="gbtn gbtn-danger gbtn-xs" title="Eliminar (baja lógica)">✕</button>
+                            </form>
                         </td>
                     </tr>
                 @empty
