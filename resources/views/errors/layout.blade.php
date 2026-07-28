@@ -30,7 +30,15 @@
         .btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(230,80,42,.35); }
         .btn.ghost { background:transparent; color:var(--txd); border:1px solid var(--bm); margin-left:8px; }
         .btn.ghost:hover { color:var(--tx); box-shadow:none; }
-        .brand { margin-top:40px; font-family:'DM Mono', monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#3a3a3a; }
+        .brand { margin-top:44px; display:inline-flex; align-items:center; gap:9px; opacity:.75; }
+        .brand-mark {
+            width:30px; height:30px; border-radius:8px; background:var(--ac);
+            display:inline-flex; align-items:center; justify-content:center;
+            box-shadow:0 4px 16px rgba(230,80,42,.35);
+        }
+        .brand-mark span { width:8px; height:8px; border-radius:50%; background:#fff; display:block; }
+        .brand-txt { font-family:'DM Sans', sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em; color:var(--tx); }
+        .brand-txt em { font-style:normal; color:var(--txd); font-weight:500; }
     </style>
 </head>
 <body>
@@ -42,7 +50,10 @@
             <a href="{{ url('/') }}" class="btn">← Volver al inicio</a>
             <a href="javascript:history.back()" class="btn ghost">Volver atrás</a>
         </div>
-        <div class="brand">plote.ar</div>
+        <div class="brand">
+            <span class="brand-mark"><span></span></span>
+            <span class="brand-txt">plote<em>.ar</em></span>
+        </div>
     </div>
 </body>
 </html>
