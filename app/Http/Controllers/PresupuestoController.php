@@ -278,7 +278,7 @@ class PresupuestoController extends Controller
         foreach ($trabajos as $i => $t) {
             $maquina  = $t->maquina;
             $material = $t->material;
-            $unidad   = $material->unidad ?? 'm2';
+            $unidad   = $t->unidad ?: ($material->unidad ?? 'm2');
 
             $mo = match ($unidad) {
                 'ml'     => $lista?->mo_ml     ?? $moGlobal['ml'],
@@ -294,7 +294,7 @@ class PresupuestoController extends Controller
 
             $medida = match ($unidad) {
                 'm2'    => (float) $t->ancho * (float) $t->alto * (int) ($t->cantidad ?: 1),
-                'ml'    => (float) ($t->ancho ?? 0) * (int) ($t->cantidad ?: 1),
+                'ml'    => (float) ($t->largo ?? 0) * (int) ($t->cantidad ?: 1),
                 default => (int) ($t->cantidad ?: 1),
             };
 
@@ -306,7 +306,7 @@ class PresupuestoController extends Controller
                 'unidad'          => $unidad,
                 'ancho'           => $t->ancho,
                 'alto'            => $t->alto,
-                'largo'           => $unidad === 'ml' ? $t->ancho : null,
+                'largo'           => $t->largo,
                 'cantidad'        => $t->cantidad ?: 1,
                 'precio_unitario' => $precio,
                 'subtotal'        => round($precio * $medida, 2),
@@ -356,49 +356,7 @@ class PresupuestoController extends Controller
 
     private function buildCatalogo(): array
     {
-        $catalogo = [];
-
-        // 1) Combos Máquina × Material — precio CALCULADO (como hasta ahora)
-        $maquinas = Maquina::with(['tipoTrabajo', 'materiales'])
-            ->where('activo', true)->orderBy('nombre')->get();
-
-        foreach ($maquinas as $maq) {
-            foreach ($maq->materiales->where('activo', true) as $mat) {
-                $catalogo[] = [
-                    'fuente'      => 'combo',
-                    'grupo'       => $maq->tipoTrabajo?->nombre ?? 'Sin proceso',
-                    'label'       => $maq->nombre . ' — ' . $mat->nombre,
-                    'descripcion' => $maq->nombre . ' — ' . $mat->nombre,
-                    'unidad'      => $mat->unidad ?? 'm2',
-                    'maquina_id'  => $maq->id,
-                    'material_id' => $mat->id,
-                    'producto_id' => null,
-                    'precio'      => null,
-                    // claves legacy por compatibilidad
-                    'tipo'        => $maq->tipoTrabajo?->nombre ?? 'Sin proceso',
-                ];
-            }
-        }
-
-        // 2) Servicios / paquetes (tabla productos) — precio FIJO opcional
-        $productos = \App\Models\Producto::with('tipoTrabajo')
-            ->where('activo', true)->orderBy('nombre')->get();
-
-        foreach ($productos as $p) {
-            $catalogo[] = [
-                'fuente'      => 'producto',
-                'grupo'       => $p->tipoTrabajo?->nombre ?? 'Otros servicios',
-                'label'       => $p->nombre,
-                'descripcion' => $p->descripcion ?: $p->nombre,
-                'unidad'      => $p->unidad ?? 'm2',
-                'maquina_id'  => null,
-                'material_id' => null,
-                'producto_id' => $p->id,
-                'precio'      => $p->precio !== null ? (float) $p->precio : null,
-                'tipo'        => $p->tipoTrabajo?->nombre ?? 'Otros servicios',
-            ];
-        }
-
-        return $catalogo;
+        // Fuente única del catálogo (compartida con Producción).
+        return \App\Services\CatalogoService::items();
     }
 }

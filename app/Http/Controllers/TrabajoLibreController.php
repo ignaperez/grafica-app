@@ -42,12 +42,8 @@ class TrabajoLibreController extends Controller
      */
     public function create()
     {
-        $clientes    = Cliente::orderBy('nombre')->get();
-        $tipos       = TipoTrabajo::where('activo', true)->orderBy('nombre')->get();
-        $materiales  = Material::where('activo', true)->orderBy('nombre')->get();
-        $maquinas    = Maquina::where('activo', true)->orderBy('nombre')->get();
-
-        return view('trabajos-libres.create', compact('clientes', 'tipos', 'materiales', 'maquinas'));
+        $catalogo = \App\Services\CatalogoService::items();
+        return view('trabajos-libres.create', compact('catalogo'));
     }
 
     /**
@@ -56,17 +52,18 @@ class TrabajoLibreController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'cliente_id'                 => 'required|exists:clientes,id',
             'trabajos'                   => 'required|array|min:1',
-            'trabajos.*.cliente_id'      => 'required|exists:clientes,id',
             'trabajos.*.tipo_trabajo_id' => 'nullable|exists:tipo_trabajos,id',
             'trabajos.*.material_id'     => 'nullable|exists:materiales,id',
             'trabajos.*.maquina_id'      => 'nullable|exists:maquinas,id',
+            'trabajos.*.unidad'          => 'nullable|in:m2,ml,unidad',
             'trabajos.*.descripcion'     => 'nullable|string',
             'trabajos.*.ancho'           => 'nullable|numeric|min:0',
             'trabajos.*.alto'            => 'nullable|numeric|min:0',
+            'trabajos.*.largo'           => 'nullable|numeric|min:0',
             'trabajos.*.cantidad'        => 'required|integer|min:1',
             'trabajos.*.fecha_entrega'   => 'nullable|date',
-            'trabajos.*.observaciones'   => 'nullable|string',
         ]);
 
         $todosArchivos = $request->allFiles()['trabajos'] ?? [];
@@ -74,13 +71,15 @@ class TrabajoLibreController extends Controller
         foreach ($request->trabajos as $idx => $item) {
             $trabajo = Trabajo::create([
                 'orden_trabajo_id' => null,
-                'cliente_id'       => $item['cliente_id'],
+                'cliente_id'       => $request->cliente_id,
                 'tipo_trabajo_id'  => $item['tipo_trabajo_id'] ?? null,
                 'material_id'      => $item['material_id'] ?? null,
                 'maquina_id'       => $item['maquina_id'] ?? null,
+                'unidad'           => $item['unidad'] ?? 'm2',
                 'descripcion'      => $item['descripcion'] ?? null,
                 'ancho'            => $item['ancho'] ?? null,
                 'alto'             => $item['alto'] ?? null,
+                'largo'            => $item['largo'] ?? null,
                 'cantidad'         => $item['cantidad'],
                 'fecha_entrega'    => $item['fecha_entrega'] ?? null,
                 'estado'           => 'pendiente',

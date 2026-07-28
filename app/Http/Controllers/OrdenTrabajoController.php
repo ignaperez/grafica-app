@@ -111,12 +111,10 @@ class OrdenTrabajoController extends Controller
      */
     public function trabajos($id)
     {
-        $orden      = OrdenTrabajo::with(['cliente', 'trabajos'])->findOrFail($id);
-        $tipos      = TipoTrabajo::where('activo', true)->orderBy('nombre')->get();
-        $materiales = Material::where('activo', true)->orderBy('nombre')->get();
-        $maquinas   = Maquina::where('activo', true)->orderBy('nombre')->get();
+        $orden    = OrdenTrabajo::with(['cliente', 'trabajos'])->findOrFail($id);
+        $catalogo = \App\Services\CatalogoService::items();
 
-        return view('ordenes-trabajo.trabajos', compact('orden', 'tipos', 'materiales', 'maquinas'));
+        return view('ordenes-trabajo.trabajos', compact('orden', 'catalogo'));
     }
 
     /**

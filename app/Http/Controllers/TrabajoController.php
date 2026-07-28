@@ -128,9 +128,11 @@ class TrabajoController extends Controller
             'trabajos.*.tipo_trabajo_id' => 'nullable|exists:tipo_trabajos,id',
             'trabajos.*.material_id'     => 'nullable|exists:materiales,id',
             'trabajos.*.maquina_id'      => 'nullable|exists:maquinas,id',
+            'trabajos.*.unidad'          => 'nullable|in:m2,ml,unidad',
             'trabajos.*.descripcion'     => 'nullable|string',
             'trabajos.*.ancho'           => 'nullable|numeric|min:0',
             'trabajos.*.alto'            => 'nullable|numeric|min:0',
+            'trabajos.*.largo'           => 'nullable|numeric|min:0',
             'trabajos.*.cantidad'        => 'required|integer|min:1',
             'trabajos.*.fecha_entrega'   => 'nullable|date',
         ]);
@@ -145,9 +147,11 @@ class TrabajoController extends Controller
                 'tipo_trabajo_id'  => $item['tipo_trabajo_id'] ?? null,
                 'material_id'      => $item['material_id']     ?? null,
                 'maquina_id'       => $item['maquina_id']      ?? null,
+                'unidad'           => $item['unidad']          ?? 'm2',
                 'descripcion'      => $item['descripcion']     ?? null,
                 'ancho'            => $item['ancho']           ?? null,
                 'alto'             => $item['alto']            ?? null,
+                'largo'            => $item['largo']           ?? null,
                 'cantidad'         => $item['cantidad'],
                 'fecha_entrega'    => $item['fecha_entrega']   ?? null,
                 'estado'           => 'pendiente',
@@ -198,12 +202,10 @@ class TrabajoController extends Controller
      */
     public function createParaOrden(OrdenTrabajo $ordenTrabajo)
     {
-        $orden      = $ordenTrabajo->load('cliente');
-        $tipos      = TipoTrabajo::where('activo', true)->orderBy('nombre')->get();
-        $materiales = Material::where('activo', true)->orderBy('nombre')->get();
-        $maquinas   = Maquina::where('activo', true)->orderBy('nombre')->get();
+        $orden    = $ordenTrabajo->load('cliente');
+        $catalogo = \App\Services\CatalogoService::items();
 
-        return view('ordenes-trabajo.trabajos', compact('orden', 'tipos', 'materiales', 'maquinas'));
+        return view('ordenes-trabajo.trabajos', compact('orden', 'catalogo'));
     }
 
     /**

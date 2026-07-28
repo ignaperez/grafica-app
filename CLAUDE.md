@@ -821,7 +821,23 @@ legacy vs catálogo tipo/material/máquina; el real usa **catálogo**).
   redirige a `presupuestos.edit`. Requiere que máquina/material tengan costos cargados.
 - Los métodos legacy `TrabajoController@store/ajaxStore` (producto_id) quedan MUERTOS (sin uso).
   Pendiente opcional: limpiar carpetas de vistas duplicadas `ordenes/` vs `ordenes-trabajo/`.
-- Sin migración. Deploy = `git pull` + `view:clear` + `route:cache`.
+
+### Producción — carga por catálogo (igual que presupuesto, sin precio) (2026-07-27)
+Rework: cargar un trabajo/OT usa **el mismo selector Grupo→Ítem** que el presupuesto, sin precio.
+- **`CatalogoService::items()`** = fuente ÚNICA del catálogo (se extrajo de `PresupuestoController::
+  buildCatalogo`, que ahora delega). Cada ítem incluye `tipo_trabajo_id`.
+- **`trabajos.unidad` + `trabajos.largo`** (migración `2026_07_27_000001`, tenant+central) → el
+  trabajo se describe **igual que un `PresupuestoItem`** (unidad m2/ml/unidad + medidas). Trabajo
+  fillable += unidad, largo.
+- **Partials compartidos** `trabajos/_catalogo-items.blade` (HTML: cascada Grupo→Ítem + medidas +
+  cantidad + descripción + fecha + archivos, SIN precio) y `_catalogo-items-js.blade` (el JS va en
+  `@section('scripts')` porque jQuery carga al final). Usados por `trabajos-libres/create` (cliente
+  arriba, único) y `ordenes-trabajo/trabajos` (cliente = el de la orden).
+- Controllers: `TrabajoLibreController@create/store` y `OrdenTrabajoController@trabajos` +
+  `TrabajoController@createParaOrden/storeMultiples` pasan `$catalogo` y guardan unidad/largo/
+  tipo_trabajo_id/maquina_id/material_id. `store` de libres ahora toma **un cliente arriba** (no
+  por fila). `PresupuestoController@desdeTrabajos` usa `trabajo->unidad/largo` directo → mapeo 1:1.
+- Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)

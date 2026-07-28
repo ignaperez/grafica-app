@@ -20,12 +20,14 @@ class Trabajo extends Model
         'descripcion',
         'medidas',
         'cantidad',
+        'unidad',
         'estado',
         'fecha_entrega',
         'fecha_carga',
         'precio_unitario',
         'ancho',
         'alto',
+        'largo',
     ];
 
     protected $casts = [
