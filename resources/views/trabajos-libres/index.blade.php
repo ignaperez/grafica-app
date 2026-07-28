@@ -167,12 +167,26 @@
                         <td>{{ $t->cantidad }}</td>
                         <td>{{ $t->fecha_entrega ? \Carbon\Carbon::parse($t->fecha_entrega)->format('d/m/Y') : '-' }}</td>
                         <td>
-                            <span class="badge-estado be-{{ $t->estado }}">
-                                {{ ucfirst(str_replace('_', ' ', $t->estado)) }}
-                            </span>
+                            <form method="POST" action="{{ route('trabajos.estado', $t->id) }}" style="display:inline">
+                                @csrf @method('PATCH')
+                                <select name="estado" class="gselect gselect-sm" style="width:130px;font-size:11px"
+                                        onchange="this.form.submit()">
+                                    <option value="pendiente"     {{ $t->estado === 'pendiente' ? 'selected' : '' }}>Pendiente</option>
+                                    <option value="en_produccion" {{ $t->estado === 'en_produccion' ? 'selected' : '' }}>En producción</option>
+                                    <option value="terminado"     {{ $t->estado === 'terminado' ? 'selected' : '' }}>Terminado</option>
+                                </select>
+                            </form>
                         </td>
-                        <td>
+                        <td style="white-space:nowrap">
                             <a href="{{ route('trabajos.edit', $t->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
+                            @if(auth()->user()->puedeModulo('presupuestos'))
+                            <form method="POST" action="{{ route('presupuestos.desde-trabajos') }}" style="display:inline"
+                                  onsubmit="return confirm('¿Crear un presupuesto con este trabajo?')">
+                                @csrf
+                                <input type="hidden" name="trabajo_ids[]" value="{{ $t->id }}">
+                                <button class="gbtn gbtn-primary gbtn-xs" title="Presupuestar este trabajo">⚡ Presupuestar</button>
+                            </form>
+                            @endif
                         </td>
                     </tr>
                 @empty

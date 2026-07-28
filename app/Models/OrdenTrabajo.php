@@ -17,10 +17,7 @@ class OrdenTrabajo extends Model
         'fecha_recibido',
         'observaciones',
         'estado',
-        'activo',
     ];
-
-    protected $guarded = ['cliente'];
 
     public function trabajos()
     {

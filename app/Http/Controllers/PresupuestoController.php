@@ -231,6 +231,95 @@ class PresupuestoController extends Controller
         ]);
     }
 
+    /**
+     * Crea un presupuesto pre-cargado desde uno o varios trabajos de producción
+     * (mismo cliente), calculando el precio de cada ítem con la lista del cliente.
+     * Redirige al edit para revisar y guardar.
+     */
+    public function desdeTrabajos(Request $request)
+    {
+        $ids = (array) $request->input('trabajo_ids', []);
+        if ($request->filled('orden_id')) {
+            $ids = \App\Models\Trabajo::where('orden_trabajo_id', $request->orden_id)->pluck('id')->all();
+        }
+
+        $trabajos = \App\Models\Trabajo::with('maquina', 'material', 'tipoTrabajo')
+            ->whereIn('id', $ids)->get();
+
+        if ($trabajos->isEmpty()) {
+            return back()->with('error', 'No hay trabajos para presupuestar.');
+        }
+
+        $clienteIds = $trabajos->pluck('cliente_id')->filter()->unique();
+        if ($clienteIds->count() !== 1) {
+            return back()->with('error', 'Los trabajos deben ser de un mismo cliente para presupuestar.');
+        }
+
+        $cliente  = Cliente::with('listaPrecio')->find($clienteIds->first());
+        $lista    = $cliente?->listaPrecio;
+        $mult     = (float) ($lista?->multiplicador ?? 1);
+        $moGlobal = Configuracion::mo();
+
+        $presupuesto = Presupuesto::create([
+            'numero'          => Presupuesto::proximoNumero(),
+            'cliente_id'      => $cliente->id,
+            'lista_precio_id' => $lista?->id,
+            'multiplicador'   => $mult,
+            'mo_m2'           => $lista?->mo_m2     ?? $moGlobal['m2'],
+            'mo_ml'           => $lista?->mo_ml     ?? $moGlobal['ml'],
+            'mo_unidad'       => $lista?->mo_unidad ?? $moGlobal['unidad'],
+            'estado'          => 'borrador',
+            'fecha'           => now()->toDateString(),
+            'observaciones'   => Presupuesto::CONDICIONES_DEFAULT,
+            'total'           => 0,
+            'created_by'      => auth()->id(),
+        ]);
+
+        foreach ($trabajos as $i => $t) {
+            $maquina  = $t->maquina;
+            $material = $t->material;
+            $unidad   = $material->unidad ?? 'm2';
+
+            $mo = match ($unidad) {
+                'ml'     => $lista?->mo_ml     ?? $moGlobal['ml'],
+                'unidad' => $lista?->mo_unidad ?? $moGlobal['unidad'],
+                default  => $lista?->mo_m2     ?? $moGlobal['m2'],
+            };
+            [$cMaq, $cMat] = match ($unidad) {
+                'ml'     => [(float) ($maquina->costo_ml ?? 0),     (float) ($material->costo_ml ?? 0)],
+                'unidad' => [(float) ($maquina->costo_unidad ?? 0), (float) ($material->costo_unidad ?? 0)],
+                default  => [(float) ($maquina->costo_m2 ?? 0),     (float) ($material->costo_m2 ?? 0)],
+            };
+            $precio = round(($cMaq + $cMat) * $mult + (float) $mo, 2);
+
+            $medida = match ($unidad) {
+                'm2'    => (float) $t->ancho * (float) $t->alto * (int) ($t->cantidad ?: 1),
+                'ml'    => (float) ($t->ancho ?? 0) * (int) ($t->cantidad ?: 1),
+                default => (int) ($t->cantidad ?: 1),
+            };
+
+            PresupuestoItem::create([
+                'presupuesto_id'  => $presupuesto->id,
+                'maquina_id'      => $maquina?->id,
+                'material_id'     => $material?->id,
+                'descripcion'     => $t->descripcion ?: trim(($t->tipoTrabajo->nombre ?? '') . ' ' . ($material->nombre ?? '')) ?: 'Trabajo',
+                'unidad'          => $unidad,
+                'ancho'           => $t->ancho,
+                'alto'            => $t->alto,
+                'largo'           => $unidad === 'ml' ? $t->ancho : null,
+                'cantidad'        => $t->cantidad ?: 1,
+                'precio_unitario' => $precio,
+                'subtotal'        => round($precio * $medida, 2),
+                'orden'           => $i,
+            ]);
+        }
+
+        $presupuesto->recalcularTotal();
+
+        return redirect()->route('presupuestos.edit', $presupuesto->id)
+            ->with('success', 'Presupuesto pre-cargado desde ' . $trabajos->count() . ' trabajo(s). Revisá los precios y guardá.');
+    }
+
     // ── Helpers privados ──────────────────────────────────────────
 
     private function syncItems(Presupuesto $presupuesto, array $items): void

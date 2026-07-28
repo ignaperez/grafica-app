@@ -804,6 +804,25 @@ Cálculo de sueldo semanal (lun-sáb) a partir de las fichadas reales. **Solo ad
 - Accesos: botones "Liquidar / Adelantos" por fila en `rrhh/empleados/index` + "Coeficientes de sueldo".
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
+### Producción — fix 500 + estado + botón Presupuestar (2026-07-27)
+Bugs y rework del módulo producción (venía con dos modelos mezclados: `producto_id/precio`
+legacy vs catálogo tipo/material/máquina; el real usa **catálogo**).
+- **Bug 500 al crear orden:** el código insertaba `activo` en `orden_trabajos` pero **esa columna
+  ya no existe** → `Unknown column 'activo'`. Se sacó `activo` del fillable de `OrdenTrabajo` y de
+  `OrdenTrabajoController@store` + `TrabajoLibreController@asignarOrden`.
+- **Bug estado del trabajo:** no había UI para cambiarlo (solo badge). Se agregó **selector de
+  estado** (pendiente/en_produccion/terminado → `trabajos.estado` PATCH `cambiarEstado`) en
+  `trabajos-libres/index`. La orden ya tenía su selector (`ordenes-trabajo.estado`).
+- **Botón ⚡ Presupuestar** (solo con `puedeModulo('presupuestos')`): en `trabajos-libres/index`
+  (por trabajo) y `ordenes-trabajo/show` (toda la orden) → `POST presupuestos.desde-trabajos`
+  (`trabajo_ids[]` o `orden_id`). `PresupuestoController@desdeTrabajos` arma un Presupuesto borrador
+  con un `PresupuestoItem` por trabajo, **calcula precio** = `(maquina.costo_X + material.costo_X)
+  × multiplicador + MO` (misma fórmula que `precioServicio`, unidad según `material->unidad`), y
+  redirige a `presupuestos.edit`. Requiere que máquina/material tengan costos cargados.
+- Los métodos legacy `TrabajoController@store/ajaxStore` (producto_id) quedan MUERTOS (sin uso).
+  Pendiente opcional: limpiar carpetas de vistas duplicadas `ordenes/` vs `ordenes-trabajo/`.
+- Sin migración. Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ### Arquitectura ARCA confirmada
 - **WSAA**: usar paquete `multinexo/php-afip-ws` SOLO para autenticación (maneja firma XML y cache TA)
 - **WSFE**: SoapClient directo — el paquete tiene bugs en PHP 8.3 (dynamic properties, reset() en objeto, count() en stdClass)

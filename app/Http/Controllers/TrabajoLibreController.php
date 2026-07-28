@@ -168,7 +168,6 @@ class TrabajoLibreController extends Controller
                 'fecha_recibido' => now(),
                 'estado'         => 'borrador',
                 'observaciones'  => $request->observaciones,
-                'activo'         => 1,
             ]);
         } else {
             $orden = OrdenTrabajo::findOrFail($request->orden_id);

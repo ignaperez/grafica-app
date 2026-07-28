@@ -7,6 +7,15 @@
         <a href="{{ route('ordenes-trabajo.print', $orden->id) }}" target="_blank"
            class="gbtn gbtn-ghost gbtn-sm">🖨 Imprimir</a>
 
+        @if(auth()->user()->puedeModulo('presupuestos') && $orden->trabajos->count())
+        <form method="POST" action="{{ route('presupuestos.desde-trabajos') }}" style="display:inline"
+              onsubmit="return confirm('¿Crear un presupuesto con los trabajos de esta orden?')">
+            @csrf
+            <input type="hidden" name="orden_id" value="{{ $orden->id }}">
+            <button class="gbtn gbtn-primary gbtn-sm" title="Presupuestar esta orden">⚡ Presupuestar</button>
+        </form>
+        @endif
+
         {{-- Cambiar estado --}}
         <form method="POST" action="{{ route('ordenes-trabajo.estado', $orden->id) }}"
               style="display:flex;gap:6px;align-items:center">

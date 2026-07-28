@@ -215,6 +215,7 @@ Route::middleware([
         Route::get('/catalogo',       [CatalogoController::class, 'index'])->name('catalogo.index');
         Route::get('/catalogo/print', [CatalogoController::class, 'print'])->name('catalogo.print');
 
+        Route::post('/presupuestos/desde-trabajos', [PresupuestoController::class, 'desdeTrabajos'])->name('presupuestos.desde-trabajos');
         Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
         Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');
         Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');

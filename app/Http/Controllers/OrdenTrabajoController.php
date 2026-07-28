@@ -60,7 +60,6 @@ class OrdenTrabajoController extends Controller
             'fecha_recibido' => $request->fecha_recibido ?? now(),
             'estado'         => 'borrador',
             'observaciones'  => $request->observaciones,
-            'activo'         => 1,
         ]);
 
         // Esta ruta en tu route:list existe como: ordenes.trabajos
