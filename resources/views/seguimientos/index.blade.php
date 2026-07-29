@@ -255,7 +255,7 @@
                 <table class="seg" style="font-size:11px">
                     <thead>
                         <tr>
-                            <th>Presup.</th><th>F. Factura</th>
+                            <th>F. Factura</th>
                             <th style="text-align:right">Facturado</th>
                             <th style="text-align:right">Sin IVA</th>
                             <th style="text-align:right">IVA 21%</th>
@@ -266,7 +266,7 @@
                     <tbody id="calc-body"></tbody>
                     <tfoot>
                         <tr style="border-top:2px solid var(--bm)">
-                            <td colspan="2" style="padding:9px 6px;font-weight:700;color:var(--tx)">TOTAL (<span id="calc-n">0</span>)</td>
+                            <td style="padding:9px 6px;font-weight:700;color:var(--tx)">TOTAL (<span id="calc-n">0</span>)</td>
                             <td class="calc" id="tot-facturado" style="font-size:11px;color:var(--tx);font-weight:700"></td>
                             <td class="calc" id="tot-neto"      style="font-size:11px;color:var(--tx);font-weight:700"></td>
                             <td class="calc" id="tot-iva"       style="font-size:11px;color:var(--tx);font-weight:700"></td>
@@ -275,6 +275,10 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+            <div style="padding:12px 16px;border-top:1px solid var(--b);display:flex;justify-content:flex-end;gap:8px">
+                <button type="button" class="gbtn gbtn-primary gbtn-sm" id="btn-copiar" onclick="copiarCalc()">📋 Copiar</button>
+                <button type="button" class="gbtn gbtn-ghost gbtn-sm" onclick="cerrarCalc()">Cerrar</button>
             </div>
         </div>
     </div>
@@ -358,6 +362,7 @@
 <script>
 (function () {
     const $bar = $('#calc-bar');
+    let calcTexto = '';   // contenido para el botón Copiar
 
     function money(n) {
         return '$' + (Number(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -385,6 +390,7 @@
         if ($rows.length === 0) return;
 
         let tot = { facturado: 0, neto: 0, iva: 0, cinco: 0, total: 0 };
+        const lineas = ['F. Factura\tFacturado\tSin IVA\tIVA 21%\t5%\tTotal (IVA+5%)'];
         const filas = $rows.map(function () {
             const d = $(this).data();
             tot.facturado += Number(d.facturado) || 0;
@@ -392,8 +398,8 @@
             tot.iva       += Number(d.iva)       || 0;
             tot.cinco     += Number(d.cinco)     || 0;
             tot.total     += Number(d.total)     || 0;
+            lineas.push([d.ffact || '—', money(d.facturado), money(d.neto), money(d.iva), money(d.cinco), money(d.total)].join('\t'));
             return `<tr>
-                <td class="auto mono" style="color:var(--ac)">${d.label || '—'}</td>
                 <td class="auto">${d.ffact || '—'}</td>
                 <td class="calc" style="font-size:11px">${money(d.facturado)}</td>
                 <td class="calc" style="font-size:11px">${money(d.neto)}</td>
@@ -411,7 +417,25 @@
         $('#tot-cinco').text(money(tot.cinco));
         $('#tot-total').text(money(tot.total));
 
+        lineas.push(['TOTAL (' + $rows.length + ')', money(tot.facturado), money(tot.neto), money(tot.iva), money(tot.cinco), money(tot.total)].join('\t'));
+        calcTexto = lineas.join('\n');
+
+        $('#btn-copiar').text('📋 Copiar');
         $('#calc-overlay').css('display', 'flex');
+    };
+
+    window.copiarCalc = function () {
+        const done = () => { const $b = $('#btn-copiar'); $b.text('✓ Copiado'); setTimeout(() => $b.text('📋 Copiar'), 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(calcTexto).then(done).catch(fallback);
+        } else { fallback(); }
+        function fallback() {
+            const ta = document.createElement('textarea');
+            ta.value = calcTexto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('No se pudo copiar.'); }
+            document.body.removeChild(ta);
+        }
     };
 
     window.cerrarCalc = function () { $('#calc-overlay').css('display', 'none'); };
