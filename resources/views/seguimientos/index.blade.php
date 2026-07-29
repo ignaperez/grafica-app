@@ -114,6 +114,7 @@
 <table class="seg">
     <thead>
         <tr>
+            <th style="width:26px;text-align:center"><input type="checkbox" id="seg-all" title="Seleccionar todos" style="cursor:pointer;accent-color:var(--ac)"></th>
             <th>Fecha</th><th>Presup.</th><th style="text-align:right">Monto</th>
             <th>Área</th><th>Detalle</th><th>OC</th><th style="text-align:right">M. O.P.</th>
             <th>F. Fact.</th><th>Factura</th><th>Estado</th><th>Obs.</th><th>Pasó a</th>
@@ -124,7 +125,17 @@
     <tbody>
         @forelse($seguimientos as $s)
         <tr class="seg-row {{ $s->esManual() ? 'manual' : '' }} {{ $s->estado === 'cobrado' ? 'cobrado' : '' }}"
-            data-id="{{ $s->id }}" data-url="{{ route('seguimientos.update', $s->id) }}">
+            data-id="{{ $s->id }}" data-url="{{ route('seguimientos.update', $s->id) }}"
+            data-label="{{ $s->numeroRef() }}"
+            data-ffact="{{ $s->factura?->fecha?->format('d/m/y') ?? '—' }}"
+            data-facturado="{{ $s->montoBase() }}"
+            data-neto="{{ round($s->montoBase() / 1.21, 2) }}"
+            data-iva="{{ $s->iva21() }}"
+            data-cinco="{{ $s->cinco() }}"
+            data-total="{{ $s->totalHernan() }}">
+
+            {{-- Checkbox de selección --}}
+            <td style="text-align:center"><input type="checkbox" class="seg-check" style="cursor:pointer;accent-color:var(--ac)"></td>
 
             {{-- Fecha --}}
             @if($s->esManual())
@@ -204,7 +215,7 @@
             </td>
         </tr>
         @empty
-        <tr><td colspan="17" style="text-align:center;color:var(--txd);padding:32px">No hay procesos en {{ $anio }}.</td></tr>
+        <tr><td colspan="18" style="text-align:center;color:var(--txd);padding:32px">No hay procesos en {{ $anio }}.</td></tr>
         @endforelse
     </tbody>
 </table>
@@ -221,6 +232,53 @@
     </div>
 </div>
 @endif
+
+{{-- ── Barra flotante de selección ── --}}
+<div id="calc-bar" style="display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+     z-index:1040;background:var(--bg-s);border:1px solid var(--bm);border-radius:999px;
+     box-shadow:0 10px 30px rgba(0,0,0,.5);padding:9px 10px 9px 18px;display:none;align-items:center;gap:14px">
+    <span style="font-size:13px;color:var(--tx)"><strong id="calc-count">0</strong> seleccionadas</span>
+    <button type="button" class="gbtn gbtn-primary gbtn-sm" onclick="abrirCalc()">🧮 Calcular</button>
+    <button type="button" class="gbtn gbtn-ghost gbtn-sm" onclick="limpiarSel()">Limpiar</button>
+</div>
+
+{{-- ── Modal de cálculo temporal ── --}}
+<div id="calc-overlay" style="display:none;position:fixed;inset:0;z-index:1050;background:rgba(0,0,0,.6);
+     align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+    <div class="gcard" style="width:100%;max-width:760px;margin:0">
+        <div class="gcard-hd">
+            <span class="gcard-title">🧮 Cálculo de selección <span class="txd" style="font-weight:400">(temporal — no se guarda)</span></span>
+            <button type="button" class="gbtn gbtn-ghost gbtn-xs" onclick="cerrarCalc()">✕</button>
+        </div>
+        <div class="gcard-bd" style="padding:0">
+            <div style="overflow-x:auto">
+                <table class="seg" style="font-size:11px">
+                    <thead>
+                        <tr>
+                            <th>Presup.</th><th>F. Factura</th>
+                            <th style="text-align:right">Facturado</th>
+                            <th style="text-align:right">Sin IVA</th>
+                            <th style="text-align:right">IVA 21%</th>
+                            <th style="text-align:right">5%</th>
+                            <th style="text-align:right">Total (IVA+5%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calc-body"></tbody>
+                    <tfoot>
+                        <tr style="border-top:2px solid var(--bm)">
+                            <td colspan="2" style="padding:9px 6px;font-weight:700;color:var(--tx)">TOTAL (<span id="calc-n">0</span>)</td>
+                            <td class="calc" id="tot-facturado" style="font-size:11px;color:var(--tx);font-weight:700"></td>
+                            <td class="calc" id="tot-neto"      style="font-size:11px;color:var(--tx);font-weight:700"></td>
+                            <td class="calc" id="tot-iva"       style="font-size:11px;color:var(--tx);font-weight:700"></td>
+                            <td class="calc" id="tot-cinco"     style="font-size:11px;color:var(--tx);font-weight:700"></td>
+                            <td class="calc" id="tot-total"     style="font-size:12px;color:var(--ac);font-weight:700"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 @endsection
 
@@ -293,6 +351,74 @@
         const p = parseMoney(this.value);
         this.value = (p === '') ? '' : fmtMoney(p);
     });
+})();
+</script>
+
+{{-- ── Calculadora temporal de selección ── --}}
+<script>
+(function () {
+    const $bar = $('#calc-bar');
+
+    function money(n) {
+        return '$' + (Number(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function actualizarBarra() {
+        const n = $('.seg-check:checked').length;
+        $('#calc-count').text(n);
+        $bar.css('display', n > 0 ? 'flex' : 'none');
+    }
+
+    // Checkbox individual + "seleccionar todos"
+    $(document).on('change', '.seg-check', actualizarBarra);
+    $(document).on('change', '#seg-all', function () {
+        $('.seg-check').prop('checked', this.checked);
+        actualizarBarra();
+    });
+
+    window.limpiarSel = function () {
+        $('.seg-check, #seg-all').prop('checked', false);
+        actualizarBarra();
+    };
+
+    window.abrirCalc = function () {
+        const $rows = $('.seg-check:checked').closest('.seg-row');
+        if ($rows.length === 0) return;
+
+        let tot = { facturado: 0, neto: 0, iva: 0, cinco: 0, total: 0 };
+        const filas = $rows.map(function () {
+            const d = $(this).data();
+            tot.facturado += Number(d.facturado) || 0;
+            tot.neto      += Number(d.neto)      || 0;
+            tot.iva       += Number(d.iva)       || 0;
+            tot.cinco     += Number(d.cinco)     || 0;
+            tot.total     += Number(d.total)     || 0;
+            return `<tr>
+                <td class="auto mono" style="color:var(--ac)">${d.label || '—'}</td>
+                <td class="auto">${d.ffact || '—'}</td>
+                <td class="calc" style="font-size:11px">${money(d.facturado)}</td>
+                <td class="calc" style="font-size:11px">${money(d.neto)}</td>
+                <td class="calc" style="font-size:11px">${money(d.iva)}</td>
+                <td class="calc" style="font-size:11px">${money(d.cinco)}</td>
+                <td class="calc" style="font-size:11px;color:var(--tx);font-weight:600">${money(d.total)}</td>
+            </tr>`;
+        }).get().join('');
+
+        $('#calc-body').html(filas);
+        $('#calc-n').text($rows.length);
+        $('#tot-facturado').text(money(tot.facturado));
+        $('#tot-neto').text(money(tot.neto));
+        $('#tot-iva').text(money(tot.iva));
+        $('#tot-cinco').text(money(tot.cinco));
+        $('#tot-total').text(money(tot.total));
+
+        $('#calc-overlay').css('display', 'flex');
+    };
+
+    window.cerrarCalc = function () { $('#calc-overlay').css('display', 'none'); };
+
+    // Cerrar al clickear el fondo o con Escape
+    $('#calc-overlay').on('click', function (e) { if (e.target === this) cerrarCalc(); });
+    $(document).on('keydown', function (e) { if (e.key === 'Escape') cerrarCalc(); });
 })();
 </script>
 @endsection
