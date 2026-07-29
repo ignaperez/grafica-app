@@ -79,8 +79,8 @@ class Seguimiento extends Model
 
     public function cinco(): float
     {
-        // 5% sobre el monto con el 21% ya descontado (100 → 79 → 5% de 79)
-        return round($this->montoBase() * 0.79 * 0.05, 2);
+        // 5% sobre el monto SIN IVA (neto = monto / 1,21).
+        return round($this->montoBase() / 1.21 * 0.05, 2);
     }
 
     public function totalHernan(): float
