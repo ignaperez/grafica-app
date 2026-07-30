@@ -160,7 +160,8 @@ class SeguimientoController extends Controller
 
         $presupuestado = round($rows->sum(fn ($s) => $s->montoBase()), 2);
         $facturado     = round($rows->sum(fn ($s) => (float) ($s->factura?->imp_total ?? 0)), 2);
-        $cobrado       = round($rows->sum(fn ($s) => (float) ($s->factura?->cobros->sum('monto') ?? 0)), 2);
+        // Cobrado = monto de las filas marcadas COBRADO en la planilla (control manual).
+        $cobrado       = round($rows->where('estado', 'cobrado')->sum(fn ($s) => $s->montoBase()), 2);
         $pendiente     = round($presupuestado - $cobrado, 2);
 
         return compact('presupuestado', 'facturado', 'cobrado', 'pendiente');
