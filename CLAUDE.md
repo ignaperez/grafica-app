@@ -959,6 +959,36 @@ y buscar clientes es una **capacidad compartida**, no el módulo Clientes comple
 
 ---
 
+## Vehículos — marcas/modelos normalizados + patente (2026-07-30)
+
+Rework del módulo `vehiculos-ploteo`:
+- **Patente:** en el form se limpia **en vivo** (JS `normPatente`: `.toUpperCase().replace(/\s+/g,'')`)
+  y también server-side (`VehiculoPloteoController::normalizarPatente`) → SIEMPRE sin espacios y
+  en mayúsculas. Se puede repetir (no unique), pero al tipear una patente ya existente aparece un
+  aviso: "⚠ Este vehículo ya estuvo en la gráfica N veces · última: fecha"
+  (`GET vehiculos-ploteo.patente-existe?patente=&ignore=ID`, debounced; `ignore` = el propio id en edit).
+- **Búsqueda en el listado** (`index?q=`): por patente (normalizada), marca o modelo.
+- **Marca/Modelo NORMALIZADOS en tablas propias** (antes texto libre):
+  - `marcas` (nombre único, activo, SoftDeletes) — seed de 24 marcas comunes en la migración.
+  - `modelos_vehiculo` (marca_id FK cascade, nombre, activo, SoftDeletes; unique marca_id+nombre).
+  - `vehiculo_ploteos.marca_id` + `.modelo_id` (FK nullOnDelete). **Se conservan las columnas texto
+    `marca`/`modelo`** y se sincronizan desde las FKs en store/update (`prepararMarcaModelo`) → las
+    vistas show/index legacy siguen andando sin tocarlas. La migración **backfillea** el texto
+    existente a las tablas nuevas y setea las FKs.
+  - Modelos `App\Models\Marca` (hasMany modelos) y `App\Models\ModeloVehiculo` (belongsTo marca).
+    `VehiculoPloteo::marcaRel()/modeloRel()`.
+- **Form (create/edit):** select **Marca** + select **Modelo dependiente** (se llena por AJAX
+  `vehiculos-ploteo.modelos-por-marca` al elegir marca; en edit precarga vía `data-selected`).
+  Botón **+** al lado de cada uno → modal de alta rápida (`vehiculos-ploteo.marcas-store` /
+  `.modelos-store`, JSON, `firstOrCreate`). El modal de modelo trae un select de marca (default =
+  la marca elegida). Partials compartidos: `vehiculos-ploteo/_marca-modelo-{fields,modals,js}.blade`.
+- **`MarcaVehiculoController`** (store / modelos / modelosStore). Rutas registradas **ANTES** del
+  `Route::resource('vehiculos-ploteo')` (si no, `patente-existe`/`marcas` chocan con `show/{x}`).
+  Todas empiezan con `vehiculos-ploteo` → módulo `ordenes` en `ModuloAccessMiddleware`.
+- **Validación store/update:** `marca_id`/`modelo_id` required|exists + chequeo de que el modelo
+  pertenezca a la marca (ValidationException si no). `VehiculoPloteo` usa SoftDeletes (ya estaba).
+- Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

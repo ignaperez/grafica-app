@@ -7,16 +7,32 @@
 @endsection
 
 @section('content')
+
+<form method="GET" style="display:flex;gap:8px;margin-bottom:14px;max-width:460px">
+    <input type="text" name="q" value="{{ $q ?? '' }}" class="ginput"
+           placeholder="Buscar por patente, marca o modelo…"
+           style="text-transform:uppercase;letter-spacing:1px" autofocus>
+    <button class="gbtn gbtn-primary gbtn-sm">Buscar</button>
+    @if(!empty($q))
+        <a href="{{ route('vehiculos-ploteo.index') }}" class="gbtn gbtn-ghost gbtn-sm">Limpiar</a>
+    @endif
+</form>
+
 <div class="gcard">
     <div class="gcard-hd">
         <span class="gcard-title">Vehículos ploteados</span>
-        <span class="txd" style="font-size:11px">{{ $vehiculos->total() }} registros</span>
+        <span class="txd" style="font-size:11px">{{ $vehiculos->total() }} {{ !empty($q) ? 'resultado(s)' : 'registros' }}</span>
     </div>
 
     @if($vehiculos->isEmpty())
         <div style="padding:52px 20px;text-align:center;color:#333;font-size:13px">
-            Todavía no hay vehículos registrados. &nbsp;
-            <a href="{{ route('vehiculos-ploteo.create') }}" style="color:var(--ac)">Agregar primero</a>
+            @if(!empty($q))
+                No se encontraron vehículos para <strong style="color:var(--tx)">“{{ $q }}”</strong>. &nbsp;
+                <a href="{{ route('vehiculos-ploteo.index') }}" style="color:var(--ac)">Ver todos</a>
+            @else
+                Todavía no hay vehículos registrados. &nbsp;
+                <a href="{{ route('vehiculos-ploteo.create') }}" style="color:var(--ac)">Agregar primero</a>
+            @endif
         </div>
     @else
     <table class="gtable">

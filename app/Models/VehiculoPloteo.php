@@ -13,6 +13,8 @@ class VehiculoPloteo extends Model
         'orden_trabajo_id',
         'cliente_id',
         'patente',
+        'marca_id',
+        'modelo_id',
         'marca',
         'modelo',
         'fecha_ploteo',
@@ -42,6 +44,16 @@ class VehiculoPloteo extends Model
     public function cliente()
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function marcaRel()
+    {
+        return $this->belongsTo(Marca::class, 'marca_id');
+    }
+
+    public function modeloRel()
+    {
+        return $this->belongsTo(ModeloVehiculo::class, 'modelo_id');
     }
 
     public static function sectores(): array

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\VehiculoPloteo;
 use App\Models\OrdenTrabajo;
 use App\Models\Cliente;
+use App\Models\Marca;
+use App\Models\ModeloVehiculo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,13 +19,56 @@ class VehiculoPloteoController extends Controller
 
     private const ARCHIVOS = ['refe'];
 
-    public function index()
+    /** Normaliza patente: sin espacios y en mayúsculas. */
+    private function normalizarPatente(?string $p): string
     {
-        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente'])
-            ->orderByDesc('id')
-            ->paginate(20);
+        return strtoupper(preg_replace('/\s+/', '', (string) $p));
+    }
 
-        return view('vehiculos-ploteo.index', compact('vehiculos'));
+    public function index(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente'])
+            ->when($q !== '', function ($query) use ($q) {
+                $pat = $this->normalizarPatente($q);
+                $query->where(function ($sub) use ($q, $pat) {
+                    $sub->where('patente', 'like', "%{$pat}%")
+                        ->orWhere('marca', 'like', "%{$q}%")
+                        ->orWhere('modelo', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('vehiculos-ploteo.index', compact('vehiculos', 'q'));
+    }
+
+    /**
+     * Chequea si una patente ya fue cargada (aviso "ya estuvo en la gráfica").
+     * GET /vehiculos-ploteo/patente-existe?patente=XXX&ignore=ID
+     */
+    public function patenteExiste(Request $request)
+    {
+        $pat = $this->normalizarPatente($request->query('patente'));
+        if (strlen($pat) < 2) {
+            return response()->json(['existe' => false]);
+        }
+
+        $query = VehiculoPloteo::where('patente', $pat);
+        if ($request->filled('ignore')) {
+            $query->where('id', '!=', $request->query('ignore'));
+        }
+
+        $count  = (clone $query)->count();
+        $ultimo = (clone $query)->orderByDesc('fecha_ploteo')->first();
+
+        return response()->json([
+            'existe' => $count > 0,
+            'count'  => $count,
+            'ultima' => $ultimo?->fecha_ploteo?->format('d/m/Y'),
+        ]);
     }
 
     public function create(Request $request)
@@ -38,16 +83,17 @@ class VehiculoPloteoController extends Controller
             ->get();
 
         $clientes = Cliente::orderBy('nombre')->get();
+        $marcas   = Marca::where('activo', true)->orderBy('nombre')->get();
 
-        return view('vehiculos-ploteo.create', compact('orden', 'ordenes', 'clientes'));
+        return view('vehiculos-ploteo.create', compact('orden', 'ordenes', 'clientes', 'marcas'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
             'patente'          => 'required|string|max:20',
-            'marca'            => 'required|string|max:100',
-            'modelo'           => 'required|string|max:100',
+            'marca_id'         => 'required|exists:marcas,id',
+            'modelo_id'        => 'required|exists:modelos_vehiculo,id',
             'fecha_ploteo'     => 'nullable|date',
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
@@ -55,6 +101,8 @@ class VehiculoPloteoController extends Controller
             'tipo_ploteo'      => 'required|in:completo,parcial',
             'sector'           => 'nullable|string',
         ]);
+
+        $data = $this->prepararMarcaModelo($data);
 
         if ($data['tipo_ploteo'] === 'completo') {
             $data['sector'] = null;
@@ -73,6 +121,30 @@ class VehiculoPloteoController extends Controller
             ->with('success', 'Vehículo registrado correctamente.');
     }
 
+    /**
+     * Normaliza patente, valida que el modelo pertenezca a la marca y
+     * completa el texto legacy (marca / modelo) desde las FKs.
+     */
+    private function prepararMarcaModelo(array $data): array
+    {
+        $data['patente'] = $this->normalizarPatente($data['patente']);
+
+        $marca  = Marca::find($data['marca_id']);
+        $modelo = ModeloVehiculo::find($data['modelo_id']);
+
+        // El modelo debe pertenecer a la marca elegida.
+        if ($modelo && (int) $modelo->marca_id !== (int) $data['marca_id']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'modelo_id' => 'El modelo no corresponde a la marca elegida.',
+            ]);
+        }
+
+        $data['marca']  = $marca?->nombre;
+        $data['modelo'] = $modelo?->nombre;
+
+        return $data;
+    }
+
     public function show(VehiculoPloteo $vehiculosPloteo)
     {
         return view('vehiculos-ploteo.show', ['vehiculo' => $vehiculosPloteo->load(['orden.cliente', 'cliente'])]);
@@ -86,11 +158,13 @@ class VehiculoPloteoController extends Controller
             ->get();
 
         $clientes = Cliente::orderBy('nombre')->get();
+        $marcas   = Marca::where('activo', true)->orderBy('nombre')->get();
 
         return view('vehiculos-ploteo.edit', [
             'vehiculo' => $vehiculosPloteo,
             'ordenes'  => $ordenes,
             'clientes' => $clientes,
+            'marcas'   => $marcas,
         ]);
     }
 
@@ -98,8 +172,8 @@ class VehiculoPloteoController extends Controller
     {
         $data = $request->validate([
             'patente'          => 'required|string|max:20',
-            'marca'            => 'required|string|max:100',
-            'modelo'           => 'required|string|max:100',
+            'marca_id'         => 'required|exists:marcas,id',
+            'modelo_id'        => 'required|exists:modelos_vehiculo,id',
             'fecha_ploteo'     => 'nullable|date',
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
@@ -107,6 +181,8 @@ class VehiculoPloteoController extends Controller
             'tipo_ploteo'      => 'required|in:completo,parcial',
             'sector'           => 'nullable|string',
         ]);
+
+        $data = $this->prepararMarcaModelo($data);
 
         if ($data['tipo_ploteo'] === 'completo') {
             $data['sector'] = null;

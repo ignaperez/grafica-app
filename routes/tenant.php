@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OrdenTrabajoController;
 use App\Http\Controllers\TrabajoController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\MarcaVehiculoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ListaPrecioController;
 use App\Http\Controllers\FichadaController;
@@ -188,6 +189,16 @@ Route::middleware([
         Route::get('/trabajos-libres/crear',           [TrabajoLibreController::class, 'create'])->name('trabajos-libres.create');
         Route::post('/trabajos-libres',                [TrabajoLibreController::class, 'store'])->name('trabajos-libres.store');
         Route::post('/trabajos-libres/asignar-orden',  [TrabajoLibreController::class, 'asignarOrden'])->name('trabajos-libres.asignar-orden');
+
+        // Rutas específicas ANTES del resource (evitan colisión con show/{vehiculosPloteo})
+        Route::get('/vehiculos-ploteo/patente-existe', [VehiculoPloteoController::class, 'patenteExiste'])
+            ->name('vehiculos-ploteo.patente-existe');
+        Route::post('/vehiculos-ploteo/marcas', [MarcaVehiculoController::class, 'store'])
+            ->name('vehiculos-ploteo.marcas-store');
+        Route::post('/vehiculos-ploteo/modelos', [MarcaVehiculoController::class, 'modelosStore'])
+            ->name('vehiculos-ploteo.modelos-store');
+        Route::get('/vehiculos-ploteo/marcas/{marca}/modelos', [MarcaVehiculoController::class, 'modelos'])
+            ->name('vehiculos-ploteo.modelos-por-marca');
 
         Route::resource('vehiculos-ploteo', VehiculoPloteoController::class);
         Route::delete('/vehiculos-ploteo/{vehiculosPloteo}/fotos', [VehiculoPloteoController::class, 'destroyFoto'])

@@ -19,29 +19,16 @@
                     <div class="col-md-4">
                         <div class="gfg">
                             <label class="glabel">Patente *</label>
-                            <input type="text" name="patente" class="ginput"
+                            <input type="text" name="patente" id="veh-patente" class="ginput"
                                    value="{{ old('patente', $vehiculo->patente) }}"
+                                   oninput="normPatente(this)" data-ignore="{{ $vehiculo->id }}"
                                    style="text-transform:uppercase;letter-spacing:2px;font-family:var(--mono)"
                                    required>
                             @error('patente')<div class="gerr">{{ $message }}</div>@enderror
+                            <div id="patente-aviso" style="display:none;margin-top:6px;font-size:12px;color:#e0960a"></div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="gfg">
-                            <label class="glabel">Marca *</label>
-                            <input type="text" name="marca" class="ginput"
-                                   value="{{ old('marca', $vehiculo->marca) }}" required>
-                            @error('marca')<div class="gerr">{{ $message }}</div>@enderror
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="gfg">
-                            <label class="glabel">Modelo *</label>
-                            <input type="text" name="modelo" class="ginput"
-                                   value="{{ old('modelo', $vehiculo->modelo) }}" required>
-                            @error('modelo')<div class="gerr">{{ $message }}</div>@enderror
-                        </div>
-                    </div>
+                    @include('vehiculos-ploteo._marca-modelo-fields')
                     <div class="col-md-4">
                         <div class="gfg">
                             <label class="glabel">Fecha de ploteo</label>
@@ -194,6 +181,8 @@
     </div>
 </div>
 </form>
+
+@include('vehiculos-ploteo._marca-modelo-modals')
 @endsection
 
 @section('scripts')
@@ -222,4 +211,5 @@ function toggleSector(val) {
     document.getElementById('sector-wrap').style.display = val === 'parcial' ? '' : 'none';
 }
 </script>
+@include('vehiculos-ploteo._marca-modelo-js')
 @endsection
