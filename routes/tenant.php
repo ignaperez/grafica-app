@@ -201,6 +201,8 @@ Route::middleware([
             ->name('vehiculos-ploteo.modelos-por-marca');
 
         Route::resource('vehiculos-ploteo', VehiculoPloteoController::class);
+        Route::get('/vehiculos-ploteo/{vehiculosPloteo}/foto/{campo}', [VehiculoPloteoController::class, 'foto'])
+            ->name('vehiculos-ploteo.foto');
         Route::delete('/vehiculos-ploteo/{vehiculosPloteo}/fotos', [VehiculoPloteoController::class, 'destroyFoto'])
             ->name('vehiculos-ploteo.destroy-foto');
 

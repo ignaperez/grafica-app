@@ -85,11 +85,11 @@
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b)">
             <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Referencia (Refe)</div>
             @if(in_array(strtolower($ext), ['jpg','jpeg','png','webp','gif']))
-                <img src="{{ Storage::disk('public')->url($vehiculo->refe) }}"
+                <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}"
                      style="max-width:320px;border-radius:8px;border:1px solid #1e1e1e;cursor:zoom-in"
                      onclick="openLightbox(this.src)">
             @else
-                <a href="{{ Storage::disk('public')->url($vehiculo->refe) }}" target="_blank"
+                <a href="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}" target="_blank"
                    class="gbtn gbtn-ghost gbtn-sm">
                     📄 Ver referencia ({{ strtoupper($ext) }})
                 </a>
@@ -114,7 +114,7 @@
             @foreach(['foto_antes_frente'=>'Frente','foto_antes_atras'=>'Atrás','foto_antes_izq'=>'Izquierda','foto_antes_der'=>'Derecha'] as $campo => $label)
             <div class="foto-card">
                 @if($vehiculo->$campo)
-                    <img src="{{ Storage::disk('public')->url($vehiculo->$campo) }}"
+                    <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, $campo]) }}"
                          alt="{{ $label }}" onclick="openLightbox(this.src)">
                     <div class="foto-label">{{ $label }}</div>
                     <form method="POST" action="{{ route('vehiculos-ploteo.destroy-foto', $vehiculo->id) }}">
@@ -140,7 +140,7 @@
             @foreach(['foto_despues_frente'=>'Frente','foto_despues_atras'=>'Atrás','foto_despues_izq'=>'Izquierda','foto_despues_der'=>'Derecha'] as $campo => $label)
             <div class="foto-card">
                 @if($vehiculo->$campo)
-                    <img src="{{ Storage::disk('public')->url($vehiculo->$campo) }}"
+                    <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, $campo]) }}"
                          alt="{{ $label }}" onclick="openLightbox(this.src)">
                     <div class="foto-label">{{ $label }}</div>
                     <form method="POST" action="{{ route('vehiculos-ploteo.destroy-foto', $vehiculo->id) }}">

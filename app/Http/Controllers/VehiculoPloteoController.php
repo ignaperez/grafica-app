@@ -211,6 +211,21 @@ class VehiculoPloteoController extends Controller
             ->with('success', 'Vehículo eliminado.');
     }
 
+    /**
+     * Sirve una foto/archivo del vehículo desde el storage del tenant.
+     * (Los archivos viven en storage/tenant{id}/... y el symlink /storage
+     * central no los alcanza → se sirven por ruta de la app, detrás de login.)
+     */
+    public function foto(VehiculoPloteo $vehiculosPloteo, string $campo)
+    {
+        abort_unless(in_array($campo, array_merge(self::FOTOS, self::ARCHIVOS), true), 404);
+
+        $ruta = $vehiculosPloteo->$campo;
+        abort_if(!$ruta || !Storage::disk('public')->exists($ruta), 404);
+
+        return Storage::disk('public')->response($ruta);
+    }
+
     public function destroyFoto(Request $request, VehiculoPloteo $vehiculosPloteo)
     {
         $todos  = array_merge(self::FOTOS, self::ARCHIVOS);

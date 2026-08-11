@@ -92,7 +92,7 @@
                         <div class="gfg mb-0">
                             <label class="glabel">{{ $label }}</label>
                             @if($vehiculo->$campo)
-                                <img src="{{ Storage::disk('public')->url($vehiculo->$campo) }}"
+                                <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, $campo]) }}"
                                      style="width:100%;border-radius:8px;border:1px solid #1e1e1e;
                                             object-fit:cover;height:90px;margin-bottom:6px">
                             @endif
@@ -156,10 +156,10 @@
                 @if($vehiculo->refe)
                     @php $ext = pathinfo($vehiculo->refe, PATHINFO_EXTENSION); @endphp
                     @if(in_array(strtolower($ext), ['jpg','jpeg','png','webp','gif']))
-                        <img src="{{ Storage::disk('public')->url($vehiculo->refe) }}"
+                        <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}"
                              style="width:100%;border-radius:8px;border:1px solid #1e1e1e;object-fit:cover;max-height:120px;margin-bottom:8px">
                     @else
-                        <a href="{{ Storage::disk('public')->url($vehiculo->refe) }}" target="_blank"
+                        <a href="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}" target="_blank"
                            class="gbtn gbtn-ghost gbtn-sm" style="width:100%;justify-content:center;margin-bottom:8px">
                             📄 Ver referencia actual
                         </a>
