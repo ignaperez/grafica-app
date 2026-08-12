@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php $puedePresu = auth()->user()->puedeModulo('presupuestos'); @endphp
+
 @section('page-title', 'Vehículos')
 
 @section('topbar-actions')
@@ -38,6 +40,7 @@
     <table class="gtable">
         <thead>
             <tr>
+                @if($puedePresu)<th style="width:30px;text-align:center"><input type="checkbox" id="veh-all" title="Seleccionar todos" style="cursor:pointer;accent-color:var(--ac)"></th>@endif
                 <th>#</th>
                 <th>Patente</th>
                 <th>Vehículo</th>
@@ -51,6 +54,13 @@
         <tbody>
             @foreach($vehiculos as $v)
             <tr>
+                @if($puedePresu)
+                <td style="text-align:center">
+                    <input type="checkbox" class="veh-check" value="{{ $v->id }}"
+                           data-cliente-id="{{ $v->cliente_id }}" data-cliente-nombre="{{ $v->cliente->nombre ?? 'sin cliente' }}"
+                           style="cursor:pointer;accent-color:var(--ac)">
+                </td>
+                @endif
                 <td class="mono txd" style="font-size:11px">{{ str_pad($v->id,4,'0',STR_PAD_LEFT) }}</td>
                 <td>
                     <span style="font-family:var(--mono);font-size:13px;font-weight:600;
@@ -97,4 +107,58 @@
     </div>
     @endif
 </div>
+
+@if($puedePresu)
+{{-- Barra flotante: presupuestar selección --}}
+<form method="POST" action="{{ route('presupuestos.desde-vehiculos') }}" id="veh-presu-form"
+      style="display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:1040;
+             background:var(--bg-s);border:1px solid var(--bm);border-radius:999px;
+             box-shadow:0 10px 30px rgba(0,0,0,.5);padding:9px 10px 9px 18px;align-items:center;gap:14px">
+    @csrf
+    <div id="veh-inputs"></div>
+    <span style="font-size:13px;color:var(--tx)"><strong id="veh-count">0</strong> seleccionados</span>
+    <span id="veh-cliente" style="font-size:12px;color:var(--ac);font-family:var(--mono)"></span>
+    <button type="submit" id="veh-presu-btn" class="gbtn gbtn-primary gbtn-sm">⚡ Presupuestar</button>
+    <button type="button" class="gbtn gbtn-ghost gbtn-sm" onclick="vehLimpiar()">Limpiar</button>
+</form>
+@endif
 @endsection
+
+@if($puedePresu ?? false)
+@section('scripts')
+<script>
+(function () {
+    const $bar = $('#veh-presu-form');
+
+    function actualizar() {
+        const $sel = $('.veh-check:checked');
+        $('#veh-count').text($sel.length);
+        $bar.css('display', $sel.length ? 'flex' : 'none');
+
+        // Sincronizar inputs ocultos
+        const $inp = $('#veh-inputs').empty();
+        $sel.each(function () { $inp.append('<input type="hidden" name="vehiculo_ids[]" value="' + this.value + '">'); });
+
+        // Validar mismo cliente
+        const clientes = [...new Set($sel.map(function () { return this.dataset.clienteId || ''; }).get())];
+        const $cli = $('#veh-cliente');
+        const $btn = $('#veh-presu-btn');
+        if (clientes.length > 1) {
+            $cli.text('⚠ distintos clientes').css('color', '#e05555');
+            $btn.prop('disabled', true).css('opacity', .5);
+        } else if (clientes.length === 1 && clientes[0] === '') {
+            $cli.text('⚠ sin cliente asignado').css('color', '#e05555');
+            $btn.prop('disabled', true).css('opacity', .5);
+        } else if (clientes.length === 1) {
+            $cli.text($sel.first().data('cliente-nombre')).css('color', 'var(--ac)');
+            $btn.prop('disabled', false).css('opacity', 1);
+        }
+    }
+
+    $(document).on('change', '.veh-check', actualizar);
+    $('#veh-all').on('change', function () { $('.veh-check').prop('checked', this.checked); actualizar(); });
+    window.vehLimpiar = function () { $('.veh-check, #veh-all').prop('checked', false); actualizar(); };
+})();
+</script>
+@endsection
+@endif

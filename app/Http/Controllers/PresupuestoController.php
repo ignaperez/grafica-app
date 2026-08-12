@@ -9,6 +9,7 @@ use App\Models\Cliente;
 use App\Models\Maquina;
 use App\Models\Configuracion;
 use App\Models\OrdenTrabajo;
+use App\Models\VehiculoPloteo;
 
 class PresupuestoController extends Controller
 {
@@ -318,6 +319,79 @@ class PresupuestoController extends Controller
 
         return redirect()->route('presupuestos.edit', $presupuesto->id)
             ->with('success', 'Presupuesto pre-cargado desde ' . $trabajos->count() . ' trabajo(s). Revisá los precios y guardá.');
+    }
+
+    /**
+     * Crea un presupuesto borrador desde uno o varios vehículos ploteados.
+     * Cada vehículo genera un ítem (unidad, cantidad 1, precio a completar) con
+     * el modelo en la descripción y "Dominio: PATENTE" al final.
+     */
+    public function desdeVehiculos(Request $request)
+    {
+        $ids = array_filter((array) $request->input('vehiculo_ids', []));
+
+        $vehiculos = VehiculoPloteo::whereIn('id', $ids)->orderBy('id')->get();
+        if ($vehiculos->isEmpty()) {
+            return back()->with('error', 'Seleccioná al menos un vehículo para presupuestar.');
+        }
+
+        $clienteIds = $vehiculos->pluck('cliente_id')->unique();
+        if ($clienteIds->count() !== 1 || $clienteIds->first() === null) {
+            return back()->with('error', 'Los vehículos deben ser de un mismo cliente (con cliente asignado) para presupuestar.');
+        }
+
+        $cliente  = Cliente::with('listaPrecio')->find($clienteIds->first());
+        $lista    = $cliente?->listaPrecio;
+        $mult     = (float) ($lista?->multiplicador ?? 1);
+        $moGlobal = Configuracion::mo();
+
+        $presupuesto = Presupuesto::create([
+            'numero'          => Presupuesto::proximoNumero(),
+            'cliente_id'      => $cliente->id,
+            'lista_precio_id' => $lista?->id,
+            'multiplicador'   => $mult,
+            'mo_m2'           => $lista?->mo_m2     ?? $moGlobal['m2'],
+            'mo_ml'           => $lista?->mo_ml     ?? $moGlobal['ml'],
+            'mo_unidad'       => $lista?->mo_unidad ?? $moGlobal['unidad'],
+            'estado'          => 'borrador',
+            'fecha'           => now()->toDateString(),
+            'observaciones'   => Presupuesto::CONDICIONES_DEFAULT,
+            'total'           => 0,
+            'created_by'      => auth()->id(),
+        ]);
+
+        $sectores = VehiculoPloteo::sectores();
+
+        foreach ($vehiculos as $i => $v) {
+            $tipo = $v->tipo_ploteo === 'parcial'
+                ? 'Ploteo parcial' . ($v->sector ? ' (' . ($sectores[$v->sector] ?? $v->sector) . ')' : '')
+                : 'Ploteo completo';
+            $veh  = trim(($v->marca ?? '') . ' ' . ($v->modelo ?? ''));
+
+            $desc = $tipo . ($veh ? ' — ' . $veh : '');
+            if ($v->observaciones) $desc .= ' · ' . $v->observaciones;
+            $desc .= ' — Dominio: ' . $v->patente;
+
+            PresupuestoItem::create([
+                'presupuesto_id'  => $presupuesto->id,
+                'maquina_id'      => null,
+                'material_id'     => null,
+                'descripcion'     => \Illuminate\Support\Str::limit($desc, 1000, ''),
+                'unidad'          => 'unidad',
+                'ancho'           => null,
+                'alto'            => null,
+                'largo'           => null,
+                'cantidad'        => 1,
+                'precio_unitario' => 0,
+                'subtotal'        => 0,
+                'orden'           => $i,
+            ]);
+        }
+
+        $presupuesto->recalcularTotal();
+
+        return redirect()->route('presupuestos.edit', $presupuesto->id)
+            ->with('success', 'Presupuesto pre-cargado desde ' . $vehiculos->count() . ' vehículo(s). Completá los precios y guardá.');
     }
 
     // ── Helpers privados ──────────────────────────────────────────

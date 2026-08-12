@@ -989,6 +989,22 @@ Rework del módulo `vehiculos-ploteo`:
   pertenezca a la marca (ValidationException si no). `VehiculoPloteo` usa SoftDeletes (ya estaba).
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
+## Vehículos — botón Presupuestar (individual y múltiple) (2026-07-30)
+
+Desde el módulo `vehiculos-ploteo` se puede armar un presupuesto borrador con uno o varios
+vehículos (mismo patrón que `presupuestos.desdeTrabajos`). **Solo con módulo `presupuestos`.**
+- **`PresupuestoController@desdeVehiculos`** → `POST /presupuestos/desde-vehiculos`
+  (`presupuestos.desde-vehiculos`, grupo `rol:admin,ventas`). Recibe `vehiculo_ids[]`. Valida que
+  todos sean del **mismo cliente** (no null). Crea `Presupuesto` borrador + un `PresupuestoItem`
+  por vehículo: `unidad='unidad'`, `cantidad=1`, `precio_unitario=0` (a completar), y
+  **descripción** = `"Ploteo {completo|parcial (Sector)} — {marca} {modelo}[ · observaciones] — Dominio: {PATENTE}"`.
+  Redirige a `presupuestos.edit`.
+- **UI:** botón `⚡ Presupuestar` en `vehiculos-ploteo/show` (topbar, 1 vehículo) y **selección
+  múltiple** en `index` (checkbox por fila + "seleccionar todos" + barra flotante que sincroniza
+  `vehiculo_ids[]` y valida mismo cliente en vivo). Ambos gated por `puedeModulo('presupuestos')`
+  (producción no lo ve). En `index` el JS va en `@section('scripts')` dentro de `@if($puedePresu)`.
+- Sin migración. Deploy = `git pull` + `php artisan view:clear` + `route:clear`/`cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
