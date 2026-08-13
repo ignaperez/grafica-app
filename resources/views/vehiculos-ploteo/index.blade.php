@@ -56,7 +56,7 @@
             <tr>
                 @if($puedePresu)
                 <td style="text-align:center">
-                    @unless($v->presupuesto_id)
+                    @unless($v->presupuestado())
                         <input type="checkbox" class="veh-check" value="{{ $v->id }}"
                                data-cliente-id="{{ $v->cliente_id }}" data-cliente-nombre="{{ $v->cliente->nombre ?? 'sin cliente' }}"
                                style="cursor:pointer;accent-color:var(--ac)">
@@ -69,8 +69,8 @@
                                  color:var(--tx);letter-spacing:1px;text-transform:uppercase">
                         {{ $v->patente }}
                     </span>
-                    @if($v->presupuesto_id)
-                        <span title="Presupuestado{{ $v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : '' }}"
+                    @if($v->presupuestado())
+                        <span title="Presupuestado{{ $v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : ' (manual)' }}"
                               style="margin-left:6px;display:inline-flex;align-items:center;gap:3px;
                                      background:#1c3a29;color:#3fb96a;font-size:9.5px;font-weight:700;
                                      padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px">✓ Presup.</span>
@@ -103,7 +103,21 @@
                         {{ $antes }}/4 antes &nbsp;·&nbsp; {{ $despues }}/4 después
                     </span>
                 </td>
-                <td style="text-align:right">
+                <td style="text-align:right;white-space:nowrap">
+                    @if($puedePresu)
+                        @if($v->presupuestado())
+                            <form method="POST" action="{{ route('vehiculos-ploteo.desmarcar-presupuestado', $v->id) }}" style="display:inline"
+                                  onsubmit="return confirm('¿Quitar la marca de presupuestado de este vehículo?')">
+                                @csrf @method('DELETE')
+                                <button class="gbtn gbtn-ghost gbtn-xs" title="Quitar presupuestado">✕ Presup.</button>
+                            </form>
+                        @else
+                            <form method="POST" action="{{ route('vehiculos-ploteo.marcar-presupuestado', $v->id) }}" style="display:inline">
+                                @csrf
+                                <button class="gbtn gbtn-ghost gbtn-xs" title="Marcar como presupuestado (manual)">✓ Marcar</button>
+                            </form>
+                        @endif
+                    @endif
                     <a href="{{ route('vehiculos-ploteo.show', $v->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver →</a>
                 </td>
             </tr>

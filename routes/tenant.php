@@ -203,6 +203,10 @@ Route::middleware([
         Route::resource('vehiculos-ploteo', VehiculoPloteoController::class);
         Route::get('/vehiculos-ploteo/{vehiculosPloteo}/foto/{campo}', [VehiculoPloteoController::class, 'foto'])
             ->name('vehiculos-ploteo.foto');
+        Route::post('/vehiculos-ploteo/{vehiculosPloteo}/presupuestado', [VehiculoPloteoController::class, 'marcarPresupuestado'])
+            ->name('vehiculos-ploteo.marcar-presupuestado');
+        Route::delete('/vehiculos-ploteo/{vehiculosPloteo}/presupuestado', [VehiculoPloteoController::class, 'desmarcarPresupuestado'])
+            ->name('vehiculos-ploteo.desmarcar-presupuestado');
         Route::delete('/vehiculos-ploteo/{vehiculosPloteo}/fotos', [VehiculoPloteoController::class, 'destroyFoto'])
             ->name('vehiculos-ploteo.destroy-foto');
 

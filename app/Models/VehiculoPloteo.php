@@ -13,6 +13,7 @@ class VehiculoPloteo extends Model
         'orden_trabajo_id',
         'cliente_id',
         'presupuesto_id',
+        'presupuestado_manual',
         'patente',
         'marca_id',
         'modelo_id',
@@ -34,7 +35,8 @@ class VehiculoPloteo extends Model
     ];
 
     protected $casts = [
-        'fecha_ploteo' => 'date',
+        'fecha_ploteo'         => 'date',
+        'presupuestado_manual' => 'boolean',
     ];
 
     public function orden()
@@ -54,7 +56,7 @@ class VehiculoPloteo extends Model
 
     public function presupuestado(): bool
     {
-        return ! is_null($this->presupuesto_id);
+        return ! is_null($this->presupuesto_id) || $this->presupuestado_manual;
     }
 
     public function marcaRel()

@@ -1022,6 +1022,18 @@ vehículos (mismo patrón que `presupuestos.desdeTrabajos`). **Solo con módulo 
   **✓ Presupuestado · P-XXXX** (link). Requiere eager-load `presupuesto` en index()/show().
 - Deploy de esta parte = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
+### Presupuestado — marcar/desmarcar a mano (2026-07-30)
+Para deshacer una marca equivocada y para los vehículos **cargados antes** de esta feature (sin
+presupuesto vinculado): flag `vehiculo_ploteos.presupuestado_manual` (bool, migración `000003`).
+- `VehiculoPloteo::presupuestado()` = `presupuesto_id != null` **OR** `presupuestado_manual`.
+- `VehiculoPloteoController@marcarPresupuestado` (`POST .../{v}/presupuestado`) setea el flag;
+  `@desmarcarPresupuestado` (`DELETE .../{v}/presupuestado`) limpia **ambos** (`presupuesto_id`
+  null + flag false). Las dos rutas empiezan con `vehiculos-ploteo` (módulo `ordenes`) pero
+  hacen `abort_unless(puedeModulo('presupuestos'))` → solo quien presupuesta puede togglear.
+- UI: en `index`, botón **✓ Marcar** / **✕ Presup.** en la celda de acciones (según estado); en
+  `show`, botones **✓ Marcar presupuestado** o **✕ Deshacer** + badge (link si hay presupuesto,
+  "(manual)" si no). El badge/checkbox usan `presupuestado()` (no `presupuesto_id` directo).
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

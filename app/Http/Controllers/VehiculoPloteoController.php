@@ -226,6 +226,24 @@ class VehiculoPloteoController extends Controller
         return Storage::disk('public')->response($ruta);
     }
 
+    /** Marca el vehículo como presupuestado a mano (para los viejos sin vínculo). */
+    public function marcarPresupuestado(VehiculoPloteo $vehiculosPloteo)
+    {
+        abort_unless(auth()->user()->puedeModulo('presupuestos'), 403);
+        $vehiculosPloteo->update(['presupuestado_manual' => true]);
+
+        return back()->with('success', 'Vehículo marcado como presupuestado.');
+    }
+
+    /** Quita la marca de presupuestado (manual o el vínculo con el presupuesto). */
+    public function desmarcarPresupuestado(VehiculoPloteo $vehiculosPloteo)
+    {
+        abort_unless(auth()->user()->puedeModulo('presupuestos'), 403);
+        $vehiculosPloteo->update(['presupuesto_id' => null, 'presupuestado_manual' => false]);
+
+        return back()->with('success', 'Se quitó la marca de presupuestado.');
+    }
+
     public function destroyFoto(Request $request, VehiculoPloteo $vehiculosPloteo)
     {
         $todos  = array_merge(self::FOTOS, self::ARCHIVOS);
