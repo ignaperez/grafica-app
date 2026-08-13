@@ -129,35 +129,68 @@
 <script>
 (function () {
     const $bar = $('#veh-presu-form');
+    const KEY  = 'veh_sel';   // selección persistida entre páginas (sessionStorage)
 
-    function actualizar() {
-        const $sel = $('.veh-check:checked');
-        $('#veh-count').text($sel.length);
-        $bar.css('display', $sel.length ? 'flex' : 'none');
+    const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } };
+    const save = (m) => sessionStorage.setItem(KEY, JSON.stringify(m));
+    const datos = (cb) => ({ cid: cb.dataset.clienteId || '', cname: cb.dataset.clienteNombre || '' });
 
-        // Sincronizar inputs ocultos
+    // Refresca la barra a partir de TODA la selección (todas las páginas)
+    function refrescar() {
+        const m   = load();
+        const ids = Object.keys(m);
+        $('#veh-count').text(ids.length);
+        $bar.css('display', ids.length ? 'flex' : 'none');
+
         const $inp = $('#veh-inputs').empty();
-        $sel.each(function () { $inp.append('<input type="hidden" name="vehiculo_ids[]" value="' + this.value + '">'); });
+        ids.forEach(id => $inp.append('<input type="hidden" name="vehiculo_ids[]" value="' + id + '">'));
 
-        // Validar mismo cliente
-        const clientes = [...new Set($sel.map(function () { return this.dataset.clienteId || ''; }).get())];
-        const $cli = $('#veh-cliente');
-        const $btn = $('#veh-presu-btn');
-        if (clientes.length > 1) {
-            $cli.text('⚠ distintos clientes').css('color', '#e05555');
-            $btn.prop('disabled', true).css('opacity', .5);
-        } else if (clientes.length === 1 && clientes[0] === '') {
-            $cli.text('⚠ sin cliente asignado').css('color', '#e05555');
-            $btn.prop('disabled', true).css('opacity', .5);
-        } else if (clientes.length === 1) {
-            $cli.text($sel.first().data('cliente-nombre')).css('color', 'var(--ac)');
-            $btn.prop('disabled', false).css('opacity', 1);
+        if (!ids.length) return;
+        const cids = [...new Set(ids.map(id => m[id].cid || ''))];
+        const $cli = $('#veh-cliente'), $btn = $('#veh-presu-btn');
+        if (cids.length > 1) {
+            $cli.text('⚠ distintos clientes').css('color', '#e05555'); $btn.prop('disabled', true).css('opacity', .5);
+        } else if (cids[0] === '') {
+            $cli.text('⚠ sin cliente asignado').css('color', '#e05555'); $btn.prop('disabled', true).css('opacity', .5);
+        } else {
+            $cli.text(m[ids[0]].cname || '').css('color', 'var(--ac)'); $btn.prop('disabled', false).css('opacity', 1);
         }
     }
 
-    $(document).on('change', '.veh-check', actualizar);
-    $('#veh-all').on('change', function () { $('.veh-check').prop('checked', this.checked); actualizar(); });
-    window.vehLimpiar = function () { $('.veh-check, #veh-all').prop('checked', false); actualizar(); };
+    // Restaura los checkboxes de ESTA página desde la selección guardada
+    function restaurar() {
+        const m = load();
+        $('.veh-check').each(function () { this.checked = !!m[this.value]; });
+        const $ch = $('.veh-check');
+        $('#veh-all').prop('checked', $ch.length > 0 && $ch.filter(':checked').length === $ch.length);
+        refrescar();
+    }
+
+    $(document).on('change', '.veh-check', function () {
+        const m = load();
+        if (this.checked) m[this.value] = datos(this); else delete m[this.value];
+        save(m); refrescar();
+    });
+
+    $('#veh-all').on('change', function () {
+        const m = load(), on = this.checked;
+        $('.veh-check').each(function () {
+            this.checked = on;
+            if (on) m[this.value] = datos(this); else delete m[this.value];
+        });
+        save(m); refrescar();
+    });
+
+    window.vehLimpiar = function () {
+        sessionStorage.removeItem(KEY);
+        $('.veh-check, #veh-all').prop('checked', false);
+        refrescar();
+    };
+
+    // Al presupuestar, limpiar la selección guardada
+    $bar.on('submit', function () { sessionStorage.removeItem(KEY); });
+
+    restaurar();
 })();
 </script>
 @endsection

@@ -29,8 +29,9 @@ class PresupuestoController extends Controller
         $catalogo  = $this->buildCatalogo();
         $clientes  = Cliente::orderBy('nombre')->get();
         $moGlobal  = Configuracion::mo();
+        $prefill   = session('presu_prefill', []);   // precarga desde vehículos (no persistida)
 
-        return view('presupuestos.create', compact('catalogo', 'clientes', 'moGlobal'));
+        return view('presupuestos.create', compact('catalogo', 'clientes', 'moGlobal', 'prefill'));
     }
 
     public function store(Request $request)
@@ -340,58 +341,35 @@ class PresupuestoController extends Controller
             return back()->with('error', 'Los vehículos deben ser de un mismo cliente (con cliente asignado) para presupuestar.');
         }
 
-        $cliente  = Cliente::with('listaPrecio')->find($clienteIds->first());
-        $lista    = $cliente?->listaPrecio;
-        $mult     = (float) ($lista?->multiplicador ?? 1);
-        $moGlobal = Configuracion::mo();
-
-        $presupuesto = Presupuesto::create([
-            'numero'          => Presupuesto::proximoNumero(),
-            'cliente_id'      => $cliente->id,
-            'lista_precio_id' => $lista?->id,
-            'multiplicador'   => $mult,
-            'mo_m2'           => $lista?->mo_m2     ?? $moGlobal['m2'],
-            'mo_ml'           => $lista?->mo_ml     ?? $moGlobal['ml'],
-            'mo_unidad'       => $lista?->mo_unidad ?? $moGlobal['unidad'],
-            'estado'          => 'borrador',
-            'fecha'           => now()->toDateString(),
-            'observaciones'   => Presupuesto::CONDICIONES_DEFAULT,
-            'total'           => 0,
-            'created_by'      => auth()->id(),
-        ]);
-
+        $cliente  = Cliente::find($clienteIds->first());
         $sectores = VehiculoPloteo::sectores();
 
-        foreach ($vehiculos as $i => $v) {
+        // NO se crea el presupuesto todavía: se precarga el form de create y se
+        // guarda recién al confirmar (así, si cancela, no queda borrador huérfano).
+        $items = [];
+        foreach ($vehiculos as $v) {
             $tipo = $v->tipo_ploteo === 'parcial'
                 ? 'Ploteo parcial' . ($v->sector ? ' (' . ($sectores[$v->sector] ?? $v->sector) . ')' : '')
                 : 'Ploteo completo';
             $veh  = trim(($v->marca ?? '') . ' ' . ($v->modelo ?? ''));
 
-            $desc = $tipo . ($veh ? ' — ' . $veh : '');
-            if ($v->observaciones) $desc .= ' · ' . $v->observaciones;
-            $desc .= ' — Dominio: ' . $v->patente;
+            $desc = $tipo . ($veh ? ' - ' . $veh : '');
+            if ($v->observaciones) $desc .= ' - ' . $v->observaciones;
+            $desc .= ' - Dominio: ' . $v->patente;
 
-            PresupuestoItem::create([
-                'presupuesto_id'  => $presupuesto->id,
-                'maquina_id'      => null,
-                'material_id'     => null,
-                'descripcion'     => \Illuminate\Support\Str::limit($desc, 1000, ''),
-                'unidad'          => 'unidad',
-                'ancho'           => null,
-                'alto'            => null,
-                'largo'           => null,
-                'cantidad'        => 1,
-                'precio_unitario' => 0,
-                'subtotal'        => 0,
-                'orden'           => $i,
-            ]);
+            $items[] = [
+                'descripcion' => \Illuminate\Support\Str::limit($desc, 1000, ''),
+                'unidad'      => 'unidad',
+                'cantidad'    => 1,
+                'precio'      => 0,
+            ];
         }
 
-        $presupuesto->recalcularTotal();
-
-        return redirect()->route('presupuestos.edit', $presupuesto->id)
-            ->with('success', 'Presupuesto pre-cargado desde ' . $vehiculos->count() . ' vehículo(s). Completá los precios y guardá.');
+        return redirect()->route('presupuestos.create')->with('presu_prefill', [
+            'cliente_id'     => $cliente->id,
+            'cliente_nombre' => $cliente->nombre,
+            'items'          => $items,
+        ]);
     }
 
     // ── Helpers privados ──────────────────────────────────────────

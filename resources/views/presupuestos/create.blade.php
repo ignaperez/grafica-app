@@ -28,6 +28,8 @@
                         @if($cl)
                             <option value="{{ $cl->id }}" selected>{{ $cl->nombre }}</option>
                         @endif
+                    @elseif(!empty($prefill['cliente_id']))
+                        <option value="{{ $prefill['cliente_id'] }}" selected>{{ $prefill['cliente_nombre'] ?? '' }}</option>
                     @endif
                 </select>
                 @error('cliente_id')<div class="gerr">{{ $message }}</div>@enderror
@@ -184,6 +186,7 @@ CATALOGO.forEach((item, i) => {
 });
 const GRUPOS_ORD = Object.keys(GRUPOS).sort();
 let rowIndex = 0;
+const PREFILL = @json($prefill['items'] ?? []);   // ítems precargados (ej. desde vehículos)
 
 $(function () {
 
@@ -409,8 +412,23 @@ function recalcularTotal() {
     document.getElementById('total-display').textContent = '$' + total.toFixed(2);
 }
 
-// ── Agregar una fila vacía al cargar ─────────────────────────────────────
-agregarFila();
+// ── Precargar una fila con datos (ítem libre, sin catálogo) ──────────────
+function aplicarDatos(tr, d) {
+    if (d.descripcion !== undefined) tr.querySelector('.inp-descripcion').value = d.descripcion;
+    if (d.unidad) setUnidad(tr, d.unidad);
+    if (d.cantidad !== undefined) tr.querySelector('.inp-cantidad').value = d.cantidad;
+    if (d.precio !== undefined)   tr.querySelector('.inp-precio').value   = d.precio;
+    const set = (cls, val) => { const el = tr.querySelector(cls); if (el && val !== undefined) el.value = val; };
+    set('.inp-ancho', d.ancho); set('.inp-alto', d.alto); set('.inp-largo', d.largo);
+    recalcularFila(tr);
+}
+
+// ── Filas iniciales: precargadas (ej. desde vehículos) o una vacía ───────
+if (Array.isArray(PREFILL) && PREFILL.length) {
+    PREFILL.forEach(d => agregarFila(d));
+} else {
+    agregarFila();
+}
 
 // ── Validación antes de enviar ───────────────────────────────────────────
 document.getElementById('form-presupuesto').addEventListener('submit', function (e) {

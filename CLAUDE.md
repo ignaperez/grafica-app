@@ -995,14 +995,21 @@ Desde el módulo `vehiculos-ploteo` se puede armar un presupuesto borrador con u
 vehículos (mismo patrón que `presupuestos.desdeTrabajos`). **Solo con módulo `presupuestos`.**
 - **`PresupuestoController@desdeVehiculos`** → `POST /presupuestos/desde-vehiculos`
   (`presupuestos.desde-vehiculos`, grupo `rol:admin,ventas`). Recibe `vehiculo_ids[]`. Valida que
-  todos sean del **mismo cliente** (no null). Crea `Presupuesto` borrador + un `PresupuestoItem`
-  por vehículo: `unidad='unidad'`, `cantidad=1`, `precio_unitario=0` (a completar), y
-  **descripción** = `"Ploteo {completo|parcial (Sector)} — {marca} {modelo}[ · observaciones] — Dominio: {PATENTE}"`.
-  Redirige a `presupuestos.edit`.
+  todos sean del **mismo cliente** (no null). **NO crea el presupuesto**: arma la precarga
+  (`session('presu_prefill')` con cliente + items) y redirige a **`presupuestos.create`**. Cada
+  item precargado: `unidad='unidad'`, `cantidad=1`, `precio=0` (a completar), y **descripción** =
+  `"Ploteo {completo|parcial (Sector)} - {marca} {modelo}[ - observaciones] - Dominio: {PATENTE}"`
+  (separadores ASCII a propósito, no em-dash). **Se guarda recién al confirmar** en el form
+  (`store` normal) → si cancela, no queda borrador huérfano.
+- **`create()`** lee `session('presu_prefill')` → `create.blade`: preselecciona el cliente y
+  precarga las filas de ítems (JS `PREFILL` + `aplicarDatos(tr,d)` para ítems "libres" sin
+  catálogo; el init hace `PREFILL.forEach(agregarFila)` o una fila vacía).
 - **UI:** botón `⚡ Presupuestar` en `vehiculos-ploteo/show` (topbar, 1 vehículo) y **selección
-  múltiple** en `index` (checkbox por fila + "seleccionar todos" + barra flotante que sincroniza
-  `vehiculo_ids[]` y valida mismo cliente en vivo). Ambos gated por `puedeModulo('presupuestos')`
-  (producción no lo ve). En `index` el JS va en `@section('scripts')` dentro de `@if($puedePresu)`.
+  múltiple** en `index` (checkbox por fila + "seleccionar todos" + barra flotante). La selección
+  **persiste entre páginas y búsquedas** vía `sessionStorage['veh_sel']` (mapa id→{cid,cname});
+  la barra valida mismo cliente across-páginas y se limpia al presupuestar/`vehLimpiar()`. Todo
+  gated por `puedeModulo('presupuestos')` (producción no lo ve); el JS va en `@section('scripts')`
+  dentro de `@if($puedePresu)`.
 - Sin migración. Deploy = `git pull` + `php artisan view:clear` + `route:clear`/`cache`.
 
 ## Gotchas conocidos
