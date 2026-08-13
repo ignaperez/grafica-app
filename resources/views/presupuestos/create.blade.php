@@ -10,6 +10,9 @@
 
 <form method="POST" action="{{ route('presupuestos.store') }}" id="form-presupuesto">
 @csrf
+@foreach(($prefill['vehiculo_ids'] ?? []) as $vid)
+    <input type="hidden" name="vehiculo_ids[]" value="{{ $vid }}">
+@endforeach
 
 {{-- ── Cabecera ───────────────────────────────────────────────────────────── --}}
 <div class="gcard" style="margin-bottom:16px">

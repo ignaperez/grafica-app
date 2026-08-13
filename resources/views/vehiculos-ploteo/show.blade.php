@@ -5,12 +5,18 @@
 @section('topbar-actions')
     <div style="display:flex;gap:8px">
         @if(auth()->user()->puedeModulo('presupuestos'))
-        <form method="POST" action="{{ route('presupuestos.desde-vehiculos') }}" style="display:inline"
-              @unless($vehiculo->cliente_id) onsubmit="alert('Asigná un cliente al vehículo antes de presupuestar.'); return false;" @endunless>
-            @csrf
-            <input type="hidden" name="vehiculo_ids[]" value="{{ $vehiculo->id }}">
-            <button class="gbtn gbtn-primary gbtn-sm" title="Crear presupuesto con este vehículo">⚡ Presupuestar</button>
-        </form>
+            @if($vehiculo->presupuesto_id)
+                <a href="{{ route('presupuestos.show', $vehiculo->presupuesto_id) }}" class="gbtn gbtn-ghost gbtn-sm"
+                   style="color:#3fb96a;border-color:#1c3a29"
+                   title="Ver presupuesto">✓ Presupuestado{{ $vehiculo->presupuesto ? ' · '.$vehiculo->presupuesto->numeroFormateado() : '' }}</a>
+            @else
+                <form method="POST" action="{{ route('presupuestos.desde-vehiculos') }}" style="display:inline"
+                      @unless($vehiculo->cliente_id) onsubmit="alert('Asigná un cliente al vehículo antes de presupuestar.'); return false;" @endunless>
+                    @csrf
+                    <input type="hidden" name="vehiculo_ids[]" value="{{ $vehiculo->id }}">
+                    <button class="gbtn gbtn-primary gbtn-sm" title="Crear presupuesto con este vehículo">⚡ Presupuestar</button>
+                </form>
+            @endif
         @endif
         <a href="{{ route('vehiculos-ploteo.edit', $vehiculo->id) }}" class="gbtn gbtn-ghost gbtn-sm">✎ Editar</a>
         <a href="{{ route('vehiculos-ploteo.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>

@@ -12,6 +12,7 @@ class VehiculoPloteo extends Model
     protected $fillable = [
         'orden_trabajo_id',
         'cliente_id',
+        'presupuesto_id',
         'patente',
         'marca_id',
         'modelo_id',
@@ -44,6 +45,16 @@ class VehiculoPloteo extends Model
     public function cliente()
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function presupuesto()
+    {
+        return $this->belongsTo(Presupuesto::class, 'presupuesto_id');
+    }
+
+    public function presupuestado(): bool
+    {
+        return ! is_null($this->presupuesto_id);
     }
 
     public function marcaRel()

@@ -77,6 +77,12 @@ class PresupuestoController extends Controller
         $this->syncItems($presupuesto, $request->items);
         $presupuesto->recalcularTotal();
 
+        // Si el presupuesto se armó desde vehículos, marcarlos como presupuestados.
+        $vehiculoIds = array_filter((array) $request->input('vehiculo_ids', []));
+        if ($vehiculoIds) {
+            VehiculoPloteo::whereIn('id', $vehiculoIds)->update(['presupuesto_id' => $presupuesto->id]);
+        }
+
         return redirect()->route('presupuestos.show', $presupuesto->id)
             ->with('success', 'Presupuesto ' . $presupuesto->numeroFormateado() . ' creado.');
     }
@@ -369,6 +375,7 @@ class PresupuestoController extends Controller
             'cliente_id'     => $cliente->id,
             'cliente_nombre' => $cliente->nombre,
             'items'          => $items,
+            'vehiculo_ids'   => $vehiculos->pluck('id')->all(),
         ]);
     }
 

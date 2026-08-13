@@ -29,7 +29,7 @@ class VehiculoPloteoController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente'])
+        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto'])
             ->when($q !== '', function ($query) use ($q) {
                 $pat = $this->normalizarPatente($q);
                 $query->where(function ($sub) use ($q, $pat) {
@@ -147,7 +147,7 @@ class VehiculoPloteoController extends Controller
 
     public function show(VehiculoPloteo $vehiculosPloteo)
     {
-        return view('vehiculos-ploteo.show', ['vehiculo' => $vehiculosPloteo->load(['orden.cliente', 'cliente'])]);
+        return view('vehiculos-ploteo.show', ['vehiculo' => $vehiculosPloteo->load(['orden.cliente', 'cliente', 'presupuesto'])]);
     }
 
     public function edit(VehiculoPloteo $vehiculosPloteo)

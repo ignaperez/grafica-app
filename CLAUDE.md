@@ -1010,7 +1010,17 @@ vehículos (mismo patrón que `presupuestos.desdeTrabajos`). **Solo con módulo 
   la barra valida mismo cliente across-páginas y se limpia al presupuestar/`vehLimpiar()`. Todo
   gated por `puedeModulo('presupuestos')` (producción no lo ve); el JS va en `@section('scripts')`
   dentro de `@if($puedePresu)`.
-- Sin migración. Deploy = `git pull` + `php artisan view:clear` + `route:clear`/`cache`.
+- **Marca "presupuestado":** `vehiculo_ploteos.presupuesto_id` (nullable FK nullOnDelete,
+  migración `2026_07_30_000002`). `desdeVehiculos` mete los `vehiculo_ids` en el prefill →
+  `create.blade` los renderiza como hidden dentro del form → al **guardar** (`store`) se hace
+  `VehiculoPloteo::whereIn(...)->update(['presupuesto_id'=>...])`. Así el vínculo se crea recién
+  cuando se confirma (no en la precarga). Si se borra el presupuesto, la marca se limpia sola
+  (nullOnDelete). `VehiculoPloteo::presupuestado()` / relación `presupuesto()`.
+- **UI de la marca:** en `index`, badge verde **✓ Presup.** al lado de la patente (link al
+  presupuesto, visible a todos) y **el checkbox desaparece** para los ya presupuestados
+  (`@unless($v->presupuesto_id)`). En `show`, el botón Presupuestar se reemplaza por
+  **✓ Presupuestado · P-XXXX** (link). Requiere eager-load `presupuesto` en index()/show().
+- Deploy de esta parte = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
 ## Gotchas conocidos
 

@@ -56,9 +56,11 @@
             <tr>
                 @if($puedePresu)
                 <td style="text-align:center">
-                    <input type="checkbox" class="veh-check" value="{{ $v->id }}"
-                           data-cliente-id="{{ $v->cliente_id }}" data-cliente-nombre="{{ $v->cliente->nombre ?? 'sin cliente' }}"
-                           style="cursor:pointer;accent-color:var(--ac)">
+                    @unless($v->presupuesto_id)
+                        <input type="checkbox" class="veh-check" value="{{ $v->id }}"
+                               data-cliente-id="{{ $v->cliente_id }}" data-cliente-nombre="{{ $v->cliente->nombre ?? 'sin cliente' }}"
+                               style="cursor:pointer;accent-color:var(--ac)">
+                    @endunless
                 </td>
                 @endif
                 <td class="mono txd" style="font-size:11px">{{ str_pad($v->id,4,'0',STR_PAD_LEFT) }}</td>
@@ -67,6 +69,12 @@
                                  color:var(--tx);letter-spacing:1px;text-transform:uppercase">
                         {{ $v->patente }}
                     </span>
+                    @if($v->presupuesto_id)
+                        <span title="Presupuestado{{ $v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : '' }}"
+                              style="margin-left:6px;display:inline-flex;align-items:center;gap:3px;
+                                     background:#1c3a29;color:#3fb96a;font-size:9.5px;font-weight:700;
+                                     padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px">✓ Presup.</span>
+                    @endif
                 </td>
                 <td>
                     <div style="font-weight:500;color:var(--tx)">{{ $v->marca }} {{ $v->modelo }}</div>
