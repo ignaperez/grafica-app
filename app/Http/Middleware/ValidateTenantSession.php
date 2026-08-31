@@ -24,6 +24,16 @@ class ValidateTenantSession
                 $currentTenantId = tenant('id');
 
                 if ($sessionTenantId !== $currentTenantId) {
+                    // "Recordarme": si el usuario volvió autenticado por la cookie de
+                    // remember (que está scopeada a ESTE subdominio, así que es legítima
+                    // para este tenant), re-estampamos el tenant en la sesión nueva en
+                    // vez de cerrarla. Si no, la sesión única + este guard rompían el
+                    // remember-me (te mandaban al login cada vez que volvías).
+                    if (Auth::viaRemember()) {
+                        session(['_tenant_id' => $currentTenantId]);
+                        return $next($request);
+                    }
+
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();

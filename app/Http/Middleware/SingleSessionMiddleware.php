@@ -19,6 +19,16 @@ class SingleSessionMiddleware
         $usuario = auth()->user();
 
         if ($usuario && $usuario->session_id && $usuario->session_id !== $request->session()->getId()) {
+
+            // "Recordarme": si el usuario volvió autenticado por la cookie de
+            // remember en este mismo navegador (sesión nueva), NO lo cerramos —
+            // re-reclamamos la sesión actualizando su id. Si no, la sesión única
+            // rompía el remember-me (te mandaba al login cada vez que volvías).
+            if (Auth::viaRemember()) {
+                $usuario->forceFill(['session_id' => $request->session()->getId()])->saveQuietly();
+                return $next($request);
+            }
+
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

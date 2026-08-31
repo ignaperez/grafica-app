@@ -473,6 +473,24 @@ POST /presupuestos/{presupuesto}/facturar → presupuestos.facturar  (desde pres
 - [ ] Implementar módulo Laravel completo
 - [ ] Deploy y prueba emisión real
 
+### PENDIENTE (tenant sistemas-integrales) — autorizar padrón en AFIP (2026-08-13)
+En **sistemas-integrales** (CUIT propio **20082707531**, cert alias `plotear`, vence 2028-06-02),
+al "traer datos del CUIT" al cargar un cliente tira:
+`SOAP Fault [ns1:coe.notAuthorized]: "Computador no autorizado a acceder al servicio"`.
+- **No es bug de la app.** La facturación (WSFE) funciona (2 facturas emitidas); lo que falta es
+  autorizar el MISMO certificado al **servicio de padrón**. `ArcaService::consultarPadron()` pega a
+  `ws_sr_constancia_inscripcion` (personaServiceA5) y si falla cae a `ws_sr_padron_a13`; hoy ninguno
+  está habilitado para ese computador → propaga el error.
+- **Fix (lo hace el cliente en AFIP con Clave Fiscal de 20082707531):** Administrador de Relaciones
+  de Clave Fiscal → Nueva Relación → servicio **`ws_sr_constancia_inscripcion`** → Representante = el
+  computador/certificado `plotear` (el mismo de facturación) → Confirmar. Es el mismo paso que ya
+  hicieron para "Facturación Electrónica", pero para el padrón.
+- Mientras tanto, en ese tenant se carga el cliente a mano (el autocompletado desde AFIP es lo único
+  que no anda). **El usuario dijo que lo haría después** (recordárselo la próxima).
+- Nota: la resolución del CUIT del tenant NO viene de `tenant.data.cuit` (está NULL) — igual resuelve
+  bien a 20082707531 (del cert). `.env ARCA_CUIT=23252997679` es el de 123ploteos y NO afecta a sistemas.
+- Posible mejora opcional (no hecha): mensaje de error amistoso en vez del texto crudo de ARCA.
+
 ### Factura create — validación cliente + retención de datos en error (2026-06-05)
 Cambios en `resources/views/facturas/create.blade.php`:
 - **Cliente obligatorio (cliente-side):** el botón "Emitir" abre un modal y el "Sí, emitir"
@@ -747,6 +765,17 @@ Forzar cierre: `UserController@cerrarSesiones` setea `session_id` a un sentinel 
 tenant + central. Deploy = `git pull` + `migrate` + `tenants:migrate` + `optimize:clear` +
 cache. **Al deployar, el primer admin de cada tenant queda como principal y el resto con los
 módulos de su rol.**
+
+**Fix "recordarme" (remember-me) vs sesión única (2026-08-28):** la sesión única + el guard
+`ValidateTenantSession` **anulaban el remember-me**: al volver por la cookie de remember, Laravel
+te re-autenticaba en una **sesión nueva** (id distinto + sin `_tenant_id` estampado) → ambos
+middlewares te mandaban al login. Fix: en **ambos** middlewares, si `Auth::viaRemember()` (volviste
+por la cookie, que está scopeada a este subdominio → legítima), se **re-reclama** la sesión en vez
+de cerrarla: `ValidateTenantSession` re-estampa `_tenant_id`; `SingleSessionMiddleware` actualiza
+`users.session_id` al nuevo id. La sesión única sigue expulsando el caso normal (login sin remember
+en otra PC). Verificado por curl (con `--resolve` para que la cookie matchee el subdominio). Nota:
+"recordarme" mantiene la sesión abierta; **precargar los campos email/clave es el gestor del
+navegador** (el form ya tiene `autocomplete="username"`/`"current-password"`). Sin migración.
 
 ### Fichaje — foto en cada fichada (2026-07-02)
 Anti-fraude (evita el "fichaje por otro"): la tablet saca una foto de quien ficha y la guarda
