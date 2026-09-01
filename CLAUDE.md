@@ -1063,6 +1063,21 @@ presupuesto vinculado): flag `vehiculo_ploteos.presupuestado_manual` (bool, migr
   `show`, botones **✓ Marcar presupuestado** o **✕ Deshacer** + badge (link si hay presupuesto,
   "(manual)" si no). El badge/checkbox usan `presupuestado()` (no `presupuesto_id` directo).
 
+## Trabajos — vista "Ver" + impresión A4 (2026-08-28)
+
+El trabajo individual no tenía "Ver" (solo editar/eliminar) y su `show.blade` era legacy feo.
+- **`trabajos.show`** (`TrabajoController@show`, relaciones catálogo: cliente/tipoTrabajo/material/
+  maquina/orden.cliente/archivosImprimir/referencias): vista en pantalla (dark theme) con todos los
+  datos + **miniaturas de referencias** (grid 140px, imagen o badge de extensión) + tabla de archivos
+  para imprimir + botón **🖨 Imprimir**. Botón **Ver** agregado en `trabajos-libres/index`.
+- **`trabajos.print`** (`@print`, ruta `GET /trabajos/{id}/print` registrada ANTES del
+  `Route::resource('trabajos')`): vista **A4 standalone** (mismo estilo que `ordenes-trabajo/print`),
+  con cabecera + datos + descripción + **referencias en miniaturas grandes (150px)** + archivos a
+  imprimir. Botón imprimir/cerrar `no-print`.
+- **OT ya tenía** `ordenes-trabajo.print` (A4 con miniaturas) + botón "🖨 Imprimir" en el show — no
+  se tocó. Las miniaturas usan `$archivo->url` (ruta `trabajo-archivos.ver`, storage del tenant).
+- Sin migración. Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

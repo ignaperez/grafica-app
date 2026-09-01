@@ -179,6 +179,7 @@ Route::middleware([
         Route::post('/trabajos/{id}/terminar',   [TrabajoController::class, 'marcarTerminado'])->name('trabajos.terminar');
         Route::patch('/trabajos/{id}/estado',    [TrabajoController::class, 'cambiarEstado'])->name('trabajos.estado');
         Route::get('/trabajos/crear-para/{ordenTrabajo}', [TrabajoController::class, 'createParaOrden'])->name('trabajos.create-para-orden');
+        Route::get('/trabajos/{id}/print', [TrabajoController::class, 'print'])->name('trabajos.print');
         Route::resource('trabajos', TrabajoController::class);
 
         Route::post('/trabajos/{trabajo}/archivos',         [TrabajoArchivoController::class, 'store'])->name('trabajo-archivos.store');

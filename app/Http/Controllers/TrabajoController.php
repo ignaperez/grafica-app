@@ -59,8 +59,23 @@ class TrabajoController extends Controller
 
     public function show($id)
     {
-        $trabajo = Trabajo::with('producto', 'orden.cliente')->findOrFail($id);
+        $trabajo = Trabajo::with([
+            'cliente', 'tipoTrabajo', 'material', 'maquina',
+            'orden.cliente', 'archivosImprimir', 'referencias',
+        ])->findOrFail($id);
+
         return view('trabajos.show', compact('trabajo'));
+    }
+
+    /** Vista A4 imprimible de un trabajo (con datos + miniaturas de referencias). */
+    public function print($id)
+    {
+        $trabajo = Trabajo::with([
+            'cliente', 'tipoTrabajo', 'material', 'maquina',
+            'orden.cliente', 'archivosImprimir', 'referencias',
+        ])->findOrFail($id);
+
+        return view('trabajos.print', compact('trabajo'));
     }
 
     public function edit($id)

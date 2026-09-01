@@ -194,6 +194,7 @@
                             </form>
                         </td>
                         <td style="white-space:nowrap">
+                            <a href="{{ route('trabajos.show', $t->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
                             <a href="{{ route('trabajos.edit', $t->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
                             @if(auth()->user()->puedeModulo('presupuestos'))
                             <form method="POST" action="{{ route('presupuestos.desde-trabajos') }}" style="display:inline"
