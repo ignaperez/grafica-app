@@ -699,6 +699,16 @@ Planilla interna (estilo Excel del cliente) que se auto-alimenta de presupuestos
   **incluyen las manuales**. `store` (alta) + `destroy` (solo manuales, `abort_unless(esManual)`).
   En la vista: `<details>` con form de alta arriba; en filas manuales fecha/N°/monto son editables
   y hay un **select de factura** (facturas no vinculadas) + botón eliminar; borde naranja las marca.
+- **N° Presup. como link (2026-08-28):** en `seguimientos/index` el `numeroRef()` de las filas NO
+  manuales es un `<a target="_blank">` a `presupuestos.show` (si `presupuesto_id`). Las manuales
+  siguen con input editable.
+- **Descargar Excel (2026-08-28):** `SeguimientoController@exportar` (ruta `GET /seguimiento/export`
+  → `seguimientos.export`, ANTES del `{seguimiento}` update) devuelve un HTML-tabla como
+  `application/vnd.ms-excel` (`filename seguimiento_{anio}.xls`) que abre directo en Excel — **sin
+  paquete** (no hay PhpSpreadsheet/Maatwebsite). Vista `seguimientos/export.blade` con las mismas
+  columnas del print + Cliente; montos en formato AR numérico (`number_format(...,2,',','')`, sin
+  separador de miles) para que Excel es-AR los sume. Botón **⬇ Excel** en el topbar del index.
+  (Ojo: el `.xls` es un HTML, Excel lo abre igual; no es un xlsx binario.)
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
 ### Remito — código de barras del PDF agrandado (2026-07-02)

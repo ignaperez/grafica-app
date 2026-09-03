@@ -47,6 +47,26 @@ class SeguimientoController extends Controller
         return view('seguimientos.print', compact('seguimientos', 'anio', 'totales'));
     }
 
+    /** Descarga la planilla del año como Excel (HTML-tabla que abre en Excel). */
+    public function exportar(Request $request)
+    {
+        $anio = (int) $request->input('anio', now()->year);
+
+        $seguimientos = $this->baseQuery($anio)
+            ->with(['presupuesto.cliente', 'factura.cobros'])
+            ->orderByRaw('COALESCE(presupuestos.fecha, seguimientos.fecha_manual) DESC')
+            ->get();
+
+        $totales = $this->totalesAnio($anio);
+
+        $html = view('seguimientos.export', compact('seguimientos', 'anio', 'totales'))->render();
+
+        return response($html, 200, [
+            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="seguimiento_' . $anio . '.xls"',
+        ]);
+    }
+
     /** Alta manual de un proceso (viene del sistema anterior, sin presupuesto acá). */
     public function store(Request $request)
     {

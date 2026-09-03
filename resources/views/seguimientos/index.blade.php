@@ -13,6 +13,7 @@
             @endforelse
         </select>
     </form>
+    <a href="{{ route('seguimientos.export', ['anio' => $anio]) }}" class="gbtn gbtn-ghost gbtn-sm">⬇ Excel</a>
     <a href="{{ route('seguimientos.print', ['anio' => $anio]) }}" target="_blank" class="gbtn gbtn-ghost gbtn-sm">🖨 Imprimir</a>
 @endsection
 
@@ -148,7 +149,14 @@
             @if($s->esManual())
                 <td><input type="text" class="seg-input" data-f="numero_manual" value="{{ $s->numero_manual }}" placeholder="N° viejo" style="min-width:80px;color:var(--ac)"></td>
             @else
-                <td class="auto mono" style="color:var(--ac)">{{ $s->numeroRef() }}</td>
+                <td class="auto mono">
+                    @if($s->presupuesto_id)
+                        <a href="{{ route('presupuestos.show', $s->presupuesto_id) }}" target="_blank"
+                           title="Ver presupuesto" style="color:var(--ac);text-decoration:none">{{ $s->numeroRef() }}</a>
+                    @else
+                        <span style="color:var(--ac)">{{ $s->numeroRef() }}</span>
+                    @endif
+                </td>
             @endif
 
             {{-- Monto --}}
