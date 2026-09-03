@@ -45,7 +45,11 @@
                     @endif
                 </td>
                 <td class="mono" style="font-size:12px;">
-                    {{ $cliente->cuit ? $cliente->cuit : '<span class="txd">—</span>' }}
+                    @if($cliente->cuit)
+                        {{ $cliente->cuit }}
+                    @else
+                        <span class="txd">—</span>
+                    @endif
                 </td>
                 <td>
                     @if($cliente->condicion_iva)

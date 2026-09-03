@@ -24,6 +24,21 @@ class PresupuestoController extends Controller
         return view('presupuestos.index', compact('presupuestos'));
     }
 
+    /** Descarga el listado de presupuestos como Excel. */
+    public function exportar()
+    {
+        $presupuestos = Presupuesto::with(['cliente', 'createdBy'])
+            ->orderByDesc('numero')
+            ->get();
+
+        $html = view('presupuestos.export', compact('presupuestos'))->render();
+
+        return response($html, 200, [
+            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="presupuestos_' . now()->format('Y-m-d') . '.xls"',
+        ]);
+    }
+
     public function create()
     {
         $catalogo  = $this->buildCatalogo();

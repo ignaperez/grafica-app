@@ -24,6 +24,21 @@ class FacturaController extends Controller
         return view('facturas.index', compact('facturas', 'borradores'));
     }
 
+    /** Descarga el listado de facturas como Excel. */
+    public function exportar()
+    {
+        $facturas = Factura::with(['cliente', 'cobros'])
+            ->orderByDesc('id')
+            ->get();
+
+        $html = view('facturas.export', compact('facturas'))->render();
+
+        return response($html, 200, [
+            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="facturas_' . now()->format('Y-m-d') . '.xls"',
+        ]);
+    }
+
     public function create(Request $request)
     {
         // Retomar un borrador guardado: flasheamos sus datos como old() y

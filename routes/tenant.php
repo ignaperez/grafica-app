@@ -193,6 +193,8 @@ Route::middleware([
         Route::post('/trabajos-libres/asignar-orden',  [TrabajoLibreController::class, 'asignarOrden'])->name('trabajos-libres.asignar-orden');
 
         // Rutas específicas ANTES del resource (evitan colisión con show/{vehiculosPloteo})
+        Route::get('/vehiculos-ploteo/export', [VehiculoPloteoController::class, 'exportar'])
+            ->name('vehiculos-ploteo.export');
         Route::get('/vehiculos-ploteo/patente-existe', [VehiculoPloteoController::class, 'patenteExiste'])
             ->name('vehiculos-ploteo.patente-existe');
         Route::post('/vehiculos-ploteo/marcas', [MarcaVehiculoController::class, 'store'])
@@ -238,6 +240,7 @@ Route::middleware([
 
         Route::post('/presupuestos/desde-trabajos', [PresupuestoController::class, 'desdeTrabajos'])->name('presupuestos.desde-trabajos');
         Route::post('/presupuestos/desde-vehiculos', [PresupuestoController::class, 'desdeVehiculos'])->name('presupuestos.desde-vehiculos');
+        Route::get('/presupuestos/export', [PresupuestoController::class, 'exportar'])->name('presupuestos.export');
         Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
         Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');
         Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
@@ -250,6 +253,7 @@ Route::middleware([
         Route::get('/facturas/{factura}/print',              [FacturaController::class, 'print'])->name('facturas.print');
         Route::get('/facturas/{factura}/pdf',                [FacturaController::class, 'pdf'])->name('facturas.pdf');
         Route::post('/facturas/preview',                     [FacturaController::class, 'preview'])->name('facturas.preview');
+        Route::get('/facturas/export',                       [FacturaController::class, 'exportar'])->name('facturas.export');
         Route::delete('/facturas/borradores/{borrador}',     [FacturaController::class, 'destroyBorrador'])->name('facturas.borradores.destroy');
         Route::post('/presupuestos/{presupuesto}/facturar',  [FacturaController::class, 'fromPresupuesto'])->name('facturas.from-presupuesto');
         Route::post('/facturas/{factura}/cobros',            [CobroController::class, 'store'])->name('facturas.cobros.store');

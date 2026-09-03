@@ -45,6 +45,31 @@ class VehiculoPloteoController extends Controller
         return view('vehiculos-ploteo.index', compact('vehiculos', 'q'));
     }
 
+    /** Descarga el listado de vehículos como Excel (respeta la búsqueda ?q=). */
+    public function exportar(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto'])
+            ->when($q !== '', function ($query) use ($q) {
+                $pat = $this->normalizarPatente($q);
+                $query->where(function ($sub) use ($q, $pat) {
+                    $sub->where('patente', 'like', "%{$pat}%")
+                        ->orWhere('marca', 'like', "%{$q}%")
+                        ->orWhere('modelo', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        $html = view('vehiculos-ploteo.export', compact('vehiculos'))->render();
+
+        return response($html, 200, [
+            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="vehiculos_' . now()->format('Y-m-d') . '.xls"',
+        ]);
+    }
+
     /**
      * Chequea si una patente ya fue cargada (aviso "ya estuvo en la gráfica").
      * GET /vehiculos-ploteo/patente-existe?patente=XXX&ignore=ID

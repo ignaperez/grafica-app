@@ -709,6 +709,13 @@ Planilla interna (estilo Excel del cliente) que se auto-alimenta de presupuestos
   columnas del print + Cliente; montos en formato AR numérico (`number_format(...,2,',','')`, sin
   separador de miles) para que Excel es-AR los sume. Botón **⬇ Excel** en el topbar del index.
   (Ojo: el `.xls` es un HTML, Excel lo abre igual; no es un xlsx binario.)
+- **Replicado (2026-09-02)** en **vehículos** (`vehiculos-ploteo.export`, respeta `?q=`),
+  **presupuestos** (`presupuestos.export`) y **facturas** (`facturas.export`) — mismo patrón:
+  método `exportar` + ruta ANTES del resource/show + vista `{modulo}/export.blade` + botón
+  ⬇ Excel en el topbar. Montos en formato AR numérico.
+- **Fix (2026-09-02):** `clientes/index` mostraba el HTML crudo `<span class="txd">—</span>`
+  como texto cuando el cliente no tenía CUIT (era `{{ ... ? cuit : '<span>...' }}` → Blade
+  escapaba el string). Cambiado a `@if($cliente->cuit) ... @else <span...> @endif`.
 - Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
 
 ### Remito — código de barras del PDF agrandado (2026-07-02)

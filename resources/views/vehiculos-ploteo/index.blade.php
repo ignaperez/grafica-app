@@ -5,6 +5,7 @@
 @section('page-title', 'Vehículos')
 
 @section('topbar-actions')
+    <a href="{{ route('vehiculos-ploteo.export', ['q' => request('q')]) }}" class="gbtn gbtn-ghost gbtn-sm">⬇ Excel</a>
     <a href="{{ route('vehiculos-ploteo.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo vehículo</a>
 @endsection
 

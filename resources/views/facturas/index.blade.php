@@ -3,6 +3,7 @@
 @section('page-title', 'Facturas')
 
 @section('topbar-actions')
+    <a href="{{ route('facturas.export') }}" class="gbtn gbtn-ghost gbtn-sm">⬇ Excel</a>
     <a href="{{ route('facturas.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nueva factura</a>
 @endsection
 

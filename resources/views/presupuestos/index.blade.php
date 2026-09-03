@@ -3,6 +3,7 @@
 @section('page-title', 'Presupuestos')
 
 @section('topbar-actions')
+    <a href="{{ route('presupuestos.export') }}" class="gbtn gbtn-ghost gbtn-sm">⬇ Excel</a>
     <a href="{{ route('presupuestos.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo presupuesto</a>
 @endsection
 
