@@ -60,7 +60,10 @@ class ArcaService
         }
 
         $this->xmlDir = base_path('storage/app/arca/xml/');
-        $this->wsdl   = base_path('vendor/multinexo/php-afip-ws/src/Multinexo/Afip/WSFE/wsfe.wsdl');
+        // WSDL propio (copia del de AFIP + campo CondicionIVAReceptorId de la RG 5616).
+        // Vive en resources/ para que composer install en el deploy NO lo pise (el de
+        // vendor/multinexo es viejo y descarta el campo silenciosamente en modo WSDL).
+        $this->wsdl   = base_path('resources/arca/wsfe.wsdl');
 
         $this->wsaaUrl = $this->production
             ? config('arca.url.wsaa_prod')
@@ -133,6 +136,9 @@ class ArcaService
             'soap_version'   => SOAP_1_2,
             'trace'          => true,
             'stream_context' => $this->sslCtx(),
+            // Sin caché de WSDL: garantiza que se lea siempre el archivo actual
+            // (evita que un WSDL cacheado viejo descarte CondicionIVAReceptorId).
+            'cache_wsdl'     => WSDL_CACHE_NONE,
         ]);
     }
 
