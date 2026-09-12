@@ -38,11 +38,11 @@
             <table class="gtable" id="tabla-items">
                 <thead>
                     <tr>
-                        <th style="width:34%">Descripción</th>
-                        <th style="width:11%;text-align:center">Cantidad</th>
-                        <th style="width:12%;text-align:center">U. Medida</th>
-                        <th style="width:16%;text-align:right">Precio neto</th>
-                        <th style="width:10%;text-align:center">Alícuota IVA</th>
+                        <th style="width:32%">Descripción</th>
+                        <th style="width:10%;text-align:center">Cantidad</th>
+                        <th style="width:11%;text-align:center">U. Medida</th>
+                        <th style="width:15%;text-align:right">Precio (final)</th>
+                        <th style="width:13%;text-align:center">IVA</th>
                         <th style="width:12%;text-align:right">Subtotal</th>
                         <th style="width:5%"></th>
                     </tr>
@@ -55,6 +55,9 @@
                          2. items del presupuesto → carga inicial desde presupuesto.
                          3. una fila vacía → factura manual desde cero. --}}
                     @php
+                        // IVA por defecto según la condición del cliente: exento → "Exento", resto → 21%.
+                        $ivaDefault = ($clienteSeleccionado && $clienteSeleccionado->condicion_iva === 'exento') ? 'exento' : '21';
+
                         if (old('items')) {
                             $filasItems = array_values(old('items'));
                         } elseif ($presupuesto && $presupuesto->items->count()) {
@@ -62,14 +65,16 @@
                                 // medidaTotal(): m2→ancho×alto×cant, ml→largo×cant, unidad→cant
                                 'descripcion'     => $item->descripcion,
                                 'cantidad'        => $item->medidaTotal(),
-                                // El presupuesto es precio FINAL (con IVA). La factura es NETO
-                                // → se divide por 1.21 para que el total facturado coincida.
-                                'precio_unitario' => round((float) $item->precio_unitario / 1.21, 2),
-                                'alicuota_iva'    => 21,
+                                // El precio del presupuesto es FINAL (IVA incluido) → se usa tal cual.
+                                'precio_unitario' => $item->precio_unitario,
+                                'iva'             => $ivaDefault,
                             ])->all();
                         } else {
-                            $filasItems = [['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => '']];
+                            $filasItems = [['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => '', 'iva' => $ivaDefault]];
                         }
+
+                        // Opciones del selector de IVA (igual que ARCA).
+                        $opcionesIva = ['21'=>'21%','10.5'=>'10,5%','27'=>'27%','5'=>'5%','2.5'=>'2,5%','0'=>'0%','exento'=>'Exento','no_gravado'=>'No gravado'];
                     @endphp
                     @foreach($filasItems as $i => $item)
                         @php
@@ -77,9 +82,8 @@
                             $cantFac   = $item['cantidad']         ?? 1;
                             $unidadFac = $item['unidad']           ?? 'unidad';
                             $precioFac = $item['precio_unitario']  ?? '';
-                            $aliFac    = $item['alicuota_iva']      ?? 21;
+                            $ivaFac    = (string) ($item['iva']    ?? $ivaDefault);
                             $subFac    = round((float) $cantFac * (float) $precioFac, 2);
-                            $alicuotasIva = ['0', '2.5', '5', '10.5', '21', '27'];
                         @endphp
                         <tr class="item-row" data-index="{{ $i }}">
                             <td>
@@ -110,9 +114,9 @@
                                     style="text-align:right;width:110px">
                             </td>
                             <td style="text-align:center">
-                                <select name="items[{{ $i }}][alicuota_iva]" class="gselect ginput-sm item-alicuota" style="width:80px">
-                                    @foreach($alicuotasIva as $a)
-                                        <option value="{{ $a }}" {{ (string) $aliFac === $a ? 'selected' : '' }}>{{ str_replace('.', ',', $a) }}%</option>
+                                <select name="items[{{ $i }}][iva]" class="gselect ginput-sm item-iva" style="width:100px">
+                                    @foreach($opcionesIva as $val => $lbl)
+                                        <option value="{{ $val }}" {{ $ivaFac === (string) $val ? 'selected' : '' }}>{{ $lbl }}</option>
                                     @endforeach
                                 </select>
                             </td>
@@ -129,19 +133,15 @@
                 </tbody>
             </table>
         </div>
-        {{-- Totales --}}
+        {{-- Totales — el precio es final, el total es la suma (no se infla). --}}
         <div style="padding:14px 18px;border-top:1px solid var(--b);display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            <div id="desglose-iva" style="display:none;gap:6px;flex-direction:column;align-items:flex-end">
-                <div style="display:flex;gap:32px;color:var(--txd);font-size:13px">
-                    <span>Neto gravado</span>
-                    <span class="mono" id="lbl-neto" style="min-width:100px;text-align:right">$0,00</span>
-                </div>
-                {{-- Una línea de IVA por alícuota (se arma por JS) --}}
-                <div id="iva-lines" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"></div>
-            </div>
             <div style="display:flex;gap:32px;align-items:center">
                 <span style="font-size:12px;color:var(--txd);letter-spacing:1px;text-transform:uppercase">Total</span>
                 <span class="mono" id="lbl-total" style="font-size:20px;font-weight:600;color:var(--tx)">$0,00</span>
+            </div>
+            <div id="iva-contenido-row" style="display:none;gap:12px;color:var(--txd);font-size:12px">
+                <span>IVA contenido (Ley 27.743)</span>
+                <span class="mono" id="lbl-iva-contenido">$0,00</span>
             </div>
         </div>
     </div>
@@ -343,7 +343,19 @@
         return '$' + parseFloat(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // Precio unitario = NETO. El subtotal de la fila es el neto (cant × precio).
+    // IVA por defecto según la condición del cliente (exento → "Exento", resto → 21%).
+    let IVA_DEFAULT = @json(($clienteSeleccionado && $clienteSeleccionado->condicion_iva === 'exento') ? 'exento' : '21');
+
+    // Opciones del selector de IVA (igual que ARCA) para las filas nuevas.
+    const IVA_OPCIONES = [['21','21%'],['10.5','10,5%'],['27','27%'],['5','5%'],['2.5','2,5%'],['0','0%'],['exento','Exento'],['no_gravado','No gravado']];
+    function ivaOptions(sel) {
+        sel = sel || IVA_DEFAULT;
+        return IVA_OPCIONES.map(function (o) {
+            return '<option value="' + o[0] + '"' + (o[0] === sel ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('');
+    }
+
+    // Precio unitario = FINAL (IVA incluido). El subtotal de la fila es cant × precio.
     function recalcRow($row) {
         const cant  = parseFloat($row.find('.item-cant').val())  || 0;
         const price = parseFloat($row.find('.item-precio').val()) || 0;
@@ -354,39 +366,30 @@
 
     function recalcTotal() {
         const tipo   = parseInt($('#sel-tipo').val());
-        const sinIva = (tipo === 11 || tipo === 13); // Factura C / NC C
+        const sinIva = (tipo === 11 || tipo === 13); // Factura C / NC C: sin IVA
 
-        let neto = 0, iva = 0;
-        const porTasa = {}; // alícuota → importe IVA acumulado
+        let total = 0, ivaCont = 0;
         $('.item-row').each(function () {
             const sub = recalcRow($(this));
-            neto += sub;
-            const ali = sinIva ? 0 : (parseFloat($(this).find('.item-alicuota').val()) || 0);
-            const i   = Math.round(sub * ali / 100 * 100) / 100;
-            iva += i;
-            if (!sinIva) porTasa[ali] = Math.round(((porTasa[ali] || 0) + i) * 100) / 100;
+            total += sub;
+            if (!sinIva) {
+                const v = $(this).find('.item-iva').val();
+                if (v !== 'exento' && v !== 'no_gravado') {
+                    const ali = parseFloat(v) || 0;
+                    // IVA contenido: el precio final ya lo incluye → se retrocalcula.
+                    ivaCont += sub - sub / (1 + ali / 100);
+                }
+            }
         });
-        neto = Math.round(neto * 100) / 100;
-        iva  = Math.round(iva  * 100) / 100;
-        const total = Math.round((neto + iva) * 100) / 100;
+        total   = Math.round(total * 100) / 100;
+        ivaCont = Math.round(ivaCont * 100) / 100;
 
         $('#lbl-total').text(fmt(total));
-
-        if (!sinIva) {
-            $('#lbl-neto').text(fmt(neto));
-            // Una línea por alícuota, ordenadas de menor a mayor
-            let html = '';
-            Object.keys(porTasa).map(Number).sort((a, b) => a - b).forEach(function (ali) {
-                const label = String(ali).replace('.', ',');
-                html += '<div style="display:flex;gap:32px;color:var(--txd);font-size:13px">'
-                     +  '<span>IVA ' + label + '%</span>'
-                     +  '<span class="mono" style="min-width:100px;text-align:right">' + fmt(porTasa[ali]) + '</span>'
-                     +  '</div>';
-            });
-            $('#iva-lines').html(html);
-            $('#desglose-iva').css('display', 'flex');
+        if (!sinIva && ivaCont > 0) {
+            $('#lbl-iva-contenido').text(fmt(ivaCont));
+            $('#iva-contenido-row').css('display', 'flex');
         } else {
-            $('#desglose-iva').css('display', 'none');
+            $('#iva-contenido-row').css('display', 'none');
         }
     }
 
@@ -419,14 +422,7 @@
                     style="text-align:right;width:110px">
             </td>
             <td style="text-align:center">
-                <select name="items[${i}][alicuota_iva]" class="gselect ginput-sm item-alicuota" style="width:80px">
-                    <option value="0">0%</option>
-                    <option value="2.5">2,5%</option>
-                    <option value="5">5%</option>
-                    <option value="10.5">10,5%</option>
-                    <option value="21" selected>21%</option>
-                    <option value="27">27%</option>
-                </select>
+                <select name="items[${i}][iva]" class="gselect ginput-sm item-iva" style="width:100px">${ivaOptions()}</select>
             </td>
             <td style="text-align:right">
                 <span class="mono item-subtotal" style="font-size:13px;color:var(--tx)">$0,00</span>
@@ -450,7 +446,7 @@
     $(document).on('input', '.item-cant, .item-precio', function () {
         recalcTotal();
     });
-    $(document).on('change', '.item-alicuota', function () {
+    $(document).on('change', '.item-iva', function () {
         recalcTotal();
     });
 
@@ -532,6 +528,15 @@
 
         // Badge
         showBadge(condicion);
+
+        // IVA por defecto según condición: exento → todos los ítems "Exento" (IVA $0);
+        // cualquier otra condición → 21% (y se corrige si venían marcados exento).
+        IVA_DEFAULT = (condicion === 'exento') ? 'exento' : '21';
+        $('.item-iva').each(function () {
+            if (condicion === 'exento')        $(this).val('exento');
+            else if ($(this).val() === 'exento') $(this).val('21');
+        });
+        recalcTotal();
 
         // Tipo de comprobante — solo aplica si el EMISOR es Responsable Inscripto
         @if($condicionEmisor === 'responsable_inscripto')

@@ -107,7 +107,7 @@ class FacturaController extends Controller
             'items.*.cantidad'        => 'required|numeric|min:0.001',
             'items.*.unidad'          => 'nullable|in:unidad,m2,ml',
             'items.*.precio_unitario' => 'required|numeric|min:0',
-            'items.*.alicuota_iva'    => 'nullable|in:0,2.5,5,10.5,21,27',
+            'items.*.iva'             => 'nullable|in:0,2.5,5,10.5,21,27,exento,no_gravado',
             // Comprobante original (solo para NCs)
             'nc_tipo'    => $isNC ? 'required|in:1,6,11' : 'nullable|integer',
             'nc_pto_vta' => $isNC ? 'required|integer|min:1' : 'nullable|integer',
@@ -173,13 +173,15 @@ class FacturaController extends Controller
             );
         }
 
-        // Ítems para el cálculo fiscal: el precio_unitario es NETO (sin IVA).
-        $sinIva    = in_array($cbteTipo, [11, 13]); // Factura C / NC C
+        // Ítems para el cálculo fiscal: el precio_unitario es SIEMPRE final (IVA incluido).
+        $sinIva    = in_array($cbteTipo, [11, 13]); // Factura C / NC C: sin IVA
         $itemsCalc = [];
         foreach ($request->items as $it) {
+            [$ivaTipo, $ali] = $this->parseIva($it['iva'] ?? '21', $sinIva);
             $itemsCalc[] = [
-                'neto'     => round((float) $it['cantidad'] * (float) $it['precio_unitario'], 2),
-                'alicuota' => $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21),
+                'final'    => round((float) $it['cantidad'] * (float) $it['precio_unitario'], 2),
+                'iva_tipo' => $ivaTipo,
+                'alicuota' => $ali,
             ];
         }
 
@@ -248,7 +250,8 @@ class FacturaController extends Controller
                 'unidad'          => $it['unidad'] ?? 'unidad',
                 'precio_unitario' => $it['precio_unitario'],
                 'subtotal'        => $subtotal,
-                'alicuota_iva'    => $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21),
+                'alicuota_iva'    => $itemsCalc[$i]['alicuota'],
+                'iva_tipo'        => $itemsCalc[$i]['iva_tipo'],
                 'orden'           => $i,
             ]);
         }
@@ -318,7 +321,7 @@ class FacturaController extends Controller
     {
         $tipo = (int) $request->tipo;
 
-        // Armar los ítems en memoria (sin guardar). El precio_unitario es NETO.
+        // Armar los ítems en memoria (sin guardar). El precio_unitario es FINAL (IVA incluido).
         $sinIva    = in_array($tipo, [11, 13]);
         $items     = collect();
         $itemsCalc = [];
@@ -327,8 +330,8 @@ class FacturaController extends Controller
             $cant = (float) ($it['cantidad'] ?? 0);
             $pu   = (float) ($it['precio_unitario'] ?? 0);
             $sub  = round($cant * $pu, 2);
-            $ali  = $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21);
-            $itemsCalc[] = ['neto' => $sub, 'alicuota' => $ali];
+            [$ivaTipo, $ali] = $this->parseIva($it['iva'] ?? '21', $sinIva);
+            $itemsCalc[] = ['final' => $sub, 'iva_tipo' => $ivaTipo, 'alicuota' => $ali];
             $items->push(new FacturaItem([
                 'descripcion'     => $it['descripcion'] ?? '',
                 'cantidad'        => $cant ?: 1,
@@ -336,6 +339,7 @@ class FacturaController extends Controller
                 'precio_unitario' => $pu,
                 'subtotal'        => $sub,
                 'alicuota_iva'    => $ali,
+                'iva_tipo'        => $ivaTipo,
                 'orden'           => $i,
             ]));
         }
@@ -414,6 +418,19 @@ class FacturaController extends Controller
             ))
             ->with('error', $mensaje)
             ->with('info', 'Los datos quedaron guardados como borrador — no perdiste la carga.');
+    }
+
+    /**
+     * Traduce el valor del selector de IVA del formulario a [iva_tipo, alícuota].
+     * Valores: 0/2.5/5/10.5/21/27 (gravado), 'exento', 'no_gravado'.
+     * En Factura C / NC C no hay IVA → siempre gravado 0.
+     */
+    private function parseIva(string $v, bool $sinIva): array
+    {
+        if ($sinIva)               return ['gravado', 0.0];
+        if ($v === 'exento')       return ['exento', 0.0];
+        if ($v === 'no_gravado')   return ['no_gravado', 0.0];
+        return ['gravado', (float) $v];
     }
 
     private function guardarBorrador(Request $request, ?string $error = null): FacturaBorrador

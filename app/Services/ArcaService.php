@@ -171,7 +171,7 @@ class ArcaService
         $nro      = $this->ultimoComprobante($cbteTipo) + 1;
         $fecha    = Carbon::now()->format('Ymd');
 
-        // Importes fiscales calculados a partir de los ítems (neto + alícuota por ítem).
+        // Importes fiscales calculados a partir de los ítems (precio final, IVA contenido).
         $imp      = $this->importesDesdeItems($datos['Items'] ?? [], $cbteTipo);
         $impNeto  = $imp['neto'];
         $impIva   = $imp['iva'];
@@ -188,9 +188,9 @@ class ArcaService
             'CbteHasta'  => $nro,
             'CbteFch'    => $fecha,
             'ImpTotal'   => $total,
-            'ImpTotConc' => 0,
+            'ImpTotConc' => $imp['noGrav'],  // no gravado
             'ImpNeto'    => $impNeto,
-            'ImpOpEx'    => 0,
+            'ImpOpEx'    => $imp['opex'],     // exento
             'ImpIVA'     => $impIva,
             'ImpTrib'    => 0,
             // Condición IVA del receptor — OBLIGATORIO desde RG 5616/2024.
@@ -328,12 +328,17 @@ class ArcaService
 
     /**
      * Calcula los importes fiscales de un comprobante a partir de sus ítems.
-     * El precio de cada ítem es NETO (sin IVA); el IVA se calcula por ítem según
-     * su alícuota y se agrupa por tasa para el array `Iva` que exige AFIP.
      *
-     * @param array $items  [['neto'=>float, 'alicuota'=>float], ...]
+     * El precio de cada ítem es SIEMPRE FINAL (lo que paga el cliente); el IVA está
+     * CONTENIDO en ese precio y se retrocalcula según la alícuota:
+     *   - gravado   → neto = final / (1 + alic/100); iva = final − neto  (→ ImpNeto + AlicIva)
+     *   - exento    → todo el importe va a ImpOpEx, sin IVA
+     *   - no_gravado→ todo el importe va a ImpTotConc, sin IVA
+     * El total NUNCA se infla: ImpTotal = Σ finales.
+     *
+     * @param array $items  [['final'=>float, 'iva_tipo'=>'gravado'|'exento'|'no_gravado', 'alicuota'=>float], ...]
      * @param int   $cbteTipo
-     * @return array{neto:float, iva:float, total:float, ivaArray:?array, desglose:array}
+     * @return array{neto:float, iva:float, opex:float, noGrav:float, total:float, ivaArray:?array, desglose:array}
      */
     public function importesDesdeItems(array $items, int $cbteTipo): array
     {
@@ -342,12 +347,24 @@ class ArcaService
 
         $neto   = 0.0;
         $iva    = 0.0;
+        $opex   = 0.0;
+        $noGrav = 0.0;
         $grupos = []; // clave alícuota => ['ali'=>, 'base'=>, 'iva'=>]
 
         foreach ($items as $it) {
-            $base   = round((float) ($it['neto'] ?? 0), 2);
-            $ali    = $sinIva ? 0.0 : (float) ($it['alicuota'] ?? 21);
-            $impIva = round($base * $ali / 100, 2);
+            $final = round((float) ($it['final'] ?? 0), 2);
+            $tipo  = $it['iva_tipo'] ?? 'gravado';
+
+            // Factura C: sin discriminar IVA, todo el final es "neto" sin impuesto.
+            if ($sinIva) { $neto += $final; continue; }
+
+            if ($tipo === 'exento')     { $opex   += $final; continue; }
+            if ($tipo === 'no_gravado') { $noGrav += $final; continue; }
+
+            // Gravado: el IVA está contenido en el precio final → se retrocalcula.
+            $ali    = (float) ($it['alicuota'] ?? 21);
+            $base   = round($final / (1 + $ali / 100), 2);
+            $impIva = round($final - $base, 2);
 
             $neto += $base;
             $iva  += $impIva;
@@ -360,11 +377,13 @@ class ArcaService
             $grupos[$k]['iva']  = round($grupos[$k]['iva']  + $impIva, 2);
         }
 
-        $neto  = round($neto, 2);
-        $iva   = round($iva, 2);
-        $total = round($neto + $iva, 2);
+        $neto   = round($neto, 2);
+        $iva    = round($iva, 2);
+        $opex   = round($opex, 2);
+        $noGrav = round($noGrav, 2);
+        $total  = round($neto + $iva + $opex + $noGrav, 2);
 
-        // Array Iva para AFIP: una entrada <AlicIva> por alícuota (no en C/NC-C).
+        // Array Iva para AFIP: una entrada <AlicIva> por alícuota gravada (no en C/NC-C).
         $ivaArray = null;
         if (!$sinIva && $grupos) {
             $alic = [];
@@ -382,6 +401,8 @@ class ArcaService
         return [
             'neto'     => $neto,
             'iva'      => $iva,
+            'opex'     => $opex,
+            'noGrav'   => $noGrav,
             'total'    => $total,
             'ivaArray' => $ivaArray,
             'desglose' => array_values($grupos),

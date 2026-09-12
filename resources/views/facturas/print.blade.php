@@ -231,10 +231,11 @@
     $sumaBase    = 0;
     if ($ivaDiscriminado) {
         foreach ($factura->items as $item) {
-            // El subtotal del ítem es NETO; el IVA se suma según la alícuota.
+            // El subtotal del ítem es FINAL (IVA incluido); se retrocalcula el neto.
+            if (($item->iva_tipo ?? 'gravado') !== 'gravado') continue;
             $ali  = (float) $item->alicuota_iva;
-            $base = round((float) $item->subtotal, 2);
-            $iva  = round($base * $ali / 100, 2);
+            $base = round((float) $item->subtotal / (1 + $ali / 100), 2);
+            $iva  = round((float) $item->subtotal - $base, 2);
             $sumaBase += $base;
             $key = number_format($ali, 2, '.', '');
             if (!isset($desgloseIva[$key])) $desgloseIva[$key] = ['ali' => $ali, 'base' => 0, 'iva' => 0];
@@ -439,12 +440,14 @@
         <tbody>
             @foreach($factura->items as $i => $item)
             @php
-                // precio_unitario y subtotal ya son NETOS; el c/IVA se calcula sumando la alícuota.
+                // precio_unitario y subtotal son FINALES (IVA incluido); se retrocalcula el neto.
+                $esGrav  = ($item->iva_tipo ?? 'gravado') === 'gravado';
                 $ali     = (float) $item->alicuota_iva;
-                $pNeto   = (float) $item->precio_unitario;
-                $subNeto = (float) $item->subtotal;
-                $subCIva = round($subNeto * (1 + $ali / 100), 2);
-                $aliLabel = $ali > 0 ? rtrim(rtrim(number_format($ali, 1, ',', ''), '0'), ',') . ' %' : '0 %';
+                $factor  = $esGrav ? (1 + $ali / 100) : 1;
+                $pNeto   = round((float) $item->precio_unitario / $factor, 2);
+                $subNeto = round((float) $item->subtotal / $factor, 2);
+                $subCIva = (float) $item->subtotal;
+                $aliLabel = !$esGrav ? ($item->iva_tipo === 'exento' ? 'Exento' : 'No grav.') : ($ali > 0 ? rtrim(rtrim(number_format($ali, 1, ',', ''), '0'), ',') . ' %' : '0 %');
             @endphp
             <tr>
                 <td class="c td-num">{{ $i + 1 }}</td>

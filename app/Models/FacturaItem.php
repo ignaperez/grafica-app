@@ -8,7 +8,7 @@ class FacturaItem extends Model
 {
     protected $fillable = [
         'factura_id', 'descripcion', 'cantidad', 'unidad',
-        'precio_unitario', 'subtotal', 'alicuota_iva', 'orden',
+        'precio_unitario', 'subtotal', 'alicuota_iva', 'iva_tipo', 'orden',
     ];
 
     protected $casts = [

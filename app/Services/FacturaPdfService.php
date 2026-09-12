@@ -136,13 +136,15 @@ class FacturaPdfService
         };
 
         // ── Desglose IVA (solo A) ──
-        // El subtotal del ítem ya es NETO; el IVA se calcula sumándole la alícuota.
+        // El subtotal del ítem es FINAL (IVA incluido) → el IVA se retrocalcula.
+        // Ítems exentos / no gravados no aportan IVA.
         $desgloseIva = [];
         if ($ivaDiscriminado) {
             foreach ($factura->items as $item) {
+                if (($item->iva_tipo ?? 'gravado') !== 'gravado') continue;
                 $ali  = (float) $item->alicuota_iva;
-                $base = round((float) $item->subtotal, 2);
-                $iva  = round($base * $ali / 100, 2);
+                $base = round((float) $item->subtotal / (1 + $ali / 100), 2);
+                $iva  = round((float) $item->subtotal - $base, 2);
                 $key  = number_format($ali, 2, '.', '');
                 if (!isset($desgloseIva[$key])) $desgloseIva[$key] = ['ali' => $ali, 'base' => 0, 'iva' => 0];
                 $desgloseIva[$key]['base'] = round($desgloseIva[$key]['base'] + $base, 2);

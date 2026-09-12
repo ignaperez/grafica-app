@@ -111,27 +111,15 @@
         {{-- Totales --}}
         <div style="padding:14px 18px;border-top:1px solid var(--b);display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             @if($factura->imp_iva > 0)
-            @php
-                // Desglose de IVA por alícuota (el subtotal del ítem es neto)
-                $desglose = [];
-                foreach ($factura->items as $it) {
-                    $ali = (float) $it->alicuota_iva;
-                    $iva = round((float) $it->subtotal * $ali / 100, 2);
-                    $k   = number_format($ali, 1, '.', '');
-                    $desglose[$k] = ['ali' => $ali, 'iva' => round(($desglose[$k]['iva'] ?? 0) + $iva, 2)];
-                }
-                ksort($desglose);
-            @endphp
+            {{-- El precio es final (IVA incluido). Se muestra el IVA contenido. --}}
             <div style="display:flex;gap:32px;color:var(--txd);font-size:13px">
                 <span>Neto gravado</span>
                 <span class="mono" style="min-width:120px;text-align:right">${{ number_format($factura->imp_neto, 2, ',', '.') }}</span>
             </div>
-            @foreach($desglose as $d)
             <div style="display:flex;gap:32px;color:var(--txd);font-size:13px">
-                <span>IVA {{ rtrim(rtrim(number_format($d['ali'], 1, ',', ''), '0'), ',') }}%</span>
-                <span class="mono" style="min-width:120px;text-align:right">${{ number_format($d['iva'], 2, ',', '.') }}</span>
+                <span>IVA contenido</span>
+                <span class="mono" style="min-width:120px;text-align:right">${{ number_format($factura->imp_iva, 2, ',', '.') }}</span>
             </div>
-            @endforeach
             @endif
             <div style="display:flex;gap:32px;align-items:center;margin-top:4px">
                 <span style="font-size:12px;color:var(--txd);letter-spacing:1px;text-transform:uppercase">Total</span>

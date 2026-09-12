@@ -8,15 +8,19 @@
     };
     $umLabel = fn($u) => match($u) { 'm2' => 'm²', 'ml' => 'ml', default => 'unidad' };
 
-    // El precio guardado es NETO. En Factura A se discrimina IVA → se muestra el
-    // neto tal cual. En B/C (no discrimina) se muestra el precio FINAL (con IVA).
-    $precioMostrar = function ($it) use ($ivaDiscriminado) {
-        $p = (float) $it->precio_unitario;
-        return $ivaDiscriminado ? $p : round($p * (1 + (float) $it->alicuota_iva / 100), 2);
+    // El precio guardado es FINAL (IVA incluido). En Factura B/C se muestra tal cual.
+    // En Factura A se discrimina el IVA → en el cuerpo se muestra el NETO (retrocalculado);
+    // los ítems exentos / no gravados no tienen IVA, se muestran tal cual.
+    $factorIva = function ($it) {
+        return (($it->iva_tipo ?? 'gravado') === 'gravado') ? (1 + (float) $it->alicuota_iva / 100) : 1;
     };
-    $subMostrar = function ($it) use ($ivaDiscriminado) {
+    $precioMostrar = function ($it) use ($ivaDiscriminado, $factorIva) {
+        $p = (float) $it->precio_unitario;
+        return $ivaDiscriminado ? round($p / $factorIva($it), 2) : $p;
+    };
+    $subMostrar = function ($it) use ($ivaDiscriminado, $factorIva) {
         $s = (float) $it->subtotal;
-        return $ivaDiscriminado ? $s : round($s * (1 + (float) $it->alicuota_iva / 100), 2);
+        return $ivaDiscriminado ? round($s / $factorIva($it), 2) : $s;
     };
 @endphp
 
