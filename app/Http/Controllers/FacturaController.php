@@ -183,14 +183,14 @@ class FacturaController extends Controller
             ];
         }
 
-        $arca = new ArcaService();
-        $imp  = $arca->importesDesdeItems($itemsCalc, $cbteTipo);
-        $impNeto = $imp['neto'];
-        $impIva  = $imp['iva'];
-        $total   = $imp['total'];
-
         // Solicitar CAE a ARCA
         try {
+            $arca = new ArcaService();
+            $imp  = $arca->importesDesdeItems($itemsCalc, $cbteTipo);
+            $impNeto = $imp['neto'];
+            $impIva  = $imp['iva'];
+            $total   = $imp['total'];
+
             $arcaData = [
                 'CbteTipo' => $cbteTipo,
                 'Concepto' => (int) $request->concepto,
