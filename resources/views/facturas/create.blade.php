@@ -38,10 +38,11 @@
             <table class="gtable" id="tabla-items">
                 <thead>
                     <tr>
-                        <th style="width:40%">Descripción</th>
-                        <th style="width:13%;text-align:center">Cantidad</th>
-                        <th style="width:13%;text-align:center">U. Medida</th>
-                        <th style="width:17%;text-align:right">Precio unitario</th>
+                        <th style="width:34%">Descripción</th>
+                        <th style="width:11%;text-align:center">Cantidad</th>
+                        <th style="width:12%;text-align:center">U. Medida</th>
+                        <th style="width:16%;text-align:right">Precio neto</th>
+                        <th style="width:10%;text-align:center">Alícuota IVA</th>
                         <th style="width:12%;text-align:right">Subtotal</th>
                         <th style="width:5%"></th>
                     </tr>
@@ -61,7 +62,10 @@
                                 // medidaTotal(): m2→ancho×alto×cant, ml→largo×cant, unidad→cant
                                 'descripcion'     => $item->descripcion,
                                 'cantidad'        => $item->medidaTotal(),
-                                'precio_unitario' => $item->precio_unitario,
+                                // El presupuesto es precio FINAL (con IVA). La factura es NETO
+                                // → se divide por 1.21 para que el total facturado coincida.
+                                'precio_unitario' => round((float) $item->precio_unitario / 1.21, 2),
+                                'alicuota_iva'    => 21,
                             ])->all();
                         } else {
                             $filasItems = [['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => '']];
@@ -73,7 +77,9 @@
                             $cantFac   = $item['cantidad']         ?? 1;
                             $unidadFac = $item['unidad']           ?? 'unidad';
                             $precioFac = $item['precio_unitario']  ?? '';
+                            $aliFac    = $item['alicuota_iva']      ?? 21;
                             $subFac    = round((float) $cantFac * (float) $precioFac, 2);
+                            $alicuotasIva = ['0', '2.5', '5', '10.5', '21', '27'];
                         @endphp
                         <tr class="item-row" data-index="{{ $i }}">
                             <td>
@@ -103,6 +109,13 @@
                                     min="0" step="0.01" required
                                     style="text-align:right;width:110px">
                             </td>
+                            <td style="text-align:center">
+                                <select name="items[{{ $i }}][alicuota_iva]" class="gselect ginput-sm item-alicuota" style="width:80px">
+                                    @foreach($alicuotasIva as $a)
+                                        <option value="{{ $a }}" {{ (string) $aliFac === $a ? 'selected' : '' }}>{{ str_replace('.', ',', $a) }}%</option>
+                                    @endforeach
+                                </select>
+                            </td>
                             <td style="text-align:right">
                                 <span class="mono item-subtotal" style="font-size:13px;color:var(--tx)">
                                     ${{ number_format($subFac, 2, ',', '.') }}
@@ -118,15 +131,13 @@
         </div>
         {{-- Totales --}}
         <div style="padding:14px 18px;border-top:1px solid var(--b);display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            <div id="desglose-iva" style="display:none;gap:32px;flex-direction:column;align-items:flex-end">
+            <div id="desglose-iva" style="display:none;gap:6px;flex-direction:column;align-items:flex-end">
                 <div style="display:flex;gap:32px;color:var(--txd);font-size:13px">
                     <span>Neto gravado</span>
                     <span class="mono" id="lbl-neto" style="min-width:100px;text-align:right">$0,00</span>
                 </div>
-                <div style="display:flex;gap:32px;color:var(--txd);font-size:13px">
-                    <span>IVA 21%</span>
-                    <span class="mono" id="lbl-iva" style="min-width:100px;text-align:right">$0,00</span>
-                </div>
+                {{-- Una línea de IVA por alícuota (se arma por JS) --}}
+                <div id="iva-lines" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"></div>
             </div>
             <div style="display:flex;gap:32px;align-items:center">
                 <span style="font-size:12px;color:var(--txd);letter-spacing:1px;text-transform:uppercase">Total</span>
@@ -332,6 +343,7 @@
         return '$' + parseFloat(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    // Precio unitario = NETO. El subtotal de la fila es el neto (cant × precio).
     function recalcRow($row) {
         const cant  = parseFloat($row.find('.item-cant').val())  || 0;
         const price = parseFloat($row.find('.item-precio').val()) || 0;
@@ -341,18 +353,37 @@
     }
 
     function recalcTotal() {
-        let total = 0;
-        $('.item-row').each(function () { total += recalcRow($(this)); });
+        const tipo   = parseInt($('#sel-tipo').val());
+        const sinIva = (tipo === 11 || tipo === 13); // Factura C / NC C
 
-        const tipo = parseInt($('#sel-tipo').val());
+        let neto = 0, iva = 0;
+        const porTasa = {}; // alícuota → importe IVA acumulado
+        $('.item-row').each(function () {
+            const sub = recalcRow($(this));
+            neto += sub;
+            const ali = sinIva ? 0 : (parseFloat($(this).find('.item-alicuota').val()) || 0);
+            const i   = Math.round(sub * ali / 100 * 100) / 100;
+            iva += i;
+            if (!sinIva) porTasa[ali] = Math.round(((porTasa[ali] || 0) + i) * 100) / 100;
+        });
+        neto = Math.round(neto * 100) / 100;
+        iva  = Math.round(iva  * 100) / 100;
+        const total = Math.round((neto + iva) * 100) / 100;
+
         $('#lbl-total').text(fmt(total));
 
-        // Sin IVA: Factura C (11) y Nota de Crédito C (13)
-        if (tipo !== 11 && tipo !== 13) {
-            const neto = Math.round(total / 1.21 * 100) / 100;
-            const iva  = Math.round((total - neto) * 100) / 100;
+        if (!sinIva) {
             $('#lbl-neto').text(fmt(neto));
-            $('#lbl-iva').text(fmt(iva));
+            // Una línea por alícuota, ordenadas de menor a mayor
+            let html = '';
+            Object.keys(porTasa).map(Number).sort((a, b) => a - b).forEach(function (ali) {
+                const label = String(ali).replace('.', ',');
+                html += '<div style="display:flex;gap:32px;color:var(--txd);font-size:13px">'
+                     +  '<span>IVA ' + label + '%</span>'
+                     +  '<span class="mono" style="min-width:100px;text-align:right">' + fmt(porTasa[ali]) + '</span>'
+                     +  '</div>';
+            });
+            $('#iva-lines').html(html);
             $('#desglose-iva').css('display', 'flex');
         } else {
             $('#desglose-iva').css('display', 'none');
@@ -387,6 +418,16 @@
                     value="" min="0" step="0.01" required
                     style="text-align:right;width:110px">
             </td>
+            <td style="text-align:center">
+                <select name="items[${i}][alicuota_iva]" class="gselect ginput-sm item-alicuota" style="width:80px">
+                    <option value="0">0%</option>
+                    <option value="2.5">2,5%</option>
+                    <option value="5">5%</option>
+                    <option value="10.5">10,5%</option>
+                    <option value="21" selected>21%</option>
+                    <option value="27">27%</option>
+                </select>
+            </td>
             <td style="text-align:right">
                 <span class="mono item-subtotal" style="font-size:13px;color:var(--tx)">$0,00</span>
             </td>
@@ -407,6 +448,9 @@
 
     // ── Recalc al cambiar campos ─────────────────────────────────────────
     $(document).on('input', '.item-cant, .item-precio', function () {
+        recalcTotal();
+    });
+    $(document).on('change', '.item-alicuota', function () {
         recalcTotal();
     });
 

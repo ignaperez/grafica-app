@@ -15,6 +15,7 @@ class FacturaItem extends Model
         'cantidad'        => 'decimal:3',
         'precio_unitario' => 'decimal:2',
         'subtotal'        => 'decimal:2',
+        'alicuota_iva'    => 'decimal:1',
     ];
 
     public function factura() { return $this->belongsTo(Factura::class); }

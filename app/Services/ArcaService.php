@@ -164,9 +164,13 @@ class ArcaService
         $cbteTipo = (int) $datos['CbteTipo'];
         $nro      = $this->ultimoComprobante($cbteTipo) + 1;
         $fecha    = Carbon::now()->format('Ymd');
-        $total    = round((float) $datos['ImpTotal'], 2);
 
-        [$impNeto, $impIva, $ivaArray] = $this->calcularImpuestos($cbteTipo, $total);
+        // Importes fiscales calculados a partir de los ítems (neto + alícuota por ítem).
+        $imp      = $this->importesDesdeItems($datos['Items'] ?? [], $cbteTipo);
+        $impNeto  = $imp['neto'];
+        $impIva   = $imp['iva'];
+        $total    = $imp['total'];
+        $ivaArray = $imp['ivaArray'];
 
         $concepto = (int) $datos['Concepto'];
 
@@ -183,6 +187,12 @@ class ArcaService
             'ImpOpEx'    => 0,
             'ImpIVA'     => $impIva,
             'ImpTrib'    => 0,
+            // Condición IVA del receptor — OBLIGATORIO desde RG 5616/2024.
+            // Se deriva de clientes.condicion_iva; fallback a Consumidor Final (5).
+            'CondicionIVAReceptorId' => $this->condicionIvaReceptorId(
+                $datos['CondicionIVAReceptor'] ?? null,
+                (int) $datos['DocTipo']
+            ),
             'MonId'      => 'PES',
             'MonCotiz'   => 1,
         ];
@@ -262,24 +272,112 @@ class ArcaService
 
     // ── Helpers WSFE ─────────────────────────────────────────────────────
 
-    protected function calcularImpuestos(int $cbteTipo, float $total): array
+    /**
+     * Mapa condicion_iva (app) → CondicionIVAReceptorId (AFIP, FEParamGetCondicionIvaReceptor).
+     *   1 = IVA Responsable Inscripto
+     *   4 = IVA Sujeto Exento
+     *   5 = Consumidor Final
+     *   6 = Responsable Monotributo
+     */
+    public const COND_IVA_RECEPTOR = [
+        'responsable_inscripto' => 1,
+        'exento'                => 4,
+        'consumidor_final'      => 5,
+        'monotributo'           => 6,
+    ];
+
+    /**
+     * Resuelve el CondicionIVAReceptorId a enviar a AFIP.
+     * - Si el DocTipo es 99 (Consumidor Final sin identificar) → SIEMPRE 5.
+     * - Si el cliente tiene condición cargada → su código.
+     * - Fallback → Consumidor Final (5).
+     */
+    protected function condicionIvaReceptorId(?string $condicion, int $docTipo): int
     {
-        if (in_array($cbteTipo, [11, 13])) {
-            return [$total, 0, null];
+        if ($docTipo === 99) {
+            return 5; // Consumidor Final sin identificar
+        }
+        return self::COND_IVA_RECEPTOR[$condicion] ?? 5;
+    }
+
+    /**
+     * Mapa alícuota (%) → AlicIva.Id de AFIP (FEParamGetTiposIva).
+     *   3 = 0%   ·   9 = 2,5%   ·   8 = 5%   ·   4 = 10,5%   ·   5 = 21%   ·   6 = 27%
+     */
+    public const ALIC_IVA_ID = [
+        '0.0'  => 3,
+        '2.5'  => 9,
+        '5.0'  => 8,
+        '10.5' => 4,
+        '21.0' => 5,
+        '27.0' => 6,
+    ];
+
+    protected function alicIvaId(float $ali): int
+    {
+        return self::ALIC_IVA_ID[number_format($ali, 1, '.', '')] ?? 5;
+    }
+
+    /**
+     * Calcula los importes fiscales de un comprobante a partir de sus ítems.
+     * El precio de cada ítem es NETO (sin IVA); el IVA se calcula por ítem según
+     * su alícuota y se agrupa por tasa para el array `Iva` que exige AFIP.
+     *
+     * @param array $items  [['neto'=>float, 'alicuota'=>float], ...]
+     * @param int   $cbteTipo
+     * @return array{neto:float, iva:float, total:float, ivaArray:?array, desglose:array}
+     */
+    public function importesDesdeItems(array $items, int $cbteTipo): array
+    {
+        // Factura C (11) y NC C (13): monotributista, sin IVA discriminado.
+        $sinIva = in_array($cbteTipo, [11, 13]);
+
+        $neto   = 0.0;
+        $iva    = 0.0;
+        $grupos = []; // clave alícuota => ['ali'=>, 'base'=>, 'iva'=>]
+
+        foreach ($items as $it) {
+            $base   = round((float) ($it['neto'] ?? 0), 2);
+            $ali    = $sinIva ? 0.0 : (float) ($it['alicuota'] ?? 21);
+            $impIva = round($base * $ali / 100, 2);
+
+            $neto += $base;
+            $iva  += $impIva;
+
+            $k = number_format($ali, 1, '.', '');
+            if (!isset($grupos[$k])) {
+                $grupos[$k] = ['ali' => $ali, 'base' => 0.0, 'iva' => 0.0];
+            }
+            $grupos[$k]['base'] = round($grupos[$k]['base'] + $base, 2);
+            $grupos[$k]['iva']  = round($grupos[$k]['iva']  + $impIva, 2);
         }
 
-        $neto = round($total / 1.21, 2);
-        $iva  = round($total - $neto, 2);
+        $neto  = round($neto, 2);
+        $iva   = round($iva, 2);
+        $total = round($neto + $iva, 2);
 
-        $ivaArray = [
-            'AlicIva' => [
-                'Id'      => 5,
-                'BaseImp' => $neto,
-                'Importe' => $iva,
-            ],
+        // Array Iva para AFIP: una entrada <AlicIva> por alícuota (no en C/NC-C).
+        $ivaArray = null;
+        if (!$sinIva && $grupos) {
+            $alic = [];
+            foreach ($grupos as $g) {
+                $alic[] = [
+                    'Id'      => $this->alicIvaId($g['ali']),
+                    'BaseImp' => $g['base'],
+                    'Importe' => $g['iva'],
+                ];
+            }
+            // Lista → SoapClient serializa un <AlicIva> por entrada.
+            $ivaArray = ['AlicIva' => $alic];
+        }
+
+        return [
+            'neto'     => $neto,
+            'iva'      => $iva,
+            'total'    => $total,
+            'ivaArray' => $ivaArray,
+            'desglose' => array_values($grupos),
         ];
-
-        return [$neto, $iva, $ivaArray];
     }
 
     public const TIPOS_CBTE = [

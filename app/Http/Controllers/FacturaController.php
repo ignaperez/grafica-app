@@ -107,6 +107,7 @@ class FacturaController extends Controller
             'items.*.cantidad'        => 'required|numeric|min:0.001',
             'items.*.unidad'          => 'nullable|in:unidad,m2,ml',
             'items.*.precio_unitario' => 'required|numeric|min:0',
+            'items.*.alicuota_iva'    => 'nullable|in:0,2.5,5,10.5,21,27',
             // Comprobante original (solo para NCs)
             'nc_tipo'    => $isNC ? 'required|in:1,6,11' : 'nullable|integer',
             'nc_pto_vta' => $isNC ? 'required|integer|min:1' : 'nullable|integer',
@@ -128,6 +129,9 @@ class FacturaController extends Controller
         $condIvaEm       = \App\Models\Configuracion::get('empresa_condicion_iva', '');
         $condicionEmisor = $condIvaEm === 'responsable_inscripto' ? 'responsable_inscripto' : 'monotributo';
 
+        // Cliente (se usa en la guardia de compatibilidad y para la condición IVA)
+        $clienteFac = Cliente::findOrFail($request->cliente_id);
+
         // Validar tipo según condición del EMISOR
         if ($condicionEmisor === 'monotributo' && !in_array($cbteTipo, [11, 13])) {
             return $this->volverConBorrador($request,
@@ -135,12 +139,29 @@ class FacturaController extends Controller
             );
         }
 
+        // Guardia de compatibilidad letra ↔ condición del receptor (ARCA rechaza
+        // combinaciones inválidas ahora que se informa CondicionIVAReceptorId).
         if ($condicionEmisor === 'responsable_inscripto') {
-            $cliente = Cliente::findOrFail($request->cliente_id);
-            if ($cbteTipo === 1 && $cliente->condicion_iva !== 'responsable_inscripto') {
+            $cond  = $clienteFac->condicion_iva;
+            $letra = in_array($cbteTipo, [1, 3]) ? 'A' : (in_array($cbteTipo, [6, 8]) ? 'B' : null);
+
+            // A monotributistas, por ahora, se factura desde la app de ARCA.
+            if ($cond === 'monotributo') {
+                return $this->volverConBorrador($request,
+                    'A clientes monotributistas, por ahora, facturá directamente desde la app de ARCA.'
+                );
+            }
+            // Factura/NC A → solo Responsable Inscripto.
+            if ($letra === 'A' && $cond !== 'responsable_inscripto') {
                 return $this->volverConBorrador($request,
                     'Factura A solo se puede emitir a Responsables Inscriptos. ' .
-                    'Este cliente es ' . ($cliente->condicionIvaLabel() ?: 'sin condición IVA registrada') . '.'
+                    'Este cliente es ' . ($clienteFac->condicionIvaLabel() ?: 'sin condición IVA registrada') . '.'
+                );
+            }
+            // Factura/NC B → Consumidor Final o Exento (nunca a un Responsable Inscripto).
+            if ($letra === 'B' && !in_array($cond, ['consumidor_final', 'exento', null], true)) {
+                return $this->volverConBorrador($request,
+                    'Factura B se emite a Consumidor Final o Exento. A un Responsable Inscripto corresponde Factura A.'
                 );
             }
         }
@@ -152,23 +173,32 @@ class FacturaController extends Controller
             );
         }
 
-        // Calcular total desde los ítems
-        $total = 0;
+        // Ítems para el cálculo fiscal: el precio_unitario es NETO (sin IVA).
+        $sinIva    = in_array($cbteTipo, [11, 13]); // Factura C / NC C
+        $itemsCalc = [];
         foreach ($request->items as $it) {
-            $total += round((float)$it['cantidad'] * (float)$it['precio_unitario'], 2);
+            $itemsCalc[] = [
+                'neto'     => round((float) $it['cantidad'] * (float) $it['precio_unitario'], 2),
+                'alicuota' => $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21),
+            ];
         }
+
+        $arca = new ArcaService();
+        $imp  = $arca->importesDesdeItems($itemsCalc, $cbteTipo);
+        $impNeto = $imp['neto'];
+        $impIva  = $imp['iva'];
+        $total   = $imp['total'];
 
         // Solicitar CAE a ARCA
         try {
-            $arca     = new ArcaService();
-            $cbteTipo = (int) $request->tipo;
-
             $arcaData = [
                 'CbteTipo' => $cbteTipo,
                 'Concepto' => (int) $request->concepto,
                 'DocTipo'  => (int) $request->doc_tipo,
                 'DocNro'   => (int) ($request->doc_nro ?? 0),
-                'ImpTotal' => $total,
+                'Items'    => $itemsCalc,
+                // Condición IVA del receptor — obligatoria para AFIP (RG 5616/2024)
+                'CondicionIVAReceptor' => $clienteFac->condicion_iva,
             ];
 
             // Para Notas de Crédito: referencia al comprobante original
@@ -182,9 +212,6 @@ class FacturaController extends Controller
         } catch (\Exception $e) {
             return $this->volverConBorrador($request, 'Error ARCA: ' . $e->getMessage());
         }
-
-        // Calcular importes finales (NC-C sin IVA, igual que Factura C)
-        [$impNeto, $impIva] = $this->calcularNeto($cbteTipo, $total);
 
         // Crear factura en DB
         $factura = Factura::create([
@@ -211,7 +238,7 @@ class FacturaController extends Controller
             'nc_nro'          => $isNC ? (int) $request->nc_nro     : null,
         ]);
 
-        // Guardar ítems
+        // Guardar ítems (precio_unitario NETO; subtotal = neto de la línea)
         foreach ($request->items as $i => $it) {
             $subtotal = round((float)$it['cantidad'] * (float)$it['precio_unitario'], 2);
             FacturaItem::create([
@@ -221,7 +248,7 @@ class FacturaController extends Controller
                 'unidad'          => $it['unidad'] ?? 'unidad',
                 'precio_unitario' => $it['precio_unitario'],
                 'subtotal'        => $subtotal,
-                'alicuota_iva'    => $cbteTipo === 11 ? 0 : 21,
+                'alicuota_iva'    => $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21),
                 'orden'           => $i,
             ]);
         }
@@ -291,27 +318,32 @@ class FacturaController extends Controller
     {
         $tipo = (int) $request->tipo;
 
-        // Armar los ítems en memoria (sin guardar) y el total.
-        $items = collect();
-        $total = 0;
+        // Armar los ítems en memoria (sin guardar). El precio_unitario es NETO.
+        $sinIva    = in_array($tipo, [11, 13]);
+        $items     = collect();
+        $itemsCalc = [];
         foreach ($request->items ?? [] as $i => $it) {
             if (trim((string) ($it['descripcion'] ?? '')) === '') continue;
             $cant = (float) ($it['cantidad'] ?? 0);
             $pu   = (float) ($it['precio_unitario'] ?? 0);
             $sub  = round($cant * $pu, 2);
-            $total += $sub;
+            $ali  = $sinIva ? 0 : (float) ($it['alicuota_iva'] ?? 21);
+            $itemsCalc[] = ['neto' => $sub, 'alicuota' => $ali];
             $items->push(new FacturaItem([
                 'descripcion'     => $it['descripcion'] ?? '',
                 'cantidad'        => $cant ?: 1,
                 'unidad'          => $it['unidad'] ?? 'unidad',
                 'precio_unitario' => $pu,
                 'subtotal'        => $sub,
-                'alicuota_iva'    => in_array($tipo, [11, 13]) ? 0 : 21,
+                'alicuota_iva'    => $ali,
                 'orden'           => $i,
             ]));
         }
 
-        [$impNeto, $impIva] = $this->calcularNeto($tipo, $total);
+        $imp     = (new ArcaService())->importesDesdeItems($itemsCalc, $tipo);
+        $impNeto = $imp['neto'];
+        $impIva  = $imp['iva'];
+        $total   = $imp['total'];
 
         $ptoVta = (int) (\App\Models\Configuracion::get('arca_punto_venta') ?: config('arca.punto_venta', 1));
 
@@ -418,14 +450,4 @@ class FacturaController extends Controller
         return $borrador;
     }
 
-    private function calcularNeto(int $tipo, float $total): array
-    {
-        // C (11) y NC-C (13): monotributista, sin IVA
-        if (in_array($tipo, [11, 13])) {
-            return [$total, 0.0];
-        }
-        $neto = round($total / 1.21, 2);
-        $iva  = round($total - $neto, 2);
-        return [$neto, $iva];
-    }
 }
