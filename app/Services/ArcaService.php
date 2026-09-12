@@ -243,9 +243,11 @@ class ArcaService
         $raw  = $result->FECAESolicitarResult;
         $resp = $raw->FeDetResp->FECAEDetResponse ?? null;
 
-        // Loguear respuesta completa para diagnóstico
+        // Loguear request + respuesta completos para diagnóstico/auditoría.
+        // El request (trace=true) permite verificar que CondicionIVAReceptorId viajó a AFIP.
         \Illuminate\Support\Facades\Log::debug('ARCA FECAESolicitar', [
-            'raw' => json_decode(json_encode($raw), true),
+            'request'  => $client->__getLastRequest(),
+            'raw'      => json_decode(json_encode($raw), true),
         ]);
 
         if (!$resp || $resp->Resultado === 'R') {
