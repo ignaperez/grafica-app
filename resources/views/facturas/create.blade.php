@@ -14,6 +14,10 @@
 {{-- Borrador: si la carga viene de un borrador guardado (o quedó uno tras un
      error), su id viaja acá para reusarlo/eliminarlo al re-emitir. --}}
 <input type="hidden" name="borrador_id" value="{{ old('borrador_id') }}">
+{{-- Token de un solo uso de ESTA carga del formulario: si se envía dos veces
+     (doble clic en "Sí, emitir"), el servidor descarta el segundo POST y no
+     pide un segundo CAE a ARCA. --}}
+<input type="hidden" name="emision_token" value="{{ $emisionToken }}">
 {{-- presupuesto_id global: sobrevive también al retomar un borrador (old). --}}
 <input type="hidden" name="presupuesto_id" value="{{ old('presupuesto_id', $presupuesto?->id) }}">
 
@@ -253,10 +257,23 @@
                 <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">
                     ⚠ Comprobante original a acreditar
                 </div>
+
+                {{-- Buscador: al elegir el comprobante se completa todo el
+                     formulario (cliente, receptor, ítems con su IVA y la
+                     referencia fiscal de abajo). Sin `name`: no se envía. --}}
+                <div class="gfg">
+                    <label class="glabel">Traer datos de un comprobante</label>
+                    <select class="gselect" id="sel-nc-origen"></select>
+                    <div class="txd" style="font-size:11px;margin-top:3px">
+                        Buscá por N° de comprobante o por cliente. Después podés ajustar o borrar
+                        los ítems que no se acrediten.
+                    </div>
+                </div>
+
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
                     <div class="gfg" style="margin-bottom:0">
                         <label class="glabel">Tipo *</label>
-                        <select name="nc_tipo" class="gselect" id="sel-nc-tipo">
+                        <select name="nc_tipo" class="gselect nc-req" id="sel-nc-tipo">
                             @if($condicionEmisor === 'responsable_inscripto')
                                 <option value="6" {{ old('nc_tipo', 6) == 6 ? 'selected' : '' }}>Factura B</option>
                                 <option value="1" {{ old('nc_tipo') == 1 ? 'selected' : '' }}>Factura A</option>
@@ -268,14 +285,14 @@
                     </div>
                     <div class="gfg" style="margin-bottom:0">
                         <label class="glabel">Pto. venta *</label>
-                        <input type="number" name="nc_pto_vta" class="ginput"
+                        <input type="number" name="nc_pto_vta" class="ginput nc-req"
                             value="{{ old('nc_pto_vta', config('arca.punto_venta')) }}"
                             min="1" placeholder="0006">
                         @error('nc_pto_vta')<div class="gerr">{{ $message }}</div>@enderror
                     </div>
                     <div class="gfg" style="margin-bottom:0">
                         <label class="glabel">N° cbte *</label>
-                        <input type="number" name="nc_nro" class="ginput"
+                        <input type="number" name="nc_nro" class="ginput nc-req"
                             value="{{ old('nc_nro') }}" min="1" placeholder="00000001">
                         @error('nc_nro')<div class="gerr">{{ $message }}</div>@enderror
                     </div>
@@ -322,7 +339,7 @@
         </div>
         <div style="display:flex;gap:12px;justify-content:center">
             <button type="button" class="gbtn gbtn-ghost" onclick="cerrarModal()">Cancelar</button>
-            <button type="button" class="gbtn gbtn-primary" onclick="document.getElementById('form-factura').submit()">
+            <button type="button" class="gbtn gbtn-primary" id="btn-emitir-ok" onclick="emitirAhora(this)">
                 Sí, emitir
             </button>
         </div>
@@ -394,35 +411,47 @@
     }
 
     // ── Agregar fila ─────────────────────────────────────────────────────
-    $('#btn-add-row').on('click', function () {
-        const i = rowIndex++;
+    function esc(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function marcado(valor, actual) { return valor === actual ? ' selected' : ''; }
+
+    // `d` opcional: precarga la fila. Se usa al traer los ítems del comprobante
+    // original cuando se arma una nota de crédito.
+    function agregarFila(d) {
+        d = d || {};
+        const i      = rowIndex++;
+        const unidad = d.unidad || 'unidad';
         const row = `
         <tr class="item-row" data-index="${i}">
             <td>
                 <input type="text" name="items[${i}][descripcion]"
-                    class="ginput ginput-sm" placeholder="Descripción del servicio" required>
+                    class="ginput ginput-sm" value="${esc(d.descripcion)}"
+                    placeholder="Descripción del servicio" required>
             </td>
             <td style="text-align:center">
                 <input type="number" name="items[${i}][cantidad]"
                     class="ginput ginput-sm item-cant"
-                    value="1" min="0.001" step="0.001" required
+                    value="${d.cantidad != null ? d.cantidad : 1}" min="0.001" step="0.001" required
                     style="text-align:center;width:80px">
             </td>
             <td style="text-align:center">
                 <select name="items[${i}][unidad]" class="gselect ginput-sm item-unidad" style="width:90px">
-                    <option value="unidad">unidad</option>
-                    <option value="m2">m²</option>
-                    <option value="ml">ml</option>
+                    <option value="unidad"${marcado('unidad', unidad)}>unidad</option>
+                    <option value="m2"${marcado('m2', unidad)}>m²</option>
+                    <option value="ml"${marcado('ml', unidad)}>ml</option>
                 </select>
             </td>
             <td style="text-align:right">
                 <input type="number" name="items[${i}][precio_unitario]"
                     class="ginput ginput-sm item-precio"
-                    value="" min="0" step="0.01" required
+                    value="${d.precio_unitario != null ? d.precio_unitario : ''}" min="0" step="0.01" required
                     style="text-align:right;width:110px">
             </td>
             <td style="text-align:center">
-                <select name="items[${i}][iva]" class="gselect ginput-sm item-iva" style="width:100px">${ivaOptions()}</select>
+                <select name="items[${i}][iva]" class="gselect ginput-sm item-iva" style="width:100px">${ivaOptions(d.iva)}</select>
             </td>
             <td style="text-align:right">
                 <span class="mono item-subtotal" style="font-size:13px;color:var(--tx)">$0,00</span>
@@ -432,7 +461,11 @@
             </td>
         </tr>`;
         $('#items-body').append(row);
-        $('#items-body tr.item-row:last input[type="text"]').focus();
+        return $('#items-body tr.item-row:last');
+    }
+
+    $('#btn-add-row').on('click', function () {
+        agregarFila().find('input[type="text"]').focus();
     });
 
     // ── Eliminar fila ─────────────────────────────────────────────────────
@@ -477,10 +510,10 @@
         const tipo = parseInt($('#sel-tipo').val());
         if (NC_TIPOS.includes(tipo)) {
             $('#nc-ref-box').show();
-            $('#nc-ref-box input, #nc-ref-box select').attr('required', true);
+            $('#nc-ref-box .nc-req').attr('required', true);
         } else {
             $('#nc-ref-box').hide();
-            $('#nc-ref-box input, #nc-ref-box select').removeAttr('required');
+            $('#nc-ref-box .nc-req').removeAttr('required');
         }
         recalcTotal(); // el desglose IVA también depende del tipo
     }
@@ -595,6 +628,68 @@
         @endif
     @endif
 
+    // ── Comprobante original de la NC — trae todos los datos ─────────
+    $('#sel-nc-origen').select2({
+        ajax: {
+            url: '{{ route("facturas.buscar") }}',
+            dataType: 'json',
+            delay: 250,
+            data:           params => ({ q: params.term }),
+            processResults: data   => ({ results: data }),
+            cache: true,
+        },
+        minimumInputLength: 0,
+        placeholder:  'Buscar por N° de comprobante o cliente...',
+        allowClear:   true,
+        width:        '100%',
+    });
+
+    $('#sel-nc-origen').on('select2:select', function (e) {
+        $.getJSON('{{ url("facturas") }}/' + e.params.data.id + '/datos')
+            .done(aplicarOriginal)
+            .fail(function () { alert('No se pudieron traer los datos del comprobante.'); });
+    });
+
+    // Vuelca el comprobante original sobre el formulario: cliente, receptor,
+    // ítems con su IVA y la referencia fiscal que ARCA exige en la NC.
+    function aplicarOriginal(d) {
+        if (d.cliente && d.cliente.id) {
+            $('#sel-cliente')
+                .empty()
+                .append(new Option(d.cliente.nombre, d.cliente.id, true, true))
+                .trigger('change');
+            showBadge(d.cliente.condicion_iva || '');
+        }
+
+        $('#sel-doc-tipo').val(String(d.doc_tipo));
+        $('input[name="doc_nro"]').val(d.doc_nro || '');
+        $('#row-doc-nro').toggle(String(d.doc_tipo) !== '99');
+        $('select[name="concepto"]').val(String(d.concepto));
+
+        // La NC tiene que ser de la misma letra que el comprobante traído
+        // (NC-A para una Factura A, etc). Se sincroniza ANTES de la referencia
+        // porque el change de #sel-tipo también ajusta #sel-nc-tipo.
+        if (d.tipo && $('#sel-tipo option[value="' + d.tipo + '"]').length) {
+            $('#sel-tipo').val(String(d.tipo)).trigger('change');
+        }
+
+        // Referencia fiscal del comprobante que se acredita
+        $('#sel-nc-tipo').val(String(d.nc_tipo));
+        $('input[name="nc_pto_vta"]').val(d.nc_pto_vta);
+        $('input[name="nc_nro"]').val(d.nc_nro);
+
+        // Los ítems se reemplazan por los del original
+        $('#items-body').empty();
+        rowIndex = 0;
+        (d.items || []).forEach(function (it) { agregarFila(it); });
+        if (! $('.item-row').length) agregarFila();
+
+        const $obs = $('textarea[name="observaciones"]');
+        if (! $obs.val().trim()) $obs.val(d.observaciones || '');
+
+        recalcTotal();
+    }
+
     // ── Vista previa — envía el form a /facturas/preview en nueva pestaña ─
     $('#btn-preview').on('click', function () {
         const $form = $('#form-factura');
@@ -608,7 +703,25 @@
 })();
 
 // ── Modal confirmación emisión ──────────────────────────────────────────
+// Una sola emisión por formulario: el doble clic en "Sí, emitir" mandaba dos
+// POST y ARCA devolvía dos CAE (dos facturas idénticas). Acá se corta el segundo
+// clic; el servidor además descarta el POST duplicado por el emision_token.
+let emitiendo = false;
+
+function emitirAhora(btn) {
+    if (emitiendo) return;
+    emitiendo = true;
+
+    btn.textContent = 'Emitiendo…';
+    document.querySelectorAll('#modal-confirmar button, #btn-preview').forEach(function (b) {
+        b.disabled = true;
+    });
+
+    document.getElementById('form-factura').submit();
+}
+
 function confirmarEmision() {
+    if (emitiendo) return; // ya se envió: no reabrir el modal
     // Validación cliente-side ANTES de abrir el modal.
     // El "Sí, emitir" hace form.submit() por JS y saltea la validación HTML5,
     // por eso validamos los campos obligatorios acá a mano.
@@ -635,6 +748,18 @@ function confirmarEmision() {
         errores.push('Cargá al menos un ítem con descripción y cantidad.');
     }
 
+    // Comprobante original — obligatorio en una nota de crédito. El `required`
+    // de los .nc-req no corre porque el submit es por JS.
+    if ([3, 8, 13].includes(parseInt($('#sel-tipo').val()))) {
+        let faltaRef = false;
+        $('#nc-ref-box .nc-req').each(function () {
+            if (!String($(this).val() || '').trim()) faltaRef = true;
+        });
+        if (faltaRef) {
+            errores.push('Completá el comprobante original que acredita la nota de crédito (tipo, punto de venta y número).');
+        }
+    }
+
     if (errores.length) {
         alert('No se puede emitir todavía:\n\n• ' + errores.join('\n• '));
         if (!$('#sel-cliente').val()) {
@@ -646,8 +771,22 @@ function confirmarEmision() {
     document.getElementById('modal-confirmar').style.display = 'flex';
 }
 function cerrarModal() {
+    if (emitiendo) return; // mientras se emite, el modal queda fijo
     document.getElementById('modal-confirmar').style.display = 'none';
 }
+
+// Si la navegación del submit no se concreta (Atrás / bfcache / envío abortado),
+// el latch quedaría puesto y el formulario muerto, sin poder ni cerrar el modal.
+// Al reaparecer la página lo soltamos y devolvemos los botones a su estado.
+window.addEventListener('pageshow', function () {
+    emitiendo = false;
+    const ok = document.getElementById('btn-emitir-ok');
+    if (ok) ok.textContent = 'Sí, emitir';
+    document.querySelectorAll('#modal-confirmar button, #btn-preview').forEach(function (b) {
+        b.disabled = false;
+    });
+    cerrarModal();
+});
 // Cerrar con Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
 // Cerrar al click fuera del panel

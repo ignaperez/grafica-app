@@ -254,6 +254,9 @@ Route::middleware([
         Route::get('/facturas/{factura}/pdf',                [FacturaController::class, 'pdf'])->name('facturas.pdf');
         Route::post('/facturas/preview',                     [FacturaController::class, 'preview'])->name('facturas.preview');
         Route::get('/facturas/export',                       [FacturaController::class, 'exportar'])->name('facturas.export');
+        // Nota de crédito: buscador de comprobante a acreditar + sus datos (AJAX)
+        Route::get('/facturas/buscar',                       [FacturaController::class, 'buscar'])->name('facturas.buscar');
+        Route::get('/facturas/{factura}/datos',              [FacturaController::class, 'datos'])->name('facturas.datos');
         Route::delete('/facturas/borradores/{borrador}',     [FacturaController::class, 'destroyBorrador'])->name('facturas.borradores.destroy');
         Route::post('/presupuestos/{presupuesto}/facturar',  [FacturaController::class, 'fromPresupuesto'])->name('facturas.from-presupuesto');
         Route::post('/facturas/{factura}/cobros',            [CobroController::class, 'store'])->name('facturas.cobros.store');

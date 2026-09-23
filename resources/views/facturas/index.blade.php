@@ -117,6 +117,10 @@
                         <a href="{{ route('facturas.show', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
                         <a href="{{ route('facturas.pdf', $f->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Ver / Imprimir PDF">🖨</a>
                         <a href="{{ route('facturas.pdf', ['factura' => $f->id, 'download' => 1]) }}" class="gbtn gbtn-ghost gbtn-xs" title="Descargar PDF">⬇</a>
+                        @if($f->esFactura() && $f->estado !== 'anulada')
+                            <a href="{{ route('facturas.create', ['nc_de' => $f->id]) }}" class="gbtn gbtn-ghost gbtn-xs"
+                               title="Emitir nota de crédito de esta factura">⊘ NC</a>
+                        @endif
                         @if(in_array($f->tipo, [1, 6, 11]))
                         <a href="{{ route('remitos.create', ['factura_id' => $f->id]) }}" class="gbtn gbtn-ghost gbtn-xs" title="Crear remito">📦 Remito</a>
                         @endif

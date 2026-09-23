@@ -9,9 +9,24 @@ use App\Models\FacturaBorrador;
 use App\Models\Cliente;
 use App\Models\Presupuesto;
 use App\Services\ArcaService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class FacturaController extends Controller
 {
+    /**
+     * Candados tomados durante una emisión (anti doble-submit). Si la emisión no
+     * llega a ARCA se liberan; si sale bien NO se liberan, así un reenvío tardío
+     * del mismo formulario se descarta en vez de pedir un segundo CAE.
+     */
+    private array $locks = [];
+
+    /** Cuánto vive el candado / la memoria de una emisión, en segundos. */
+    private const EMISION_TTL = 600;
+
+    /** Factura → nota de crédito de la misma letra (A→NC-A, B→NC-B, C→NC-C). */
+    private const TIPO_NC = [1 => 3, 6 => 8, 11 => 13];
+
     public function index()
     {
         $facturas = Factura::with(['cliente', 'presupuesto', 'createdBy', 'cobros'])
@@ -52,6 +67,43 @@ class FacturaController extends Controller
             }
         }
 
+        // Nota de crédito a partir de un comprobante ya emitido: traemos TODOS
+        // sus datos (cliente, receptor, ítems, IVA y la referencia fiscal) como
+        // old() y reusamos exactamente el mismo render del formulario.
+        if ($request->filled('nc_de')) {
+            $original = Factura::with(['cliente', 'items'])->find($request->nc_de);
+
+            // Solo se acredita una FACTURA. Sobre una NC el tipo calculado caería
+            // fuera de los tipos ofrecidos y el <select> se iría en silencio a la
+            // primera opción (Factura A) — se podría emitir una factura real por
+            // error. Se corta acá.
+            if (! $original || ! $original->esFactura()) {
+                return redirect()->route('facturas.index')->with('error',
+                    'Solo se puede emitir una nota de crédito sobre una factura, no sobre otra nota de crédito.');
+            }
+
+            if ($original->estado === 'anulada') {
+                return redirect()->route('facturas.show', $original->id)->with('error',
+                    'Esa factura ya está anulada: no corresponde emitirle una nota de crédito.');
+            }
+
+            // Los ítems se copian como precio FINAL. En comprobantes viejos
+            // (anteriores al cambio de criterio) el precio guardado era NETO, y
+            // ahí la suma de ítems no da el total: lo avisamos en vez de acreditar
+            // un importe menor en silencio.
+            $sumaItems = round((float) $original->items->sum('subtotal'), 2);
+            $aviso     = abs($sumaItems - (float) $original->imp_total) > 0.05
+                ? ' ⚠ Ojo: los ítems de ese comprobante suman $' . number_format($sumaItems, 2, ',', '.') .
+                  ' pero su total fue $' . number_format((float) $original->imp_total, 2, ',', '.') .
+                  ' (se guardó con el criterio viejo de precio neto). Corregí los precios antes de emitir.'
+                : '';
+
+            return redirect()->route('facturas.create')
+                ->withInput($this->datosNcDesde($original))
+                ->with('info', 'Datos traídos de ' . $original->tipoLabel() . ' ' .
+                    $original->numeroFormateado() . '. Revisá los ítems (podés ajustar o borrar los que no se acrediten) y emití la nota de crédito.' . $aviso);
+        }
+
         $presupuesto         = null;
         $clienteSeleccionado = null;
         $condIva             = \App\Models\Configuracion::get('empresa_condicion_iva', '');
@@ -76,6 +128,18 @@ class FacturaController extends Controller
         }
 
         if ($request->filled('presupuesto_id')) {
+            // Este es el punto de entrada real desde presupuestos/index. El botón
+            // ya se deshabilita allá si el presupuesto tiene factura, pero por URL
+            // se llega igual — así que la guarda va acá también.
+            $yaFacturado = Factura::where('presupuesto_id', $request->presupuesto_id)
+                ->where('estado', '!=', 'anulada')
+                ->first();
+
+            if ($yaFacturado) {
+                return redirect()->route('facturas.show', $yaFacturado->id)->with('error',
+                    'Ese presupuesto ya fue facturado (' . $yaFacturado->numeroFormateado() . ').');
+            }
+
             $presupuesto         = Presupuesto::with(['cliente', 'items'])->find($request->presupuesto_id);
             $clienteSeleccionado = $presupuesto?->cliente;
         }
@@ -85,7 +149,11 @@ class FacturaController extends Controller
             $clienteSeleccionado = Cliente::find(old('cliente_id'));
         }
 
-        return view('facturas.create', compact('presupuesto', 'tipoCbte', 'tiposCbte', 'clienteSeleccionado', 'condicionEmisor'));
+        // Token de un solo uso que identifica ESTA carga del formulario: si el
+        // mismo form se envía dos veces (doble clic), el segundo POST se descarta.
+        $emisionToken = (string) Str::uuid();
+
+        return view('facturas.create', compact('presupuesto', 'tipoCbte', 'tiposCbte', 'clienteSeleccionado', 'condicionEmisor', 'emisionToken'));
     }
 
     public function store(Request $request)
@@ -114,12 +182,33 @@ class FacturaController extends Controller
             'nc_nro'     => $isNC ? 'required|integer|min:1' : 'nullable|integer',
         ]);
 
+        // ── Anti doble emisión ─────────────────────────────────────
+        // Un doble clic en "Sí, emitir" mandaba dos POST casi simultáneos: los dos
+        // pasaban el chequeo de duplicado antes de que ninguno insertara, y ARCA
+        // devolvía dos CAE. El candado es atómico (tabla cache_locks) y deja pasar
+        // solo al primero; el segundo cae acá y nunca llega a ARCA.
+        $emisionToken = (string) $request->input('emision_token', '');
+
+        if ($emisionToken !== '' && ! $this->tomarCandado('token:' . $emisionToken)) {
+            return $this->respuestaDuplicada($emisionToken);
+        }
+
         // Evitar facturar dos veces el mismo presupuesto (las NC no cuentan).
         if ($request->presupuesto_id && ! $isNC) {
+            // Candado por presupuesto: cubre el caso de dos pestañas/formularios
+            // distintos (tokens distintos) facturando el mismo presupuesto a la vez.
+            if (! $this->tomarCandado('presupuesto:' . $request->presupuesto_id)) {
+                // Vuelve al formulario con todo guardado como borrador: puede ser
+                // el 2do clic, pero también otra pestaña con una carga distinta.
+                return $this->volverConBorrador($request,
+                    'Ya hay una emisión en curso para ese presupuesto. Esperá unos segundos y revisá el listado de facturas antes de reintentar.');
+            }
+
             $yaFacturado = Factura::where('presupuesto_id', $request->presupuesto_id)
                 ->where('estado', '!=', 'anulada')
                 ->first();
             if ($yaFacturado) {
+                $this->liberarCandados();
                 return redirect()->route('presupuestos.index')->with('error',
                     'El presupuesto ya fue facturado (' . $yaFacturado->numeroFormateado() . '). No se puede facturar dos veces.');
             }
@@ -163,6 +252,19 @@ class FacturaController extends Controller
                 return $this->volverConBorrador($request,
                     'Factura B se emite a Consumidor Final o Exento. A un Responsable Inscripto corresponde Factura A.'
                 );
+            }
+        }
+
+        // La NC tiene que apuntar a un comprobante de su misma letra: NC-A → Factura A,
+        // NC-B → Factura B, NC-C → Factura C. Si no, ARCA rechaza (o peor, acredita
+        // contra un comprobante que no es).
+        if ($isNC) {
+            $letraEsperada = array_search($cbteTipo, self::TIPO_NC, true);
+            if ($letraEsperada !== false && (int) $request->nc_tipo !== $letraEsperada) {
+                return $this->volverConBorrador($request,
+                    'Una ' . (new Factura(['tipo' => $cbteTipo]))->tipoLabel() . ' debe referenciar una ' .
+                    (new Factura(['tipo' => $letraEsperada]))->tipoLabel() . ', no una ' .
+                    (new Factura(['tipo' => (int) $request->nc_tipo]))->tipoLabel() . '.');
             }
         }
 
@@ -212,7 +314,12 @@ class FacturaController extends Controller
 
             $resultado = $arca->solicitarCAE($arcaData);
         } catch (\Exception $e) {
-            return $this->volverConBorrador($request, 'Error ARCA: ' . $e->getMessage());
+            // Puede ser un timeout / SoapFault con el CAE YA otorgado del otro lado.
+            // Reintentar a ciegas duplicaría: avisamos que se verifique primero.
+            return $this->volverConBorrador($request,
+                'Error ARCA: ' . $e->getMessage() .
+                ' — IMPORTANTE: si fue un corte de conexión o un timeout, el CAE puede haberse otorgado igual. ' .
+                'Verificá el último número emitido en ARCA antes de reintentar.');
         }
 
         // Crear factura en DB
@@ -264,6 +371,19 @@ class FacturaController extends Controller
         // Emisión exitosa: el borrador (si existía) ya no hace falta
         if ($request->filled('borrador_id')) {
             FacturaBorrador::find($request->borrador_id)?->delete();
+        }
+
+        // Recién ahora, con la factura y sus ítems ya guardados, anotamos a qué
+        // factura corresponde el token: así un reenvío del mismo formulario va a
+        // verla en vez de emitir otra. El candado NO se libera (vive hasta el TTL).
+        // Va en try/catch a propósito: el CAE ya está otorgado y la factura guardada,
+        // un problema de cache acá no puede tirar abajo una emisión válida.
+        if ($emisionToken !== '') {
+            try {
+                $this->cacheRepo()->put('emision-hecha:' . $emisionToken, $factura->id, self::EMISION_TTL);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('No se pudo registrar el token de emisión: ' . $e->getMessage());
+            }
         }
 
         return redirect()->route('facturas.show', $factura->id)
@@ -395,7 +515,16 @@ class FacturaController extends Controller
      */
     public function fromPresupuesto(Presupuesto $presupuesto)
     {
-        $presupuesto->load(['cliente', 'items']);
+        // Ni siquiera abrimos el formulario si el presupuesto ya tiene factura.
+        $yaFacturado = Factura::where('presupuesto_id', $presupuesto->id)
+            ->where('estado', '!=', 'anulada')
+            ->first();
+
+        if ($yaFacturado) {
+            return redirect()->route('facturas.show', $yaFacturado->id)->with('error',
+                'Ese presupuesto ya fue facturado (' . $yaFacturado->numeroFormateado() . ').');
+        }
+
         return redirect()->route('facturas.create', ['presupuesto_id' => $presupuesto->id]);
     }
 
@@ -409,11 +538,15 @@ class FacturaController extends Controller
      */
     private function volverConBorrador(Request $request, string $mensaje)
     {
+        // La emisión no se concretó → soltamos los candados para que el usuario
+        // pueda corregir y reintentar sin esperar el TTL.
+        $this->liberarCandados();
+
         $borrador = $this->guardarBorrador($request, $mensaje);
 
         return back()
             ->withInput(array_merge(
-                $request->except(['_token', 'borrador_id']),
+                $request->except(['_token', 'borrador_id', 'emision_token']),
                 ['borrador_id' => $borrador->id]
             ))
             ->with('error', $mensaje)
@@ -441,7 +574,7 @@ class FacturaController extends Controller
             $total += round((float) ($it['cantidad'] ?? 0) * (float) ($it['precio_unitario'] ?? 0), 2);
         }
 
-        $datos = $request->except(['_token', 'borrador_id']);
+        $datos = $request->except(['_token', 'borrador_id', 'emision_token']);
 
         $borrador = $request->filled('borrador_id')
             ? FacturaBorrador::find($request->borrador_id)
@@ -465,6 +598,192 @@ class FacturaController extends Controller
         }
 
         return $borrador;
+    }
+
+    // ── Anti doble emisión ─────────────────────────────────────
+
+    /**
+     * Toma un candado atómico para la emisión en curso. Devuelve false si ya
+     * lo tiene otro request (= es un envío duplicado y no debe llegar a ARCA).
+     */
+    /**
+     * Repositorio de cache directo.
+     *
+     * OJO: en contexto tenant el binding `cache` NO es el CacheManager de Laravel
+     * sino Stancl\Tenancy\CacheManager, cuyo __call() reescribe cualquier método
+     * no declarado como `->tags([...])->metodo(...)`. Como en Laravel 12
+     * Illuminate\Cache\DatabaseStore dejó de extender TaggableStore, un
+     * `Cache::put()` / `Cache::lock()` ahí tira BadMethodCallException
+     * ("This cache store does not support tagging").
+     *
+     * `store()` SÍ está declarado en el manager, así que devuelve un Repository
+     * normal y esquiva el __call. La aislación por empresa no se pierde: la tabla
+     * cache_locks vive en la DB del tenant y además va el prefijo de cache.
+     */
+    private function cacheRepo(): \Illuminate\Cache\Repository
+    {
+        return Cache::store(config('cache.default'));
+    }
+
+    private function tomarCandado(string $clave): bool
+    {
+        try {
+            $lock = $this->cacheRepo()->getStore()->lock('emision:' . $clave, self::EMISION_TTL);
+
+            if (! $lock->get()) {
+                return false;
+            }
+
+            $this->locks[] = $lock;
+        } catch (\Throwable $e) {
+            // Si el store de candados no está disponible preferimos dejar pasar
+            // la emisión (comportamiento de siempre) antes que bloquear el módulo.
+            \Illuminate\Support\Facades\Log::warning('No se pudo tomar el candado de emisión: ' . $e->getMessage());
+        }
+
+        return true;
+    }
+
+    /** Suelta los candados de esta emisión (solo cuando NO se emitió nada). */
+    private function liberarCandados(): void
+    {
+        foreach ($this->locks as $lock) {
+            optional($lock)->release();
+        }
+
+        $this->locks = [];
+    }
+
+    /**
+     * Respuesta a un envío duplicado del mismo formulario. Si el primer envío
+     * ya terminó bien, mandamos a ver esa factura; si todavía está en vuelo,
+     * avisamos que espere en vez de dejar que emita otra.
+     */
+    private function respuestaDuplicada(string $token)
+    {
+        try {
+            $id = $this->cacheRepo()->get('emision-hecha:' . $token);
+        } catch (\Throwable $e) {
+            $id = null;
+        }
+
+        if ($id && ($factura = Factura::find($id))) {
+            return redirect()->route('facturas.show', $factura->id)->with('error',
+                'Ese comprobante ya se había emitido (' . $factura->tipoLabel() . ' ' .
+                $factura->numeroFormateado() . '). Se ignoró el envío duplicado.');
+        }
+
+        return redirect()->route('facturas.index')->with('error',
+            'La emisión de ese comprobante ya estaba en curso — se ignoró el envío duplicado. ' .
+            'Revisá el listado antes de volver a emitir.');
+    }
+
+    // ── Nota de crédito desde un comprobante existente ─────────────────
+
+    /**
+     * Buscador de comprobantes a acreditar (Select2 AJAX del formulario de NC).
+     * Solo facturas no anuladas: una nota de crédito no se acredita a sí misma.
+     */
+    public function buscar(Request $request)
+    {
+        $q      = trim((string) $request->q);
+        $digits = preg_replace('/\D/', '', $q);
+
+        $facturas = Factura::with('cliente')
+            ->whereIn('tipo', [1, 6, 11])
+            ->where('estado', '!=', 'anulada')
+            ->when($q !== '', function ($query) use ($q, $digits) {
+                $query->where(function ($sub) use ($q, $digits) {
+                    // Acepta tanto "37" como el formato que muestra la app,
+                    // "0003-00000037" (4 dígitos de PV + 8 de número).
+                    if ($digits !== '') {
+                        $numero = (int) (strlen($digits) > 8 ? substr($digits, -8) : $digits);
+                        if ($numero > 0) {
+                            $sub->orWhere('numero', $numero);
+                        }
+                    }
+                    $sub->orWhereHas('cliente', fn ($c) => $c->where('nombre', 'like', '%' . $q . '%'));
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json($facturas->map(fn (Factura $f) => [
+            'id'   => $f->id,
+            'text' => $f->tipoLabel() . ' ' . $f->numeroFormateado()
+                    . ' · ' . ($f->cliente->nombre ?? 'sin cliente')
+                    . ' · $' . number_format((float) $f->imp_total, 2, ',', '.')
+                    . ' · ' . $f->fecha->format('d/m/Y'),
+        ]));
+    }
+
+    /**
+     * Datos completos de un comprobante para precargar una NC sin recargar la
+     * página (lo consume el selector "comprobante a acreditar" del formulario).
+     */
+    public function datos(Factura $factura)
+    {
+        // Misma regla que en create(): solo se acredita una factura vigente.
+        abort_unless($factura->esFactura() && $factura->estado !== 'anulada', 404);
+
+        $factura->load(['cliente', 'items']);
+
+        return response()->json(array_merge($this->datosNcDesde($factura), [
+            'etiqueta' => $factura->tipoLabel() . ' ' . $factura->numeroFormateado(),
+            'cliente'  => [
+                'id'            => $factura->cliente_id,
+                'nombre'        => $factura->cliente?->nombre,
+                'cuit'          => $factura->cliente?->cuit,
+                'condicion_iva' => $factura->cliente?->condicion_iva,
+            ],
+        ]));
+    }
+
+    /**
+     * Arma los campos del formulario de NC a partir del comprobante original.
+     * Las claves son las mismas que usa el form, así sirve tanto para old()
+     * (botón "Nota de crédito") como para el JSON del selector.
+     */
+    private function datosNcDesde(Factura $factura): array
+    {
+        // La NC espeja la letra del original: A → NC-A (3), B → NC-B (8), C → NC-C (13).
+        // Sin `default`: si llega un tipo que no es factura preferimos el error
+        // ruidoso acá antes que un tipo inválido silencioso en el formulario.
+        $tipoNc = self::TIPO_NC[(int) $factura->tipo]
+            ?? throw new \InvalidArgumentException('No se puede acreditar un comprobante tipo ' . $factura->tipo);
+
+        return [
+            'cliente_id'    => $factura->cliente_id,
+            'tipo'          => $tipoNc,
+            'concepto'      => (int) $factura->concepto,
+            'doc_tipo'      => (int) $factura->doc_tipo,
+            'doc_nro'       => $factura->doc_nro,
+            'observaciones' => 'Nota de crédito por ' . $factura->tipoLabel() . ' ' . $factura->numeroFormateado() . '.',
+            // Referencia fiscal que ARCA exige en la NC (CbtesAsoc)
+            'nc_tipo'       => (int) $factura->tipo,
+            'nc_pto_vta'    => (int) $factura->punto_venta,
+            'nc_nro'        => (int) $factura->numero,
+            'items'         => $factura->items->map(fn (FacturaItem $it) => [
+                'descripcion'     => $it->descripcion,
+                'cantidad'        => $it->cantidad,
+                'unidad'          => $it->unidad ?: 'unidad',
+                'precio_unitario' => $it->precio_unitario,
+                'iva'             => $this->ivaFormulario($it),
+            ])->all(),
+        ];
+    }
+
+    /** Valor del selector de IVA del formulario a partir del ítem guardado. */
+    private function ivaFormulario(FacturaItem $item): string
+    {
+        if ($item->iva_tipo === 'exento')     return 'exento';
+        if ($item->iva_tipo === 'no_gravado') return 'no_gravado';
+
+        // 21.00 → "21", 10.50 → "10.5" (los value del <select>)
+        $ali = rtrim(rtrim(number_format((float) $item->alicuota_iva, 2, '.', ''), '0'), '.');
+
+        return $ali === '' ? '0' : $ali;
     }
 
 }
