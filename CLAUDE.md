@@ -387,9 +387,10 @@ nginx -t && systemctl reload nginx
 
 Como es el MISMO cert `plote.ar`, la renovación automática de Certbot ya cubre todos los SAN.
 
-**Estado al 2026-06-08** — cert `plote.ar` cubre: `plote.ar`, `www.plote.ar`, `app.plote.ar`,
-`123ploteos.plote.ar` (subdominio agregado este día, HTTPS OK). Vence 2026-09-06, renovación
-automática activa. Otros certs en el VPS: `mail.plote.ar`, `webmail.plote.ar`
+**Estado al 2026-09-23** — cert `plote.ar` cubre: `plote.ar`, `www.plote.ar`, `app.plote.ar`,
+`123ploteos.plote.ar`, `sistemas-integrales.plote.ar` (este último agregado el 2026-09-23 —
+hasta ese día el subdominio servía la app OK pero el navegador mostraba advertencia de
+certificado). Vence 2026-12-22, renovación automática activa. Otros certs en el VPS: `mail.plote.ar`, `webmail.plote.ar`
 (`123millas.com.ar` quedó EXPIRED/sin uso).
 
 ---
