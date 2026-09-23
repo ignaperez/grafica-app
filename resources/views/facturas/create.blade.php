@@ -59,8 +59,11 @@
                          2. items del presupuesto → carga inicial desde presupuesto.
                          3. una fila vacía → factura manual desde cero. --}}
                     @php
-                        // IVA por defecto según la condición del cliente: exento → "Exento", resto → 21%.
-                        $ivaDefault = ($clienteSeleccionado && $clienteSeleccionado->condicion_iva === 'exento') ? 'exento' : '21';
+                        // El IVA arranca SIEMPRE en 21% y se cambia a mano por ítem.
+                        // Que el cliente sea exento NO exime la operación (ABC AFIP 3701004,
+                        // art. 4 Ley 23.349): lo exento es el comprador, no la venta. Su
+                        // condición solo define la letra y el CondicionIVAReceptorId.
+                        $ivaDefault = '21';
 
                         if (old('items')) {
                             $filasItems = array_values(old('items'));
@@ -360,8 +363,9 @@
         return '$' + parseFloat(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // IVA por defecto según la condición del cliente (exento → "Exento", resto → 21%).
-    let IVA_DEFAULT = @json(($clienteSeleccionado && $clienteSeleccionado->condicion_iva === 'exento') ? 'exento' : '21');
+    // IVA por defecto de las filas nuevas. NO depende del cliente: ver el comentario
+    // de $ivaDefault más arriba (una operación a un exento sigue estando gravada).
+    let IVA_DEFAULT = '21';
 
     // Opciones del selector de IVA (igual que ARCA) para las filas nuevas.
     const IVA_OPCIONES = [['21','21%'],['10.5','10,5%'],['27','27%'],['5','5%'],['2.5','2,5%'],['0','0%'],['exento','Exento'],['no_gravado','No gravado']];
@@ -549,10 +553,15 @@
 
     function showBadge(condicion) {
         const info = IVA_MAP[condicion] || null;
-        $('#cliente-iva-badge').html(info
+        // Aviso explícito: el exento del cliente no exime la operación.
+        const nota = condicion === 'exento'
+            ? '<div class="txd" style="font-size:11px;margin-top:3px;line-height:1.4">' +
+              'Receptor exento — la operación igual va gravada. Elegí el IVA de cada ítem abajo.</div>'
+            : '';
+        $('#cliente-iva-badge').html((info
             ? `<span style="color:${info.color}">● ${info.label}</span>`
             : `<span style="color:var(--txd)">● Sin condición IVA registrada</span>`
-        );
+        ) + nota);
     }
 
     function applyCliente(cuit, condicion) {
@@ -562,14 +571,9 @@
         // Badge
         showBadge(condicion);
 
-        // IVA por defecto según condición: exento → todos los ítems "Exento" (IVA $0);
-        // cualquier otra condición → 21% (y se corrige si venían marcados exento).
-        IVA_DEFAULT = (condicion === 'exento') ? 'exento' : '21';
-        $('.item-iva').each(function () {
-            if (condicion === 'exento')        $(this).val('exento');
-            else if ($(this).val() === 'exento') $(this).val('21');
-        });
-        recalcTotal();
+        // Elegir el cliente NO toca el IVA de los ítems: la condición del receptor
+        // no determina si la operación está gravada. Marcar un ítem exento es una
+        // decisión por operación (exención por norma especial), se hace a mano.
 
         // Tipo de comprobante — solo aplica si el EMISOR es Responsable Inscripto
         @if($condicionEmisor === 'responsable_inscripto')
@@ -607,15 +611,6 @@
         $('input[name="doc_nro"]').val('');
         $('#row-doc-nro').hide();
     });
-
-    // Solo badge, sin tocar doc/tipo (para vuelta de validación con old())
-    function showBadge(condicion) {
-        const info = IVA_MAP[condicion] || null;
-        $('#cliente-iva-badge').html(info
-            ? `<span style="color:${info.color}">● ${info.label}</span>`
-            : `<span style="color:var(--txd)">● Sin condición IVA registrada</span>`
-        );
-    }
 
     // Al cargar la página con cliente preseleccionado (desde presupuesto o old())
     @if($clienteSeleccionado)
