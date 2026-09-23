@@ -1095,6 +1095,50 @@ El trabajo individual no tenía "Ver" (solo editar/eliminar) y su `show.blade` e
   se tocó. Las miniaturas usan `$archivo->url` (ruta `trabajo-archivos.ver`, storage del tenant).
 - Sin migración. Deploy = `git pull` + `view:clear` + `route:cache`.
 
+## Facturación — anti doble emisión + NC desde el comprobante (2026-09-23)
+
+Un doble clic en "Sí, emitir" emitía **dos facturas con dos CAE reales**
+(`0003-00000037` y `0003-00000038` en 123ploteos, 3 segundos de diferencia, mismo
+`presupuesto_id`). El botón del modal era un `form.submit()` sin guard y la protección
+server-side hacía `SELECT` y después `INSERT` (TOCTOU): dos POST simultáneos la cruzaban
+los dos antes de que ninguno insertara.
+
+**Anti doble emisión, dos capas:**
+- **JS:** el modal usa `emitirAhora()` — un latch `emitiendo` que deshabilita los botones.
+  Se resetea en `pageshow` (si no, Atrás/bfcache dejaba el formulario muerto y sin poder
+  cerrar el modal).
+- **Server:** cada render del form lleva un `emision_token` (UUID) y `store()` toma un
+  **candado atómico ANTES de llamar a ARCA**. El segundo POST no lo obtiene y nunca llega
+  a ARCA: si el primero terminó bien redirige a esa factura (`emision-hecha:TOKEN` en
+  cache), si sigue en vuelo avisa. Candado extra por `presupuesto_id` para dos pestañas.
+  Los candados se liberan en `volverConBorrador()` (todo camino de error pasa por ahí),
+  así un rechazo permite reintentar sin esperar el TTL de 600s.
+- El error de ARCA ahora avisa que **ante un timeout el CAE pudo otorgarse igual** y que
+  hay que verificar el último número en ARCA antes de reintentar.
+
+**Nota de crédito precargada:** botón `⊘ NC` en `facturas/index` y `facturas/show`
+(`facturas.create?nc_de=ID`, que flashea `old()` y redirige) + buscador Select2 dentro del
+bloque NC (`facturas.buscar` + `facturas.datos`, AJAX, sin recargar). Trae cliente,
+receptor, ítems con su IVA y la referencia fiscal `nc_tipo/nc_pto_vta/nc_nro`.
+- Solo se acredita una **factura vigente** (`esFactura()` y no anulada), en `create()` y en
+  `datos()`. Ver gotcha 17: sobre una NC el tipo calculado caía fuera de `$tiposCbte` y el
+  `<select>` se iba en silencio a la primera opción (Factura A).
+- `store()` valida que la **letra de la NC coincida** con el comprobante asociado
+  (const `TIPO_NC = [1=>3, 6=>8, 11=>13]`).
+- Avisa si el comprobante de origen guarda precios con el criterio viejo (neto): hasta el
+  2026-09-12 `precio_unitario` era NETO, hoy se interpreta como FINAL, y copiarlo tal cual
+  acreditaría de menos. En prod solo afecta a `0003-00000036` (la prueba de $10).
+- `create(?presupuesto_id=)` también corta si ya está facturado: es el punto de entrada
+  real (nada postea a `facturas.from-presupuesto`).
+
+**IVA ≠ condición del cliente (commit aparte):** el formulario marcaba TODOS los ítems como
+exentos si `cliente.condicion_iva === 'exento'`. Es incorrecto — art. 4 Ley 23.349 y ABC
+AFIP 3701004: la operación está **alcanzada** aunque el receptor sea un sujeto exento; lo
+exento es el comprador, no la venta. La condición del cliente define solo la **letra** y el
+`CondicionIVAReceptorId`; el IVA arranca siempre en 21% y se cambia a mano por ítem.
+
+**Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -1112,3 +1156,6 @@ El trabajo individual no tenía "Ver" (solo editar/eliminar) y su `show.blade` e
 13. **route:cache:** si las rutas no aparecen en `route:list`, correr `php artisan route:clear` primero.
 14. **Remitos — número correlativo `numero`:** es una secuencia interna SEPARADA por `tipo` (interno / oficial / electronico). El unique en DB es **compuesto `(tipo, numero)`** (migración `fix_remitos_numero_unique_per_tipo`, 2026-06-08) — antes era un unique global sobre `numero` que tiraba `Duplicate entry '1'` al chocar interno#1 con oficial#1. `Remito::proximoNumero($tipo)` da el siguiente de cada tipo (cuenta `withTrashed()`). El `numero` es solo referencia interna (R-XXXX); para oficial/electronico el número que vale es `numero_fiscal` (CAI/ARCA). `RemitoController@store` valida choque dentro del mismo tipo ANTES de pegarle a ARCA/CAI para no gastar número fiscal ni tirar 500.
 15. **Remitos oficiales — vigencia del CAI por FECHA del remito (no por hoy):** `RemitoCai::vigenteParaFecha($fecha)` evalúa `vencimiento >= fecha_del_remito` (+ activo + con stock). `vigente()` = `vigenteParaFecha(now())`. `RemitoController@store` usa `vigenteParaFecha($request->fecha)` para que un remito **back-dated** (ej. fecha día 4) use el CAI que vencía ese día aunque hoy esté vencido. Si no hay CAI válido para esa fecha → error amistoso (antes creaba el oficial **sin** CAI silenciosamente → salía como R-XXXX en vez del número fiscal). En `create.blade` el label "Oficial (CAI)" se actualiza por JS según la fecha elegida (`#oficial-info`, array `cais` con mismo criterio que el server).
+
+16. **Cache en contexto tenant — NUNCA usar la facade `Cache` directo:** con tenancy inicializada el binding `cache` **no** es el `CacheManager` de Laravel sino `Stancl\Tenancy\CacheManager`, cuyo `__call()` reescribe cualquier método no declarado como `->tags([...])->metodo(...)`. Como en Laravel 12 `Illuminate\Cache\DatabaseStore` **dejó de extender `TaggableStore`**, un `Cache::put()` / `Cache::get()` / `Cache::lock()` ahí tira `BadMethodCallException: This cache store does not support tagging`. Usar **`Cache::store(config('cache.default'))`** — `store()` sí está declarado en el manager, así que esquiva el `__call` y devuelve un `Repository` normal (ver `FacturaController::cacheRepo()`). La aislación por empresa no se pierde: `cache`/`cache_locks` viven en la DB del tenant y además va el prefijo de cache. **Esto muerde en silencio si se envuelve en try/catch:** el candado anti doble-emisión quedó siendo un no-op hasta que se detectó.
+17. **`<select>` con un value que no existe entre sus `<option>`:** el navegador selecciona la **primera opción**, sin error. Pasó con el tipo de comprobante: una NC precargada con tipo 13 (NC-C) sobre un emisor RI — que solo ofrece 1/6/3/8 — dejaba el select en **Factura A**, ocultaba el bloque de NC y se podía emitir una factura real creyendo emitir una nota de crédito. Al precargar un tipo por `old()`, validar en el controller que esté entre los ofrecidos.

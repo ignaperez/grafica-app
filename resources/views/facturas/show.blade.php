@@ -6,6 +6,10 @@
     <a href="{{ route('facturas.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
     <a href="{{ route('facturas.pdf', $factura->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Ver / Imprimir</a>
     <a href="{{ route('facturas.pdf', ['factura' => $factura->id, 'download' => 1]) }}" class="gbtn gbtn-primary gbtn-sm">⬇ Descargar PDF</a>
+    @if($factura->esFactura() && $factura->estado !== 'anulada')
+        {{-- Abre el formulario de NC con TODO precargado desde esta factura --}}
+        <a href="{{ route('facturas.create', ['nc_de' => $factura->id]) }}" class="gbtn gbtn-ghost gbtn-sm">⊘ Nota de crédito</a>
+    @endif
 @endsection
 
 @section('content')
