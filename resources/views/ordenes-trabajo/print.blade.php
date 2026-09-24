@@ -193,6 +193,28 @@
             font-family: 'Courier New', monospace;
         }
 
+        /* Descripción completa y rótulo bajo cada miniatura */
+        .desc-larga {
+            margin-top: 6px;
+            font-size: 9.5px;
+            line-height: 1.45;
+            white-space: pre-line;
+            page-break-inside: avoid;
+        }
+        .arch-item {
+            width: 78px;
+            page-break-inside: avoid;
+        }
+        .arch-nombre {
+            font-size: 7px;
+            line-height: 1.25;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #555;
+        }
+
         /* Archivos / referencias (derecha) */
         .trabajo-archivos {
             width: 160px;
@@ -359,87 +381,64 @@
         <div class="trabajo-datos">
             <div class="datos-grid">
 
-                @if($t->tipoTrabajo)
-                <div class="dato-field">
-                    <div class="dato-label">Tipo de trabajo</div>
-                    <div class="dato-value">{{ $t->tipoTrabajo->nombre }}</div>
-                </div>
-                @endif
+                @php
+                    $datos = [];
+                    if ($t->tipoTrabajo)  $datos['Tipo de trabajo'] = $t->tipoTrabajo->nombre;
+                    if ($t->material)     $datos['Material']        = $t->material->nombre;
+                    if ($t->maquina)      $datos['Máquina']         = $t->maquina->nombre;
+                    if ($t->producto)     $datos['Servicio']        = $t->producto->nombre;
+                    $datos['Unidad'] = $t->unidadLabel();
+                    if ($m = $t->medidaUnitariaTexto()) $datos['Medidas'] = $m;
+                    if ($t->medidas)      $datos['Medidas (texto)'] = $t->medidas;
+                    $datos['Cantidad'] = $t->cantidad;
+                    if ($t->fecha_carga)   $datos['Cargado'] = $t->fecha_carga->format('d/m/Y H:i');
+                    if ($t->fecha_entrega) $datos['Entrega'] = $t->fecha_entrega->format('d/m/Y');
+                    if ($t->cliente_id && $t->cliente_id !== $orden->cliente_id)
+                        $datos['Cliente'] = $t->cliente->nombre ?? '-';
+                @endphp
 
-                @if($t->material)
-                <div class="dato-field">
-                    <div class="dato-label">Material</div>
-                    <div class="dato-value">{{ $t->material->nombre }}</div>
+                @foreach($datos as $etiqueta => $valor)
+                <div class="dato">
+                    <div class="dato-label">{{ $etiqueta }}</div>
+                    <div class="dato-value">{{ $valor }}</div>
                 </div>
-                @endif
+                @endforeach
 
-                @if($t->maquina)
-                <div class="dato-field">
-                    <div class="dato-label">Máquina</div>
-                    <div class="dato-value">{{ $t->maquina->nombre }}</div>
+                <div class="dato">
+                    <div class="dato-label">Total</div>
+                    <div class="dato-value mono" style="font-weight:700">{{ $t->medidaTotalTexto() }}</div>
                 </div>
-                @endif
-
-                @if($t->ancho || $t->alto)
-                <div class="dato-field">
-                    <div class="dato-label">Medidas</div>
-                    <div class="dato-value mono">{{ $t->ancho }}m × {{ $t->alto }}m</div>
-                </div>
-                <div class="dato-field">
-                    <div class="dato-label">m² total</div>
-                    <div class="dato-value accent">
-                        {{ number_format($t->ancho * $t->alto * $t->cantidad, 2) }} m²
-                    </div>
-                </div>
-                @endif
-
-                <div class="dato-field">
-                    <div class="dato-label">Cantidad</div>
-                    <div class="dato-value mono">{{ $t->cantidad }}</div>
-                </div>
-
-                @if($t->fecha_entrega)
-                <div class="dato-field">
-                    <div class="dato-label">Fecha entrega</div>
-                    <div class="dato-value">{{ $t->fecha_entrega->format('d/m/Y') }}</div>
-                </div>
-                @endif
 
             </div>
-        </div>
 
-        {{-- Archivos --}}
-        @if($t->referencias->isNotEmpty() || $t->archivosImprimir->isNotEmpty())
-        <div class="trabajo-archivos">
-
-            @if($t->referencias->isNotEmpty())
-            <div class="arch-label">Referencias</div>
-            <div class="refs-row">
-                @foreach($t->referencias as $ref)
-                    @php
-                        $ext = strtolower(pathinfo($ref->nombre_original, PATHINFO_EXTENSION));
-                        $esImagen = in_array($ext, ['jpg','jpeg','png','gif','bmp','webp','tif','tiff']);
-                    @endphp
-                    @if($esImagen)
-                        <img src="{{ $ref->url }}" alt="{{ $ref->nombre_original }}" class="ref-thumb">
-                    @else
-                        <div class="ref-file-badge">{{ strtoupper($ext) }}</div>
-                    @endif
-                @endforeach
+            @if(trim((string) $t->descripcion) !== '')
+            <div class="desc-larga">
+                <div class="dato-label">Descripción</div>
+                <div>{{ $t->descripcion }}</div>
             </div>
             @endif
-
-            @if($t->archivosImprimir->isNotEmpty())
-            <div class="arch-label" style="margin-top:2px">Para imprimir</div>
-            <ul class="imprimir-list">
-                @foreach($t->archivosImprimir as $arch)
-                    <li title="{{ $arch->nombre_original }}">{{ $arch->nombre_original }}</li>
-                @endforeach
-            </ul>
-            @endif
-
         </div>
-        @endif
+
+        {{-- Archivos: referencias y a imprimir, los dos con miniatura --}}
+        @foreach([['Referencias', $t->referencias], ['Para imprimir', $t->archivosImprimir]] as $grupo)
+            @if($grupo[1]->isNotEmpty())
+            <div class="trabajo-archivos">
+                <div class="arch-label">{{ $grupo[0] }} ({{ $grupo[1]->count() }})</div>
+                <div class="refs-row">
+                    @foreach($grupo[1] as $arch)
+                        <div class="arch-item">
+                            @if($arch->es_imagen)
+                                <img src="{{ $arch->url }}" alt="{{ $arch->nombre_original }}" class="ref-thumb">
+                            @else
+                                <div class="ref-file-badge">{{ strtoupper($arch->extension) ?: 'ARCH' }}</div>
+                            @endif
+                            <div class="arch-nombre" title="{{ $arch->nombre_original }}">{{ $arch->nombre_original }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+        @endforeach
 
     </div>
 </div>

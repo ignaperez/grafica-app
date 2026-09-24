@@ -99,7 +99,7 @@
                             <span style="color:{{ $f->estadoCobroColor() }};font-size:12px;white-space:nowrap">
                                 ● {{ $f->estadoCobroLabel() }}
                             </span>
-                            @if($ec === 'parcial')
+                            @if($ec === 'parcial' && $f->saldoPendiente() > 0.009)
                                 <div class="txd mono" style="font-size:10px">resta ${{ number_format($f->saldoPendiente(), 2, ',', '.') }}</div>
                             @endif
                         @else
@@ -107,7 +107,9 @@
                         @endif
                     </td>
                     <td style="text-align:right">
-                        @if($f->esFactura() && $f->estadoCobro() !== 'cobrada')
+                        {{-- Se cobra mientras quede saldo. Una factura acreditada por
+                             nota de crédito ya no tiene nada que cobrar. --}}
+                        @if($f->esFactura() && $f->saldoPendiente() > 0.009)
                         <button type="button" class="gbtn gbtn-primary gbtn-xs btn-cobrar"
                                 data-id="{{ $f->id }}"
                                 data-num="{{ $f->numeroFormateado() }}"

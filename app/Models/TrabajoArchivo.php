@@ -41,6 +41,17 @@ class TrabajoArchivo extends Model
         return $bytes . ' B';
     }
 
+    public function getExtensionAttribute(): string
+    {
+        return strtolower(pathinfo($this->nombre_original, PATHINFO_EXTENSION));
+    }
+
+    /** ¿Se puede mostrar como miniatura directa en el navegador? */
+    public function getEsImagenAttribute(): bool
+    {
+        return in_array($this->extension, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'], true);
+    }
+
     public function getIconoAttribute(): string
     {
         $ext = strtolower(pathinfo($this->nombre_original, PATHINFO_EXTENSION));

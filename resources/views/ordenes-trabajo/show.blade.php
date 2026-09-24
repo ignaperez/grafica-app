@@ -175,117 +175,86 @@
     <div class="gcard-bd">
         <div class="row g-3">
 
-            {{-- Datos principales --}}
-            <div class="col-md-8">
-                <div class="row g-2" style="font-size:13px">
+            {{-- Datos del trabajo --}}
+            <div class="col-12">
+                <div class="row g-3" style="font-size:13px">
 
-                    @if($t->tipoTrabajo)
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Tipo trabajo</div>
-                        <div style="color:var(--tx)">{{ $t->tipoTrabajo->nombre }}</div>
-                    </div>
-                    @endif
+                    @php
+                        $datos = [];
+                        if ($t->tipoTrabajo)  $datos['Tipo de trabajo'] = $t->tipoTrabajo->nombre;
+                        if ($t->material)     $datos['Material']        = $t->material->nombre;
+                        if ($t->maquina)      $datos['Máquina']         = $t->maquina->nombre;
+                        if ($t->producto)     $datos['Servicio']        = $t->producto->nombre;
+                        $datos['Unidad']   = $t->unidadLabel();
+                        if ($m = $t->medidaUnitariaTexto()) $datos['Medidas'] = $m;
+                        if ($t->medidas)      $datos['Medidas (texto)'] = $t->medidas;
+                        $datos['Cantidad'] = $t->cantidad;
+                        if ($t->fecha_carga)   $datos['Cargado']  = $t->fecha_carga->format('d/m/Y H:i');
+                        if ($t->fecha_entrega) $datos['Entrega']  = $t->fecha_entrega->format('d/m/Y');
+                        // El cliente de la orden ya está arriba: solo se repite si difiere.
+                        if ($t->cliente_id && $t->cliente_id !== $orden->cliente_id)
+                            $datos['Cliente'] = $t->cliente->nombre ?? '-';
+                    @endphp
 
-                    @if($t->material)
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Material</div>
-                        <div style="color:var(--tx)">{{ $t->material->nombre }}</div>
-                    </div>
-                    @endif
-
-                    @if($t->maquina)
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Máquina</div>
-                        <div style="color:var(--tx)">{{ $t->maquina->nombre }}</div>
-                    </div>
-                    @endif
-
-                    @if($t->ancho || $t->alto)
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Medidas</div>
-                        <div style="color:var(--tx);font-family:var(--mono)">
-                            {{ $t->ancho }}m × {{ $t->alto }}m
+                    @foreach($datos as $etiqueta => $valor)
+                        <div class="col-6 col-sm-4 col-lg-3">
+                            <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">{{ $etiqueta }}</div>
+                            <div style="color:var(--tx);word-break:break-word">{{ $valor }}</div>
                         </div>
-                    </div>
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">m² total</div>
-                        <div style="color:var(--ac);font-family:var(--mono)">
-                            {{ number_format($t->ancho * $t->alto * $t->cantidad, 2) }} m²
-                        </div>
-                    </div>
-                    @endif
+                    @endforeach
 
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Cantidad</div>
-                        <div style="color:var(--tx);font-family:var(--mono)">{{ $t->cantidad }}</div>
+                    <div class="col-6 col-sm-4 col-lg-3">
+                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Total</div>
+                        <div style="color:var(--ac);font-family:var(--mono);font-weight:600">{{ $t->medidaTotalTexto() }}</div>
                     </div>
-
-                    @if($t->fecha_entrega)
-                    <div class="col-sm-4">
-                        <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Entrega</div>
-                        <div style="color:var(--tx)">{{ $t->fecha_entrega->format('d/m/Y') }}</div>
-                    </div>
-                    @endif
 
                 </div>
+
+                @if(trim((string) $t->descripcion) !== '')
+                <div style="margin-top:14px">
+                    <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Descripción</div>
+                    <div style="color:var(--tx);font-size:13px;line-height:1.55;white-space:pre-line">{{ $t->descripcion }}</div>
+                </div>
+                @endif
             </div>
 
-            {{-- Archivos --}}
-            <div class="col-md-4">
-
-                {{-- Referencias --}}
-                @if($t->referencias->isNotEmpty())
-                <div style="margin-bottom:10px">
-                    <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">
-                        Referencias
+            {{-- Archivos: referencias y para imprimir, los dos con miniatura --}}
+            @foreach([['referencias', 'Referencias', $t->referencias], ['imprimir', 'Archivos para imprimir', $t->archivosImprimir]] as $grupo)
+                @if($grupo[2]->isNotEmpty())
+                <div class="col-12">
+                    <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">
+                        {{ $grupo[1] }} ({{ $grupo[2]->count() }})
                     </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @foreach($t->referencias as $ref)
-                            @php
-                                $ext = strtolower(pathinfo($ref->nombre_original, PATHINFO_EXTENSION));
-                                $esImagen = in_array($ext, ['jpg','jpeg','png','gif','bmp','webp','tif','tiff']);
-                            @endphp
-                            <a href="{{ $ref->url }}" target="_blank" title="{{ $ref->nombre_original }}"
-                               style="display:block;border-radius:6px;overflow:hidden;
-                                      border:1px solid var(--bm);flex-shrink:0">
-                                @if($esImagen)
-                                    <img src="{{ $ref->url }}" alt="{{ $ref->nombre_original }}"
-                                         style="width:64px;height:64px;object-fit:cover;display:block">
-                                @else
-                                    <div style="width:64px;height:64px;display:flex;align-items:center;
-                                                justify-content:center;background:#0d0d0d;
-                                                font-size:9px;font-weight:700;font-family:var(--mono);
-                                                color:var(--txd);letter-spacing:1px;text-transform:uppercase">
-                                        {{ strtoupper($ext) }}
-                                    </div>
-                                @endif
+                    <div style="display:flex;flex-wrap:wrap;gap:10px">
+                        @foreach($grupo[2] as $arch)
+                            <a href="{{ $arch->url }}" target="_blank" title="{{ $arch->nombre_original }}"
+                               style="width:132px;text-decoration:none;flex-shrink:0">
+                                <div style="border:1px solid var(--bm);border-radius:8px;overflow:hidden;background:#0d0d0d">
+                                    @if($arch->es_imagen)
+                                        <img src="{{ $arch->url }}" alt="{{ $arch->nombre_original }}"
+                                             style="width:100%;height:110px;object-fit:cover;display:block">
+                                    @else
+                                        <div style="height:110px;display:flex;flex-direction:column;align-items:center;
+                                                    justify-content:center;gap:4px;font-family:var(--mono)">
+                                            <span style="font-size:15px;font-weight:700;color:var(--ac);letter-spacing:1px">
+                                                {{ strtoupper($arch->extension) ?: 'ARCH' }}
+                                            </span>
+                                            <span class="txd" style="font-size:9px">sin vista previa</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div style="font-size:10.5px;color:var(--txd);margin-top:4px;line-height:1.3;
+                                            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    {{ $arch->nombre_original }}
+                                </div>
+                                <div class="mono" style="font-size:9.5px;color:#555">{{ $arch->tamanio_formateado }}</div>
                             </a>
                         @endforeach
                     </div>
                 </div>
                 @endif
+            @endforeach
 
-                {{-- Archivos para imprimir --}}
-                @if($t->archivosImprimir->isNotEmpty())
-                <div>
-                    <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">
-                        Para imprimir ({{ $t->archivosImprimir->count() }})
-                    </div>
-                    @foreach($t->archivosImprimir as $arch)
-                        <a href="{{ $arch->url }}" target="_blank"
-                           style="display:flex;align-items:center;gap:6px;font-size:12px;
-                                  color:var(--txd);text-decoration:none;margin-bottom:3px"
-                           title="{{ $arch->nombre_original }}">
-                            <span style="font-family:var(--mono);color:var(--ac);font-size:10px">↓</span>
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">
-                                {{ $arch->nombre_original }}
-                            </span>
-                        </a>
-                    @endforeach
-                </div>
-                @endif
-
-            </div>
         </div>
     </div>
 </div>
