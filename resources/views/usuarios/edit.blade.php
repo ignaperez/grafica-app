@@ -8,7 +8,7 @@
 
 @section('content')
 <div style="max-width:560px">
-<form method="POST" action="{{ route('usuarios.update', $usuario->id) }}">
+<form method="POST" action="{{ route('usuarios.update', $usuario->id) }}" autocomplete="off">
 @csrf @method('PUT')
 
 <div class="gcard">
@@ -23,7 +23,7 @@
 
         <div class="gfg">
             <label class="glabel">Email *</label>
-            <input type="email" name="email" class="ginput"
+            <input type="email" name="email" class="ginput" autocomplete="off"
                    value="{{ old('email', $usuario->email) }}" required>
             @error('email')<div class="gerr">{{ $message }}</div>@enderror
         </div>
@@ -48,14 +48,14 @@
     <div class="gcard-bd">
         <div class="gfg">
             <label class="glabel">Nueva contraseña</label>
-            <input type="password" name="password" class="ginput"
+            <input type="password" autocomplete="new-password" name="password" class="ginput"
                    placeholder="Mínimo 8 caracteres">
             @error('password')<div class="gerr">{{ $message }}</div>@enderror
         </div>
 
         <div class="gfg mb-0">
             <label class="glabel">Repetir contraseña</label>
-            <input type="password" name="password_confirmation" class="ginput"
+            <input type="password" autocomplete="new-password" name="password_confirmation" class="ginput"
                    placeholder="Repetir nueva contraseña">
         </div>
     </div>
