@@ -123,14 +123,18 @@ class OrdenTrabajoController extends Controller
     public function updateMetadata(Request $request, $id)
     {
         $request->validate([
+            'cliente_id'     => 'required|exists:clientes,id',
             'observaciones'  => 'nullable|string|max:1000',
             'fecha_recibido' => 'nullable|date',
         ]);
 
         $orden = OrdenTrabajo::findOrFail($id);
         $orden->update([
+            'cliente_id'     => $request->cliente_id,
             'observaciones'  => $request->observaciones,
-            'fecha_recibido' => $request->fecha_recibido,
+            // Si el campo viene vacío se conserva la fecha actual: el editor
+            // inline es para corregir datos, no para borrarlos sin querer.
+            'fecha_recibido' => $request->fecha_recibido ?: $orden->fecha_recibido,
         ]);
 
         return redirect()
