@@ -89,12 +89,23 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="gfg mb-0">
+                        <label class="glabel">Cliente *</label>
+                        {{-- Select vacío salvo el actual: Select2 busca por AJAX al escribir --}}
+                        <select name="cliente_id" class="gselect" id="sel-cliente-orden" required>
+                            @if($orden->cliente_id)
+                                <option value="{{ $orden->cliente_id }}" selected>{{ $orden->cliente->nombre }}</option>
+                            @endif
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="gfg mb-0">
                         <label class="glabel">Fecha de ingreso</label>
                         <input type="date" name="fecha_recibido" class="ginput"
                                value="{{ $orden->fecha_recibido ? \Carbon\Carbon::parse($orden->fecha_recibido)->format('Y-m-d') : '' }}">
                     </div>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-5">
                     <div class="gfg mb-0">
                         <label class="glabel">Observaciones / Título del trabajo</label>
                         <input type="text" name="observaciones" class="ginput"
@@ -298,6 +309,31 @@ function toggleEditOrden() {
     vista.style.display = editando ? ''         : 'none';
     form.style.display  = editando ? 'none'     : '';
     btn.textContent     = editando ? '✎ Editar' : '✕ Cancelar';
+
+    // Select2 recién cuando el form es visible: dentro de un contenedor oculto
+    // no puede calcular el ancho y queda colapsado.
+    if (! editando) initSelectCliente();
+}
+
+let selClienteListo = false;
+function initSelectCliente() {
+    if (selClienteListo) return;
+    selClienteListo = true;
+
+    $('#sel-cliente-orden').select2({
+        ajax: {
+            url: '{{ route("clientes.search") }}',
+            dataType: 'json',
+            delay: 250,
+            data:           params => ({ q: params.term }),
+            processResults: data   => ({ results: data }),
+            cache: true,
+        },
+        minimumInputLength: 1,
+        placeholder: 'Escribí el nombre del cliente...',
+        width: '100%',
+        dropdownParent: $('#form-edit-orden'),
+    });
 }
 </script>
 @endsection
