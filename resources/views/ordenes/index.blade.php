@@ -44,7 +44,6 @@
                         </div>
                         <div class="text-end">
                         <a href="{{ route('ordenes-trabajo.show', $orden->id) }}" class="btn btn-info btn-sm mb-1">Ver</a>
-                            <a href="{{ route('ordenes-trabajo.edit', $orden->id) }}" class="btn btn-primary btn-sm mb-1">Editar</a>
                             <form action="{{ route('ordenes-trabajo.destroy', $orden->id) }}" method="POST" style="display:inline-block">
                                 @csrf
                                 @method('DELETE')

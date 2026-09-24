@@ -93,12 +93,14 @@
                     {{-- Bloque orden existente --}}
                     <div class="col-md-5" id="bloque-existente" style="display:none">
                         <div class="gfg">
-                            <label class="glabel">Número de orden *</label>
-                            <input type="number" name="orden_id" class="ginput" min="1"
-                                   placeholder="ID de la orden de trabajo">
+                            <label class="glabel">Orden de trabajo *</label>
+                            {{-- Se llena por JS con las órdenes del cliente detectado --}}
+                            <select name="orden_id" class="gselect" id="sel-orden-existente">
+                                <option value="">Seleccioná primero los trabajos…</option>
+                            </select>
                         </div>
-                        <div style="font-size:12px;color:var(--txd);margin-top:-10px">
-                            La orden debe pertenecer al mismo cliente que los trabajos seleccionados.
+                        <div style="font-size:12px;color:var(--txd);margin-top:-10px" id="ayuda-orden">
+                            Solo se listan las órdenes del mismo cliente que los trabajos seleccionados.
                         </div>
                     </div>
 
@@ -233,6 +235,37 @@
 (function () {
 
     // ── Detectar selección ────────────────────────────────────────
+    // Órdenes candidatas (id, cliente y etiqueta), ya armadas en el controller.
+    const ORDENES = @json($ordenes);
+
+    // Rearma el selector con las órdenes de ESE cliente. Antes había que
+    // escribir el número de orden de memoria.
+    function poblarOrdenes(clienteId) {
+        const sel   = document.getElementById('sel-orden-existente');
+        const ayuda = document.getElementById('ayuda-orden');
+        if (!sel) return;
+
+        const propias = clienteId ? ORDENES.filter(o => o.cliente_id === String(clienteId)) : [];
+        const previa  = sel.value;
+
+        if (!clienteId) {
+            sel.innerHTML = '<option value="">Seleccioná primero los trabajos…</option>';
+            ayuda.textContent = 'Solo se listan las órdenes del mismo cliente que los trabajos seleccionados.';
+            return;
+        }
+
+        if (!propias.length) {
+            sel.innerHTML = '<option value="">— Este cliente no tiene órdenes abiertas —</option>';
+            ayuda.textContent = 'No hay órdenes abiertas de este cliente: elegí "Crear una orden nueva".';
+            return;
+        }
+
+        sel.innerHTML = '<option value="">— Elegí una orden —</option>'
+            + propias.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+        if (propias.some(o => String(o.id) === previa)) sel.value = previa;
+        ayuda.textContent = propias.length + ' orden' + (propias.length > 1 ? 'es' : '') + ' de este cliente.';
+    }
+
     function actualizarPanel() {
         const checks   = [...document.querySelectorAll('.sel-trabajo:checked')];
         const panel    = document.getElementById('panel-asignar');
@@ -258,6 +291,9 @@
         infoCli.textContent   = mezclado ? '⚠ Múltiples clientes' : nombreCliente;
         labelCli.textContent  = mezclado ? '⚠ Clientes mezclados' : nombreCliente;
         labelCli.style.color  = mezclado ? '#e05555' : 'var(--ac)';
+
+        // El selector de orden existente sigue al cliente detectado
+        poblarOrdenes(mezclado ? null : clientesIds[0]);
 
         // Sincronizar inputs ocultos con los ids seleccionados
         const cont = document.getElementById('inputs-seleccionados');

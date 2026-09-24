@@ -165,7 +165,11 @@ Route::middleware([
 
         Route::get('/inicio', [DashboardController::class, 'inicio'])->name('inicio');
 
-        Route::resource('ordenes-trabajo', OrdenTrabajoController::class);
+        // Sin `edit` ni `update`: la edición de la OT es inline desde el show
+        // (ordenes-trabajo.metadata). El update() del resource era código muerto
+        // pero ruteado, y BORRABA los trabajos que no vinieran en el request.
+        Route::resource('ordenes-trabajo', OrdenTrabajoController::class)
+            ->except(['edit', 'update']);
         Route::get('/ordenes-trabajo/{orden}/trabajos', [OrdenTrabajoController::class, 'trabajos'])
             ->name('ordenes.trabajos');
         Route::patch('/ordenes-trabajo/{id}/estado', [OrdenTrabajoController::class, 'cambiarEstado'])
