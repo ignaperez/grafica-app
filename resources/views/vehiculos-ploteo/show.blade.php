@@ -31,6 +31,8 @@
                 </form>
             @endif
         @endif
+        <a href="{{ route('vehiculos-ploteo.print', $vehiculo->id) }}" target="_blank"
+           class="gbtn gbtn-ghost gbtn-sm" title="Ficha para el taller (A4)">🖨 Imprimir</a>
         <a href="{{ route('vehiculos-ploteo.edit', $vehiculo->id) }}" class="gbtn gbtn-ghost gbtn-sm">✎ Editar</a>
         <a href="{{ route('vehiculos-ploteo.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
     </div>
@@ -48,6 +50,20 @@
 .foto-label { position:absolute; bottom:0; left:0; right:0; padding:5px 8px; background:rgba(0,0,0,.6); font-size:10px; color:#888; letter-spacing:.5px; }
 .foto-del { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.7); border:none; border-radius:6px; color:#e05555; font-size:14px; width:26px; height:26px; cursor:pointer; display:none; align-items:center; justify-content:center; }
 .foto-card:hover .foto-del { display:flex; }
+
+/* Referencias: grilla que en el teléfono baja a 2 columnas */
+.ref-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+@media(max-width:640px){ .ref-grid { grid-template-columns:repeat(2,1fr); } }
+.ref-img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; border-radius:8px;
+           border:1px solid var(--bm); background:#0d0d0d; cursor:zoom-in; }
+.ref-doc { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+           width:100%; aspect-ratio:4/3; border-radius:8px; border:1px solid var(--bm);
+           background:#0d0d0d; text-decoration:none; }
+.ref-doc-ext { font-family:var(--mono); font-size:17px; font-weight:700; color:var(--ac); letter-spacing:1px; }
+.ref-doc-txt { font-size:10px; color:var(--txd); }
+.ref-nombre { font-size:11px; color:var(--txd); margin-top:4px; line-height:1.3;
+              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ref-peso { font-family:var(--mono); font-size:9.5px; color:#555; }
 
 /* Lightbox */
 #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:9999; align-items:center; justify-content:center; cursor:zoom-out; }
@@ -99,6 +115,19 @@
                     @endif
                 </div>
             </div>
+            @if($vehiculo->presupuesto_id && $vehiculo->presupuesto)
+            <div class="col-6 col-md-3">
+                <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Presupuesto</div>
+                <a href="{{ route('presupuestos.show', $vehiculo->presupuesto_id) }}"
+                   style="color:var(--ac);font-family:var(--mono)">{{ $vehiculo->presupuesto->numeroFormateado() }}</a>
+            </div>
+            @endif
+
+            <div class="col-6 col-md-3">
+                <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Cargado</div>
+                <div>{{ $vehiculo->created_at?->format('d/m/Y H:i') ?? '—' }}</div>
+            </div>
+
             @if($vehiculo->observaciones)
             <div class="col-12 col-md-6">
                 <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Observaciones</div>
@@ -106,28 +135,52 @@
             </div>
             @endif
         </div>
-        {{-- Referencia --}}
-        @if($vehiculo->refe)
-        @php $ext = pathinfo($vehiculo->refe, PATHINFO_EXTENSION); @endphp
+        {{-- Referencias: lo primero que mira el que plotea --}}
+        @php $refs = $vehiculo->referencias; @endphp
+        @if($refs->isNotEmpty() || $vehiculo->refe)
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b)">
-            <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Referencia (Refe)</div>
-            @if(in_array(strtolower($ext), ['jpg','jpeg','png','webp','gif']))
-                <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}"
-                     style="max-width:320px;border-radius:8px;border:1px solid #1e1e1e;cursor:zoom-in"
-                     onclick="openLightbox(this.src)">
-            @else
-                <a href="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}" target="_blank"
-                   class="gbtn gbtn-ghost gbtn-sm">
-                    📄 Ver referencia ({{ strtoupper($ext) }})
-                </a>
-            @endif
-            <form method="POST" action="{{ route('vehiculos-ploteo.destroy-foto', $vehiculo->id) }}"
-                  style="display:inline-block;margin-left:8px">
-                @csrf @method('DELETE')
-                <input type="hidden" name="campo" value="refe">
-                <button type="submit" class="gbtn gbtn-danger gbtn-xs"
-                        onclick="return confirm('¿Eliminar referencia?')">× Quitar</button>
-            </form>
+            <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">
+                Referencias ({{ $refs->count() + ($vehiculo->refe && $refs->isEmpty() ? 1 : 0) }})
+            </div>
+            <div class="ref-grid">
+                @foreach($refs as $ref)
+                <div class="ref-item">
+                    @if($ref->es_imagen)
+                        <img src="{{ $ref->url }}" alt="{{ $ref->nombre_original }}"
+                             class="ref-img" onclick="openLightbox(this.src)">
+                    @else
+                        <a href="{{ $ref->url }}" target="_blank" class="ref-doc">
+                            <span class="ref-doc-ext">{{ strtoupper($ref->extension) ?: 'ARCH' }}</span>
+                            <span class="ref-doc-txt">abrir</span>
+                        </a>
+                    @endif
+                    <div class="ref-nombre" title="{{ $ref->nombre_original }}">{{ $ref->nombre_original }}</div>
+                    <div class="ref-peso">{{ $ref->tamanio_formateado }}</div>
+                    <form method="POST" action="{{ route('vehiculos-ploteo.archivo-destroy', $ref->id) }}" class="no-print">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="gbtn gbtn-danger gbtn-xs" style="width:100%;margin-top:3px"
+                                onclick="return confirm('¿Eliminar esta referencia?')">×</button>
+                    </form>
+                </div>
+                @endforeach
+
+                {{-- Refe vieja (columna única) por si quedó alguna sin migrar --}}
+                @if($vehiculo->refe && $refs->isEmpty())
+                @php $extRefe = strtolower(pathinfo($vehiculo->refe, PATHINFO_EXTENSION)); @endphp
+                <div class="ref-item">
+                    @if(in_array($extRefe, ['jpg','jpeg','png','webp','gif']))
+                        <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}"
+                             class="ref-img" onclick="openLightbox(this.src)">
+                    @else
+                        <a href="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}" target="_blank" class="ref-doc">
+                            <span class="ref-doc-ext">{{ strtoupper($extRefe) ?: 'ARCH' }}</span>
+                            <span class="ref-doc-txt">abrir</span>
+                        </a>
+                    @endif
+                    <div class="ref-nombre">Referencia</div>
+                </div>
+                @endif
+            </div>
         </div>
         @endif
     </div>

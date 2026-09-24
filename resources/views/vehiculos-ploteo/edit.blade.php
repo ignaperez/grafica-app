@@ -151,27 +151,47 @@
         </div>
 
         <div class="gcard mb-3">
-            <div class="gcard-hd"><span class="gcard-title">Referencia (Refe)</span></div>
+            <div class="gcard-hd"><span class="gcard-title">Referencias</span></div>
             <div class="gcard-bd">
-                @if($vehiculo->refe)
-                    @php $ext = pathinfo($vehiculo->refe, PATHINFO_EXTENSION); @endphp
-                    @if(in_array(strtolower($ext), ['jpg','jpeg','png','webp','gif']))
-                        <img src="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}"
-                             style="width:100%;border-radius:8px;border:1px solid #1e1e1e;object-fit:cover;max-height:120px;margin-bottom:8px">
-                    @else
-                        <a href="{{ route('vehiculos-ploteo.foto', [$vehiculo->id, 'refe']) }}" target="_blank"
-                           class="gbtn gbtn-ghost gbtn-sm" style="width:100%;justify-content:center;margin-bottom:8px">
-                            📄 Ver referencia actual
-                        </a>
-                    @endif
+                @if($vehiculo->referencias->isNotEmpty())
+                <div style="margin-bottom:12px">
+                    <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">
+                        Ya cargadas ({{ $vehiculo->referencias->count() }})
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        @foreach($vehiculo->referencias as $ref)
+                        <div style="width:104px">
+                            <a href="{{ $ref->url }}" target="_blank" style="text-decoration:none">
+                                <div style="border:1px solid var(--bm);border-radius:8px;overflow:hidden;background:#0d0d0d">
+                                    @if($ref->es_imagen)
+                                        <img src="{{ $ref->url }}" style="width:100%;height:76px;object-fit:cover;display:block">
+                                    @else
+                                        <div style="height:76px;display:flex;align-items:center;justify-content:center;
+                                                    font-family:var(--mono);color:var(--ac);font-size:13px;font-weight:700">
+                                            {{ strtoupper($ref->extension) ?: 'ARCH' }}
+                                        </div>
+                                    @endif
+                                </div>
+                            </a>
+                            <form method="POST" action="{{ route('vehiculos-ploteo.archivo-destroy', $ref->id) }}" style="margin-top:3px">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="gbtn gbtn-danger gbtn-xs" style="width:100%"
+                                        onclick="return confirm('¿Eliminar esta referencia?')">× Quitar</button>
+                            </form>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
                 @endif
+
                 <div class="gfg mb-0">
-                    <label class="glabel">{{ $vehiculo->refe ? 'Reemplazar' : 'Subir PDF / imagen' }}</label>
-                    <label class="foto-drop" for="refe" style="min-height:70px">
+                    <label class="glabel">Agregar imágenes o PDF (podés elegir varias)</label>
+                    <label class="foto-drop" for="referencias" style="min-height:70px">
                         <span class="foto-drop-icon">📄</span>
-                        <span class="foto-drop-txt" id="refe-txt">{{ $vehiculo->refe ? 'Reemplazar archivo' : 'Subir PDF / imagen' }}</span>
-                        <input type="file" id="refe" name="refe" accept="image/*,.pdf"
-                               onchange="document.getElementById('refe-txt').textContent = this.files[0]?.name ?? 'Subir PDF / imagen'">
+                        <span class="foto-drop-txt" id="referencias-txt">Subir imágenes / PDF</span>
+                        <input type="file" id="referencias" name="referencias[]" multiple accept="image/*,.pdf"
+                               onchange="document.getElementById('referencias-txt').textContent =
+                                   this.files.length ? this.files.length + ' archivo(s) seleccionado(s)' : 'Subir imágenes / PDF'">
                     </label>
                 </div>
             </div>

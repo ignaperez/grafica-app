@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\VehiculoPloteo;
+use App\Models\VehiculoArchivo;
 use App\Models\OrdenTrabajo;
 use App\Models\Cliente;
 use App\Models\Marca;
@@ -142,6 +143,8 @@ class VehiculoPloteoController extends Controller
 
         $vehiculo = VehiculoPloteo::create($data);
 
+        $this->guardarReferencias($request, $vehiculo);
+
         return redirect()->route('vehiculos-ploteo.show', $vehiculo->id)
             ->with('success', 'Vehículo registrado correctamente.');
     }
@@ -224,6 +227,8 @@ class VehiculoPloteoController extends Controller
 
         $vehiculosPloteo->update($data);
 
+        $this->guardarReferencias($request, $vehiculosPloteo);
+
         return redirect()->route('vehiculos-ploteo.show', $vehiculosPloteo->id)
             ->with('success', 'Vehículo actualizado.');
     }
@@ -241,6 +246,66 @@ class VehiculoPloteoController extends Controller
      * (Los archivos viven en storage/tenant{id}/... y el symlink /storage
      * central no los alcanza → se sirven por ruta de la app, detrás de login.)
      */
+    /**
+     * Guarda las imágenes / archivos de referencia que vengan en el request.
+     * Son varios: el que plotea necesita frente, lateral, detalle del logo, etc.
+     */
+    private function guardarReferencias(Request $request, VehiculoPloteo $vehiculo): void
+    {
+        $archivos = $request->file('referencias', []);
+
+        if (! $archivos) {
+            return;
+        }
+
+        // Se valida aparte del validate() principal: si entrara ahí, 'referencias'
+        // caería en $data y el create()/update() fallaría por mass assignment.
+        $request->validate([
+            'referencias.*' => 'file|mimes:jpg,jpeg,png,gif,webp,bmp,pdf,ai,eps,svg,psd,cdr|max:51200',
+        ]);
+
+        $orden = (int) $vehiculo->referencias()->max('orden');
+
+        foreach ($archivos as $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+
+            $vehiculo->referencias()->create([
+                'nombre_original' => $file->getClientOriginalName(),
+                'ruta'            => $file->store('vehiculos/referencias', 'public'),
+                'mime_type'       => $file->getMimeType(),
+                'tamanio'         => $file->getSize(),
+                'orden'           => ++$orden,
+            ]);
+        }
+    }
+
+    /** Ficha A4 del vehículo para el taller: todos los datos, referencias y fotos. */
+    public function print(VehiculoPloteo $vehiculosPloteo)
+    {
+        $vehiculosPloteo->load(['cliente', 'presupuesto', 'orden', 'referencias']);
+
+        return view('vehiculos-ploteo.print', ['vehiculo' => $vehiculosPloteo]);
+    }
+
+    /** Sirve una referencia desde el storage del tenant (ver VehiculoArchivo::url). */
+    public function archivo(VehiculoArchivo $archivo)
+    {
+        abort_if(! $archivo->ruta || ! Storage::disk('public')->exists($archivo->ruta), 404);
+
+        return Storage::disk('public')->response($archivo->ruta, $archivo->nombre_original);
+    }
+
+    public function destroyArchivo(VehiculoArchivo $archivo)
+    {
+        $vehiculoId = $archivo->vehiculo_ploteo_id;
+        $archivo->delete();
+
+        return redirect()->route('vehiculos-ploteo.show', $vehiculoId)
+            ->with('success', 'Referencia eliminada.');
+    }
+
     public function foto(VehiculoPloteo $vehiculosPloteo, string $campo)
     {
         abort_unless(in_array($campo, array_merge(self::FOTOS, self::ARCHIVOS), true), 404);

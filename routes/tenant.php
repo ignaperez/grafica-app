@@ -208,6 +208,15 @@ Route::middleware([
         Route::get('/vehiculos-ploteo/marcas/{marca}/modelos', [MarcaVehiculoController::class, 'modelos'])
             ->name('vehiculos-ploteo.modelos-por-marca');
 
+        // Referencias del vehículo (varias por vehículo). ANTES del resource:
+        // si no, /vehiculos-ploteo/archivos lo captura el {vehiculosPloteo} del show.
+        Route::get('/vehiculos-ploteo/{vehiculosPloteo}/print', [VehiculoPloteoController::class, 'print'])
+            ->name('vehiculos-ploteo.print');
+        Route::get('/vehiculos-ploteo/archivos/{archivo}', [VehiculoPloteoController::class, 'archivo'])
+            ->name('vehiculos-ploteo.archivo');
+        Route::delete('/vehiculos-ploteo/archivos/{archivo}', [VehiculoPloteoController::class, 'destroyArchivo'])
+            ->name('vehiculos-ploteo.archivo-destroy');
+
         Route::resource('vehiculos-ploteo', VehiculoPloteoController::class);
         Route::get('/vehiculos-ploteo/{vehiculosPloteo}/foto/{campo}', [VehiculoPloteoController::class, 'foto'])
             ->name('vehiculos-ploteo.foto');
