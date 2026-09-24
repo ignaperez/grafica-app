@@ -125,6 +125,8 @@
                             </form>
                         @endif
                     @endif
+                    <a href="{{ route('vehiculos-ploteo.edit', $v->id) }}" class="gbtn gbtn-ghost gbtn-xs"
+                       title="{{ auth()->user()->esInstalador() ? 'Cargar fotos y comentarios' : 'Editar vehículo' }}">✎ Editar</a>
                     <a href="{{ route('vehiculos-ploteo.show', $v->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver →</a>
                 </td>
             </tr>

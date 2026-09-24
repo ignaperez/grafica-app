@@ -14,7 +14,45 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        // El colocador no tiene por qué ver el tablero general.
+        if (auth()->user()->esInstalador()) {
+            return redirect()->route('inicio');
+        }
+
         return $this->renderView('dashboard');
+    }
+
+    /**
+     * Tablero del colocador tercerizado: solo sus vehículos asignados,
+     * cuántos terminó y cuáles le quedan pendientes.
+     */
+    private function inicioInstalador()
+    {
+        $yo = auth()->user();
+
+        $mios = \App\Models\VehiculoPloteo::visiblesPara($yo);
+
+        $asignados  = (clone $mios)->count();
+        $terminados = (clone $mios)->terminados()->count();
+        $pendientes = (clone $mios)->pendientes()->count();
+
+        $listaPendientes = \App\Models\VehiculoPloteo::visiblesPara($yo)
+            ->pendientes()
+            ->with('cliente')
+            ->orderByDesc('id')
+            ->limit(12)
+            ->get();
+
+        $ultimosTerminados = \App\Models\VehiculoPloteo::visiblesPara($yo)
+            ->terminados()
+            ->with('cliente')
+            ->orderByDesc('updated_at')
+            ->limit(6)
+            ->get();
+
+        return view('inicio-instalador', compact(
+            'asignados', 'terminados', 'pendientes', 'listaPendientes', 'ultimosTerminados'
+        ));
     }
 
     /** Dashboard para ventas y producción. */
@@ -22,6 +60,12 @@ class DashboardController extends Controller
     {
         $hoy = Carbon::today();
         $rol = auth()->user()->rol;
+
+        // El colocador tiene su propio tablero: sus vehículos y nada más. Se
+        // corta acá para no calcular siquiera los números de órdenes y ventas.
+        if (auth()->user()->esInstalador()) {
+            return $this->inicioInstalador();
+        }
 
         $contadores = [
             'borrador'      => OrdenTrabajo::where('estado', 'borrador')->count(),

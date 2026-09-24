@@ -61,6 +61,44 @@ class VehiculoPloteo extends Model
         return ! is_null($this->presupuesto_id) || $this->presupuestado_manual;
     }
 
+    /** Las cuatro vistas del "después", que es lo que carga el colocador al terminar. */
+    public const FOTOS_DESPUES = ['foto_despues_frente', 'foto_despues_atras', 'foto_despues_izq', 'foto_despues_der'];
+
+    /**
+     * Un vehículo se da por terminado cuando ya tiene al menos una foto del
+     * después: es lo que sube el colocador cuando lo termina. No hay un campo
+     * de estado; si en algún momento hace falta distinguir "en curso" de
+     * "terminado", ahí sí conviene una columna propia.
+     */
+    public function terminado(): bool
+    {
+        foreach (self::FOTOS_DESPUES as $campo) {
+            if ($this->$campo) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function scopeTerminados($query)
+    {
+        return $query->where(function ($q) {
+            foreach (self::FOTOS_DESPUES as $campo) {
+                $q->orWhereNotNull($campo);
+            }
+        });
+    }
+
+    public function scopePendientes($query)
+    {
+        return $query->where(function ($q) {
+            foreach (self::FOTOS_DESPUES as $campo) {
+                $q->whereNull($campo);
+            }
+        });
+    }
+
     /** Colocador tercerizado al que se le asignó el vehículo. */
     public function instalador()
     {
