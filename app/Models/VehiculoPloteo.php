@@ -13,6 +13,7 @@ class VehiculoPloteo extends Model
         'orden_trabajo_id',
         'cliente_id',
         'instalador_id',
+        'terminado_at',
         'created_by',
         'presupuesto_id',
         'presupuestado_manual',
@@ -38,6 +39,7 @@ class VehiculoPloteo extends Model
 
     protected $casts = [
         'fecha_ploteo'         => 'date',
+        'terminado_at'         => 'datetime',
         'presupuestado_manual' => 'boolean',
     ];
 
@@ -64,39 +66,20 @@ class VehiculoPloteo extends Model
     /** Las cuatro vistas del "después", que es lo que carga el colocador al terminar. */
     public const FOTOS_DESPUES = ['foto_despues_frente', 'foto_despues_atras', 'foto_despues_izq', 'foto_despues_der'];
 
-    /**
-     * Un vehículo se da por terminado cuando ya tiene al menos una foto del
-     * después: es lo que sube el colocador cuando lo termina. No hay un campo
-     * de estado; si en algún momento hace falta distinguir "en curso" de
-     * "terminado", ahí sí conviene una columna propia.
-     */
+    /** Terminado = lo marcó el colocador. Es explícito, no se deduce de las fotos. */
     public function terminado(): bool
     {
-        foreach (self::FOTOS_DESPUES as $campo) {
-            if ($this->$campo) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->terminado_at !== null;
     }
 
     public function scopeTerminados($query)
     {
-        return $query->where(function ($q) {
-            foreach (self::FOTOS_DESPUES as $campo) {
-                $q->orWhereNotNull($campo);
-            }
-        });
+        return $query->whereNotNull('terminado_at');
     }
 
     public function scopePendientes($query)
     {
-        return $query->where(function ($q) {
-            foreach (self::FOTOS_DESPUES as $campo) {
-                $q->whereNull($campo);
-            }
-        });
+        return $query->whereNull('terminado_at');
     }
 
     /** Colocador tercerizado al que se le asignó el vehículo. */

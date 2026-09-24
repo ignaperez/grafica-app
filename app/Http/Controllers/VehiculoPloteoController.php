@@ -396,6 +396,20 @@ class VehiculoPloteoController extends Controller
         ]));
     }
 
+    /** El colocador marca el vehículo como terminado (o lo reabre si se equivocó). */
+    public function marcarTerminado(Request $request, VehiculoPloteo $vehiculosPloteo)
+    {
+        $this->verificarAcceso($vehiculosPloteo);
+
+        $terminar = ! $request->boolean('reabrir');
+
+        $vehiculosPloteo->update(['terminado_at' => $terminar ? now() : null]);
+
+        return back()->with('success', $terminar
+            ? 'Vehículo marcado como terminado.'
+            : 'Vehículo reabierto: vuelve a figurar como pendiente.');
+    }
+
     /** Ficha A4 del vehículo para el taller: todos los datos, referencias y fotos. */
     public function print(VehiculoPloteo $vehiculosPloteo)
     {

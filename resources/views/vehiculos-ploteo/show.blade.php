@@ -31,6 +31,7 @@
                 </form>
             @endif
         @endif
+        @include('vehiculos-ploteo._terminado-boton', ['v' => $vehiculo])
         <a href="{{ route('vehiculos-ploteo.print', $vehiculo->id) }}" target="_blank"
            class="gbtn gbtn-ghost gbtn-sm" title="Ficha para el taller (A4)">🖨 Imprimir</a>
         <a href="{{ route('vehiculos-ploteo.edit', $vehiculo->id) }}" class="gbtn gbtn-ghost gbtn-sm">✎ Editar</a>
@@ -122,6 +123,18 @@
                    style="color:var(--ac);font-family:var(--mono)">{{ $vehiculo->presupuesto->numeroFormateado() }}</a>
             </div>
             @endif
+
+            <div class="col-6 col-md-3">
+                <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Estado</div>
+                <div>
+                    @if($vehiculo->terminado())
+                        <span style="color:#3fb96a;font-weight:600">✓ Terminado</span>
+                        <div class="txd" style="font-size:11px">{{ $vehiculo->terminado_at->format('d/m/Y H:i') }}</div>
+                    @else
+                        <span style="color:#d9a441;font-weight:600">○ Pendiente</span>
+                    @endif
+                </div>
+            </div>
 
             <div class="col-6 col-md-3">
                 <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Colocador</div>
