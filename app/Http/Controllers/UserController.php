@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,30 @@ class UserController extends Controller
         return view('usuarios.create');
     }
 
+    /**
+     * El gestor de contraseñas del navegador autocompleta el email y la clave
+     * del admin logueado en este formulario: lo toma por un login porque tiene
+     * email + password. Si no se mira, el usuario nuevo queda con la contraseña
+     * del administrador. El `autocomplete` de la vista lo evita en Chrome, pero
+     * es una sugerencia que el navegador puede ignorar: esto lo corta acá.
+     */
+    private function rechazarSiEsMiPropiaClave(Request $request): void
+    {
+        $clave = (string) $request->input('password');
+        $yo    = auth()->user();
+
+        if ($clave === '' || ! $yo) {
+            return;
+        }
+
+        if (Hash::check($clave, $yo->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'Esa es TU contraseña — parece que la completó el navegador. '
+                            . 'Borrá el campo y escribí una contraseña nueva para este usuario.',
+            ]);
+        }
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -31,6 +56,8 @@ class UserController extends Controller
             'modulos'   => 'nullable|array',
             'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
         ]);
+
+        $this->rechazarSiEsMiPropiaClave($request);
 
         $data['password'] = Hash::make($data['password']);
         $data['modulos']  = $this->modulosDesde($request, $data['rol']);
@@ -56,6 +83,8 @@ class UserController extends Controller
             'modulos'   => 'nullable|array',
             'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
         ]);
+
+        $this->rechazarSiEsMiPropiaClave($request);
 
         if (empty($data['password'])) {
             unset($data['password']);
