@@ -59,6 +59,14 @@ class VehiculoPloteo extends Model
         return ! is_null($this->presupuesto_id) || $this->presupuestado_manual;
     }
 
+    /** Imágenes / archivos de referencia (antes era la columna única `refe`). */
+    public function referencias()
+    {
+        return $this->hasMany(VehiculoArchivo::class, 'vehiculo_ploteo_id')
+            ->orderBy('orden')
+            ->orderBy('id');
+    }
+
     public function marcaRel()
     {
         return $this->belongsTo(Marca::class, 'marca_id');

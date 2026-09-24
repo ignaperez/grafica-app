@@ -170,17 +170,21 @@
         </div>
 
         <div class="gcard mb-3">
-            <div class="gcard-hd"><span class="gcard-title">Referencia (Refe)</span></div>
+            <div class="gcard-hd"><span class="gcard-title">Referencias</span></div>
             <div class="gcard-bd">
                 <div class="gfg mb-0">
-                    <label class="glabel">PDF o imagen con las vistas</label>
-                    <label class="foto-drop" for="refe" style="min-height:80px">
+                    <label class="glabel">Imágenes o PDF con las vistas (podés elegir varias)</label>
+                    <label class="foto-drop" for="referencias" style="min-height:80px">
                         <span class="foto-drop-icon">📄</span>
-                        <span class="foto-drop-txt" id="refe-txt">Subir PDF / imagen</span>
-                        <input type="file" id="refe" name="refe"
+                        <span class="foto-drop-txt" id="referencias-txt">Subir imágenes / PDF</span>
+                        <input type="file" id="referencias" name="referencias[]" multiple
                                accept="image/*,.pdf"
-                               onchange="document.getElementById('refe-txt').textContent = this.files[0]?.name ?? 'Subir PDF / imagen'">
+                               onchange="document.getElementById('referencias-txt').textContent =
+                                   this.files.length ? this.files.length + ' archivo(s) seleccionado(s)' : 'Subir imágenes / PDF'">
                     </label>
+                    <div class="txd" style="font-size:11px;margin-top:4px">
+                        El que plotea las ve todas juntas en la ficha del vehículo.
+                    </div>
                 </div>
             </div>
         </div>
