@@ -39,7 +39,26 @@ class TrabajoLibreController extends Controller
         $trabajos  = $query->paginate(20)->withQueryString();
         $clientes  = Cliente::orderBy('nombre')->get();
 
-        return view('trabajos-libres.index', compact('trabajos', 'clientes'));
+        // Órdenes que pueden recibir trabajos. Van todas al navegador y se
+        // filtran ahí por el cliente de los trabajos tildados (la selección es
+        // dinámica, así que el cliente no se conoce al renderizar).
+        $ordenes = OrdenTrabajo::with('cliente')
+            ->whereIn('estado', ['borrador', 'en_produccion', 'lista'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (OrdenTrabajo $o) => [
+                'id'         => $o->id,
+                'cliente_id' => (string) $o->cliente_id,
+                'label'      => 'Orden #' . $o->id
+                                . ' · ' . ($o->cliente->nombre ?: 'sin cliente')
+                                . ' · ' . ($o->fecha_recibido
+                                        ? \Carbon\Carbon::parse($o->fecha_recibido)->format('d/m/Y')
+                                        : 's/fecha')
+                                . ' · ' . str_replace('_', ' ', $o->estado),
+            ])
+            ->values();
+
+        return view('trabajos-libres.index', compact('trabajos', 'clientes', 'ordenes'));
     }
 
     /**
