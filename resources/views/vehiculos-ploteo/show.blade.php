@@ -124,6 +124,13 @@
             @endif
 
             <div class="col-6 col-md-3">
+                <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Colocador</div>
+                <div style="font-weight:500;color:{{ $vehiculo->instalador_id ? 'var(--tx)' : 'var(--txm)' }}">
+                    {{ $vehiculo->instalador->name ?? 'Sin asignar' }}
+                </div>
+            </div>
+
+            <div class="col-6 col-md-3">
                 <div class="txd" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Cargado</div>
                 <div>{{ $vehiculo->created_at?->format('d/m/Y H:i') ?? '—' }}</div>
             </div>

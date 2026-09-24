@@ -15,6 +15,7 @@ class User extends Authenticatable
     /** Módulos habilitables por usuario (key => etiqueta). */
     public const MODULOS = [
         'ordenes'       => 'Órdenes / Trabajos',
+        'vehiculos'     => 'Vehículos',
         'clientes'      => 'Clientes',
         'presupuestos'  => 'Presupuestos',
         'facturas'      => 'Facturas',
@@ -94,12 +95,21 @@ class User extends Authenticatable
     }
 
     /** Módulos por defecto según el rol (plantilla inicial). */
+    /** El colocador tercerizado: solo ve los vehículos que le asignaron. */
+    public function esInstalador(): bool
+    {
+        return $this->rol === 'instalador';
+    }
+
     public static function modulosPorRol(string $rol): array
     {
         return match ($rol) {
             'admin'      => array_keys(self::MODULOS),
-            'ventas'     => ['ordenes', 'clientes', 'presupuestos', 'facturas', 'remitos', 'servicios'],
-            'produccion' => ['ordenes'],
+            'ventas'     => ['ordenes', 'vehiculos', 'clientes', 'presupuestos', 'facturas', 'remitos', 'servicios'],
+            'produccion' => ['ordenes', 'vehiculos'],
+            // El instalador terceriza la colocación: solo entra a los vehículos
+            // que tiene asignados, a subir fotos.
+            'instalador' => ['vehiculos'],
             default      => [],
         };
     }

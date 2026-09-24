@@ -250,6 +250,7 @@
         $adminVentas  = in_array($rol, ['admin', 'ventas']);
 
         $verOrdenes   = $u->puedeModulo('ordenes');
+        $verVehiculos = $u->puedeModulo('vehiculos');
         $verClientes  = $adminVentas && $u->puedeModulo('clientes');
         $verPresup    = $adminVentas && $u->puedeModulo('presupuestos');
         $verFacturas  = $adminVentas && $u->puedeModulo('facturas');
@@ -300,6 +301,8 @@
             <a href="{{ route('trabajos-libres.index') }}" class="s-item {{ request()->routeIs('trabajos-libres.*') ? 'on' : '' }}">
                 <span class="dot"></span> Trabajos
             </a>
+            @endif
+            @if($verVehiculos)
             <a href="{{ route('vehiculos-ploteo.index') }}" class="s-item {{ request()->routeIs('vehiculos-ploteo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Vehículos
             </a>

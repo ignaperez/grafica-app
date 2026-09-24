@@ -46,6 +46,7 @@
                 <th>Patente</th>
                 <th>Vehículo</th>
                 <th>Cliente</th>
+                @unless(auth()->user()->esInstalador())<th>Colocador</th>@endunless
                 <th>Fecha ploteo</th>
                 <th>Orden</th>
                 <th>Fotos</th>
@@ -81,6 +82,11 @@
                     <div style="font-weight:500;color:var(--tx)">{{ $v->marca }} {{ $v->modelo }}</div>
                 </td>
                 <td style="color:var(--tx)">{{ $v->cliente->nombre ?? '—' }}</td>
+                @unless(auth()->user()->esInstalador())
+                <td style="font-size:12.5px;color:{{ $v->instalador_id ? 'var(--tx)' : 'var(--txm)' }}">
+                    {{ $v->instalador->name ?? 'Sin asignar' }}
+                </td>
+                @endunless
                 <td class="txd">
                     {{ $v->fecha_ploteo ? $v->fecha_ploteo->format('d/m/Y') : '—' }}
                 </td>

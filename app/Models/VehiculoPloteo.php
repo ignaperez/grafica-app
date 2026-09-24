@@ -12,6 +12,8 @@ class VehiculoPloteo extends Model
     protected $fillable = [
         'orden_trabajo_id',
         'cliente_id',
+        'instalador_id',
+        'created_by',
         'presupuesto_id',
         'presupuestado_manual',
         'patente',
@@ -57,6 +59,33 @@ class VehiculoPloteo extends Model
     public function presupuestado(): bool
     {
         return ! is_null($this->presupuesto_id) || $this->presupuestado_manual;
+    }
+
+    /** Colocador tercerizado al que se le asignó el vehículo. */
+    public function instalador()
+    {
+        return $this->belongsTo(User::class, 'instalador_id');
+    }
+
+    public function creadoPor()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Acota el listado a lo que un usuario puede ver. El instalador ve solo lo
+     * asignado a él o lo que cargó él; el resto ve todo.
+     */
+    public function scopeVisiblesPara($query, ?User $user)
+    {
+        if (! $user || ! $user->esInstalador()) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user) {
+            $q->where('instalador_id', $user->id)
+              ->orWhere('created_by', $user->id);
+        });
     }
 
     /** Imágenes / archivos de referencia (antes era la columna única `refe`). */
