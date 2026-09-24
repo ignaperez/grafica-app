@@ -106,6 +106,14 @@
                         $antes   = collect(['foto_antes_frente','foto_antes_atras','foto_antes_izq','foto_antes_der'])->filter(fn($f) => $v->$f)->count();
                         $despues = collect(['foto_despues_frente','foto_despues_atras','foto_despues_izq','foto_despues_der'])->filter(fn($f) => $v->$f)->count();
                     @endphp
+                    <div style="margin-bottom:3px">@if($v->terminado())
+    <span style="display:inline-flex;align-items:center;gap:3px;background:#12301d;color:#3fb96a;
+                 font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.3px"
+          title="Terminado el {{ $v->terminado_at->format('d/m/Y H:i') }}">✓ Terminado</span>
+@else
+    <span style="display:inline-flex;align-items:center;gap:3px;background:#2e2410;color:#d9a441;
+                 font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.3px">○ Pendiente</span>
+@endif</div>
                     <span style="font-size:11px;color:var(--txd)">
                         {{ $antes }}/4 antes &nbsp;·&nbsp; {{ $despues }}/4 después
                     </span>

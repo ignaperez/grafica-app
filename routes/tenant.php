@@ -212,6 +212,8 @@ Route::middleware([
 
         // Referencias del vehículo (varias por vehículo). ANTES del resource:
         // si no, /vehiculos-ploteo/archivos lo captura el {vehiculosPloteo} del show.
+        Route::post('/vehiculos-ploteo/{vehiculosPloteo}/terminado', [VehiculoPloteoController::class, 'marcarTerminado'])
+            ->name('vehiculos-ploteo.terminado');
         Route::get('/vehiculos-ploteo/instaladores', [VehiculoPloteoController::class, 'instaladores'])
             ->name('vehiculos-ploteo.instaladores');
         Route::get('/vehiculos-ploteo/{vehiculosPloteo}/print', [VehiculoPloteoController::class, 'print'])
