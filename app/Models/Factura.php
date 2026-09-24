@@ -42,6 +42,9 @@ class Factura extends Model
 
     // ── Relaciones ────────────────────────────────────────────────────────
 
+    /** Memo de notasCredito() (ver el método). */
+    protected ?\Illuminate\Support\Collection $ncCache = null;
+
     public function cliente()      { return $this->belongsTo(Cliente::class); }
     public function presupuesto()  { return $this->belongsTo(Presupuesto::class); }
     public function createdBy()    { return $this->belongsTo(User::class, 'created_by'); }
@@ -140,34 +143,78 @@ class Factura extends Model
         return round((float) $this->cobros->sum('monto'), 2);
     }
 
-    public function saldoPendiente(): float
+    /**
+     * Notas de crédito emitidas contra esta factura.
+     *
+     * El vínculo NO es una FK: la NC guarda a qué comprobante acredita en
+     * nc_tipo + nc_pto_vta + nc_nro (lo mismo que se le informa a ARCA en
+     * CbtesAsoc). Se memoiza por instancia para no repetir la consulta entre
+     * totalAcreditado(), saldoPendiente() y estadoCobro().
+     */
+    public function notasCredito(): \Illuminate\Support\Collection
     {
-        return round((float) $this->imp_total - $this->totalCobrado(), 2);
+        return $this->ncCache ??= static::query()
+            ->whereIn('tipo', [3, 8, 13])
+            ->where('estado', '!=', 'anulada')
+            ->where('nc_tipo',    $this->tipo)
+            ->where('nc_pto_vta', $this->punto_venta)
+            ->where('nc_nro',     $this->numero)
+            ->get();
     }
 
-    /** pendiente | parcial | cobrada */
+    /** Total acreditado por notas de crédito contra esta factura. */
+    public function totalAcreditado(): float
+    {
+        if (! $this->esFactura()) return 0.0;
+
+        return round((float) $this->notasCredito()->sum('imp_total'), 2);
+    }
+
+    /**
+     * Lo que queda por cobrar. Lo acreditado por una NC ya no se cobra nunca,
+     * así que descuenta igual que un cobro: si no, la factura acreditada
+     * quedaba "Pendiente" para siempre e inflaba el "Por cobrar".
+     */
+    public function saldoPendiente(): float
+    {
+        $saldo = (float) $this->imp_total - $this->totalCobrado() - $this->totalAcreditado();
+
+        return round(max($saldo, 0), 2);
+    }
+
+    /** pendiente | parcial | cobrada | acreditada */
     public function estadoCobro(): string
     {
-        if ($this->totalCobrado() <= 0) return 'pendiente';
-        if ($this->saldoPendiente() > 0.009) return 'parcial';
+        $acreditado = $this->totalAcreditado();
+
+        // Acreditada por completo: no hay nada que cobrar.
+        if ($acreditado > 0 && $this->saldoPendiente() <= 0.009 && $this->totalCobrado() <= 0) {
+            return 'acreditada';
+        }
+
+        if ($this->totalCobrado() <= 0 && $acreditado <= 0) return 'pendiente';
+        if ($this->saldoPendiente() > 0.009)                return 'parcial';
+
         return 'cobrada';
     }
 
     public function estadoCobroLabel(): string
     {
         return match ($this->estadoCobro()) {
-            'cobrada' => 'Cobrada',
-            'parcial' => 'Parcial',
-            default   => 'Pendiente',
+            'cobrada'    => 'Cobrada',
+            'acreditada' => 'Acreditada',
+            'parcial'    => 'Parcial',
+            default      => 'Pendiente',
         };
     }
 
     public function estadoCobroColor(): string
     {
         return match ($this->estadoCobro()) {
-            'cobrada' => '#22c55e',
-            'parcial' => '#f59e0b',
-            default   => '#888',
+            'cobrada'    => '#22c55e',
+            'acreditada' => '#6aa9e0',
+            'parcial'    => '#f59e0b',
+            default      => '#888',
         };
     }
 
