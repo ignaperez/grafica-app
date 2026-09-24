@@ -75,7 +75,7 @@
                         <span title="Presupuestado{{ $v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : ' (manual)' }}"
                               style="margin-left:6px;display:inline-flex;align-items:center;gap:3px;
                                      background:#1c3a29;color:#3fb96a;font-size:9.5px;font-weight:700;
-                                     padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px">✓ Presup.</span>
+                                     padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px">✓ {{ $v->presupuesto?->numeroFormateado() ?? 'Presup.' }}</span>
                     @endif
                 </td>
                 <td>

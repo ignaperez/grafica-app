@@ -10,9 +10,6 @@
 
 <form method="POST" action="{{ route('presupuestos.store') }}" id="form-presupuesto">
 @csrf
-@foreach(($prefill['vehiculo_ids'] ?? []) as $vid)
-    <input type="hidden" name="vehiculo_ids[]" value="{{ $vid }}">
-@endforeach
 
 {{-- ── Cabecera ───────────────────────────────────────────────────────────── --}}
 <div class="gcard" style="margin-bottom:16px">
@@ -119,6 +116,9 @@
 {{-- ── Template de fila (oculto) ─────────────────────────────────────────── --}}
 <template id="fila-template">
 <tr class="item-row" data-index="__IDX__">
+    {{-- Vehículo de origen, si la fila vino precargada desde el módulo de
+         vehículos. Al borrar la fila se va con ella y el vehículo no se marca. --}}
+    <input type="hidden" class="inp-vehiculo" name="items[__IDX__][vehiculo_id]" value="">
     <td>
         <select class="gselect sel-grupo" style="width:100%;font-size:12px;margin-bottom:5px">
             <option value="">— Grupo —</option>
@@ -423,6 +423,7 @@ function aplicarDatos(tr, d) {
     if (d.precio !== undefined)   tr.querySelector('.inp-precio').value   = d.precio;
     const set = (cls, val) => { const el = tr.querySelector(cls); if (el && val !== undefined) el.value = val; };
     set('.inp-ancho', d.ancho); set('.inp-alto', d.alto); set('.inp-largo', d.largo);
+    set('.inp-vehiculo', d.vehiculo_id);
     recalcularFila(tr);
 }
 
