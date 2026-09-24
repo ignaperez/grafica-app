@@ -74,6 +74,8 @@ class OrdenTrabajoController extends Controller
             'trabajos.tipoTrabajo',
             'trabajos.material',
             'trabajos.maquina',
+            'trabajos.producto',
+            'trabajos.cliente',
             'trabajos.archivosImprimir',
             'trabajos.referencias',
         ])->findOrFail($id);
@@ -92,6 +94,8 @@ class OrdenTrabajoController extends Controller
             'trabajos.tipoTrabajo',
             'trabajos.material',
             'trabajos.maquina',
+            'trabajos.producto',
+            'trabajos.cliente',
             'trabajos.archivosImprimir',
             'trabajos.referencias',
         ])->findOrFail($id);

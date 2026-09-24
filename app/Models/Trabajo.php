@@ -61,4 +61,58 @@ class Trabajo extends Model
     {
         return round(($this->ancho ?? 0) * ($this->alto ?? 0) * ($this->cantidad ?? 1), 4);
     }
+
+    // ── Medidas según la unidad ─────────────────────────────────────
+
+    public function unidadLabel(): string
+    {
+        return match ($this->unidad) {
+            'ml'     => 'ml',
+            'unidad' => 'unidad',
+            default  => 'm²',
+        };
+    }
+
+    /** Medida de UNA pieza: "2,00 m × 1,50 m" (m²) o "3,00 m" (ml). */
+    public function medidaUnitariaTexto(): ?string
+    {
+        $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
+
+        if ($this->unidad === 'ml') {
+            return $this->largo ? $fmt($this->largo) . ' m' : null;
+        }
+
+        if ($this->unidad === 'unidad') {
+            return null;
+        }
+
+        return ($this->ancho || $this->alto)
+            ? $fmt($this->ancho) . ' m × ' . $fmt($this->alto) . ' m'
+            : null;
+    }
+
+    /**
+     * Total en la unidad del trabajo. Antes las vistas hacían siempre
+     * ancho × alto × cantidad, aunque el trabajo fuera por metro lineal.
+     */
+    public function medidaTotal(): float
+    {
+        $cant = (float) ($this->cantidad ?: 1);
+
+        return round(match ($this->unidad) {
+            'ml'     => (float) ($this->largo ?? 0) * $cant,
+            'unidad' => $cant,
+            default  => (float) ($this->ancho ?? 0) * (float) ($this->alto ?? 0) * $cant,
+        }, 2);
+    }
+
+    /** El total ya formateado con su unidad: "9,00 m²", "6,00 ml", "3 u.". */
+    public function medidaTotalTexto(): string
+    {
+        if ($this->unidad === 'unidad') {
+            return ((int) ($this->cantidad ?: 1)) . ' u.';
+        }
+
+        return number_format($this->medidaTotal(), 2, ',', '.') . ' ' . $this->unidadLabel();
+    }
 }
