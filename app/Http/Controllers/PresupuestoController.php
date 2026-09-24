@@ -92,8 +92,16 @@ class PresupuestoController extends Controller
         $this->syncItems($presupuesto, $request->items);
         $presupuesto->recalcularTotal();
 
-        // Si el presupuesto se armó desde vehículos, marcarlos como presupuestados.
-        $vehiculoIds = array_filter((array) $request->input('vehiculo_ids', []));
+        // Si el presupuesto se armó desde vehículos, marcar SOLO aquellos cuyo
+        // ítem sigue en el formulario: el que se borró antes de guardar no se
+        // presupuestó y no debe quedar marcado.
+        $vehiculoIds = collect($request->input('items', []))
+            ->pluck('vehiculo_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         if ($vehiculoIds) {
             VehiculoPloteo::whereIn('id', $vehiculoIds)->update(['presupuesto_id' => $presupuesto->id]);
         }
@@ -379,6 +387,9 @@ class PresupuestoController extends Controller
             $desc .= ' - Dominio: ' . $v->patente;
 
             $items[] = [
+                // El id viaja EN el ítem: si el usuario borra la fila antes de
+                // guardar, el vehículo no tiene que quedar marcado.
+                'vehiculo_id' => $v->id,
                 'descripcion' => \Illuminate\Support\Str::limit($desc, 1000, ''),
                 'unidad'      => 'unidad',
                 'cantidad'    => 1,
@@ -390,7 +401,6 @@ class PresupuestoController extends Controller
             'cliente_id'     => $cliente->id,
             'cliente_nombre' => $cliente->nombre,
             'items'          => $items,
-            'vehiculo_ids'   => $vehiculos->pluck('id')->all(),
         ]);
     }
 
