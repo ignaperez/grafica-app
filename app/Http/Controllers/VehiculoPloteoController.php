@@ -206,7 +206,26 @@ class VehiculoPloteoController extends Controller
     {
         $this->verificarAcceso($vehiculosPloteo);
 
-        return view('vehiculos-ploteo.show', ['vehiculo' => $vehiculosPloteo->load(['orden.cliente', 'cliente', 'presupuesto'])]);
+        // Navegación anterior / siguiente siguiendo el MISMO orden del listado
+        // (id descendente) y el mismo alcance: un colocador solo se mueve entre
+        // los suyos. "Anterior" es la fila de arriba, o sea el id más alto.
+        $yo = auth()->user();
+
+        $anterior = VehiculoPloteo::visiblesPara($yo)
+            ->where('id', '>', $vehiculosPloteo->id)
+            ->orderBy('id')
+            ->first(['id', 'patente', 'marca', 'modelo']);
+
+        $siguiente = VehiculoPloteo::visiblesPara($yo)
+            ->where('id', '<', $vehiculosPloteo->id)
+            ->orderByDesc('id')
+            ->first(['id', 'patente', 'marca', 'modelo']);
+
+        return view('vehiculos-ploteo.show', [
+            'vehiculo'  => $vehiculosPloteo->load(['orden.cliente', 'cliente', 'presupuesto', 'instalador', 'referencias']),
+            'anterior'  => $anterior,
+            'siguiente' => $siguiente,
+        ]);
     }
 
     public function edit(VehiculoPloteo $vehiculosPloteo)

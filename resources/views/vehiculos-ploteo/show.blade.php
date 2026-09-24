@@ -52,6 +52,21 @@
 .foto-del { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.7); border:none; border-radius:6px; color:#e05555; font-size:14px; width:26px; height:26px; cursor:pointer; display:none; align-items:center; justify-content:center; }
 .foto-card:hover .foto-del { display:flex; }
 
+/* Anterior / siguiente */
+.veh-nav { display:flex; justify-content:space-between; align-items:stretch; gap:10px; margin-bottom:12px; }
+.veh-nav-link {
+    display:flex; flex-direction:column; gap:2px; min-width:0; max-width:48%;
+    padding:8px 12px; border:1px solid var(--b); border-radius:10px;
+    background:var(--bg-s); text-decoration:none;
+}
+a.veh-nav-link:hover { border-color:var(--bm); background:var(--bg-h); }
+.veh-nav-link.der { align-items:flex-end; text-align:right; margin-left:auto; }
+.veh-nav-link.off { opacity:.35; }
+.veh-nav-tit { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--txd); }
+.veh-nav-sub { font-family:var(--mono); font-size:12px; color:var(--tx);
+               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+@media(max-width:560px){ .veh-nav-sub { font-size:11px; } }
+
 /* Referencias: grilla que en el teléfono baja a 2 columnas */
 .ref-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
 @media(max-width:640px){ .ref-grid { grid-template-columns:repeat(2,1fr); } }
@@ -71,6 +86,33 @@
 #lightbox.open { display:flex; }
 #lightbox img { max-width:90vw; max-height:90vh; object-fit:contain; border-radius:10px; }
 </style>
+
+{{-- Anterior / siguiente: mismo orden que el listado --}}
+<div class="veh-nav">
+    @if($anterior)
+        <a href="{{ route('vehiculos-ploteo.show', $anterior->id) }}" class="veh-nav-link" rel="prev">
+            <span class="veh-nav-tit">← Anterior</span>
+            <span class="veh-nav-sub">{{ $anterior->patente }} · {{ $anterior->marca }} {{ $anterior->modelo }}</span>
+        </a>
+    @else
+        <span class="veh-nav-link off">
+            <span class="veh-nav-tit">← Anterior</span>
+            <span class="veh-nav-sub">—</span>
+        </span>
+    @endif
+
+    @if($siguiente)
+        <a href="{{ route('vehiculos-ploteo.show', $siguiente->id) }}" class="veh-nav-link der" rel="next">
+            <span class="veh-nav-tit">Siguiente →</span>
+            <span class="veh-nav-sub">{{ $siguiente->patente }} · {{ $siguiente->marca }} {{ $siguiente->modelo }}</span>
+        </a>
+    @else
+        <span class="veh-nav-link der off">
+            <span class="veh-nav-tit">Siguiente →</span>
+            <span class="veh-nav-sub">—</span>
+        </span>
+    @endif
+</div>
 
 {{-- Datos --}}
 <div class="gcard mb-3">
@@ -283,5 +325,18 @@ function closeLightbox() {
     document.getElementById('lightbox').classList.remove('open');
 }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeLightbox(); });
+
+// ← / → para moverse entre vehículos, salvo que se esté escribiendo.
+document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return;
+
+    const link = e.key === 'ArrowLeft'  ? document.querySelector('a.veh-nav-link[rel="prev"]')
+               : e.key === 'ArrowRight' ? document.querySelector('a.veh-nav-link[rel="next"]')
+               : null;
+
+    if (link) window.location = link.href;
+});
+
 </script>
 @endsection
