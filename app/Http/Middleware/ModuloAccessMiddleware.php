@@ -21,7 +21,7 @@ class ModuloAccessMiddleware
         'trabajos-libres'  => 'ordenes',
         'trabajos.'        => 'ordenes',
         'trabajo-archivos' => 'ordenes',
-        'vehiculos-ploteo' => 'ordenes',
+        'vehiculos-ploteo' => 'vehiculos',
         'clientes'         => 'clientes',
         'presupuestos'     => 'presupuestos',
         'facturas'         => 'facturas',

@@ -32,7 +32,7 @@
             <label class="glabel">Rol *</label>
             <select name="rol" class="gselect" required>
                 <option value="">— Seleccioná —</option>
-                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción'] as $val => $lbl)
+                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción','instalador'=>'Instalador / Colocador'] as $val => $lbl)
                     <option value="{{ $val }}" {{ old('rol') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                 @endforeach
             </select>
@@ -74,6 +74,7 @@
         admin:      @json(array_keys(\App\Models\User::MODULOS)),
         ventas:     @json(\App\Models\User::modulosPorRol('ventas')),
         produccion: @json(\App\Models\User::modulosPorRol('produccion')),
+        instalador: @json(\App\Models\User::modulosPorRol('instalador')),
     };
     const $rol = document.querySelector('select[name="rol"]');
     if (!$rol) return;

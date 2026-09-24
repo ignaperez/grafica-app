@@ -161,7 +161,9 @@ Route::middleware([
     |----------------------------------------------------------------------
     */
 
-    Route::middleware(['auth', 'rol:admin,ventas,produccion'])->group(function () {
+    // El instalador entra al grupo, pero solo tiene el módulo `vehiculos`:
+    // `modulo.access` le corta órdenes y trabajos.
+    Route::middleware(['auth', 'rol:admin,ventas,produccion,instalador'])->group(function () {
 
         Route::get('/inicio', [DashboardController::class, 'inicio'])->name('inicio');
 
@@ -210,6 +212,8 @@ Route::middleware([
 
         // Referencias del vehículo (varias por vehículo). ANTES del resource:
         // si no, /vehiculos-ploteo/archivos lo captura el {vehiculosPloteo} del show.
+        Route::get('/vehiculos-ploteo/instaladores', [VehiculoPloteoController::class, 'instaladores'])
+            ->name('vehiculos-ploteo.instaladores');
         Route::get('/vehiculos-ploteo/{vehiculosPloteo}/print', [VehiculoPloteoController::class, 'print'])
             ->name('vehiculos-ploteo.print');
         Route::get('/vehiculos-ploteo/archivos/{archivo}', [VehiculoPloteoController::class, 'archivo'])

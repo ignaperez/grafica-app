@@ -27,7 +27,7 @@ class UserController extends Controller
             'name'      => 'required|string|max:100',
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|string|min:8|confirmed',
-            'rol'       => 'required|in:admin,ventas,produccion',
+            'rol'       => 'required|in:admin,ventas,produccion,instalador',
             'modulos'   => 'nullable|array',
             'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
         ]);
@@ -52,7 +52,7 @@ class UserController extends Controller
             'name'      => 'required|string|max:100',
             'email'     => ['required', 'email', Rule::unique('users')->ignore($usuario->id)],
             'password'  => 'nullable|string|min:8|confirmed',
-            'rol'       => 'required|in:admin,ventas,produccion',
+            'rol'       => 'required|in:admin,ventas,produccion,instalador',
             'modulos'   => 'nullable|array',
             'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
         ]);

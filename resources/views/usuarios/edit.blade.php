@@ -31,7 +31,7 @@
         <div class="gfg mb-0">
             <label class="glabel">Rol *</label>
             <select name="rol" class="gselect" required>
-                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción'] as $val => $lbl)
+                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción','instalador'=>'Instalador / Colocador'] as $val => $lbl)
                     <option value="{{ $val }}" {{ old('rol', $usuario->rol) === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                 @endforeach
             </select>

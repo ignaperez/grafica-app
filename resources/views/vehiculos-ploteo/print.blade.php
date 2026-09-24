@@ -211,7 +211,8 @@
             if ($vehiculo->presupuesto) {
                 $datos['Presupuesto'] = $vehiculo->presupuesto->numeroFormateado();
             }
-            $datos['Cargado'] = $vehiculo->created_at?->format('d/m/Y H:i') ?? '—';
+            $datos['Colocador'] = $vehiculo->instalador->name ?? 'Sin asignar';
+            $datos['Cargado']   = $vehiculo->created_at?->format('d/m/Y H:i') ?? '—';
         @endphp
 
         @foreach($datos as $etiqueta => $valor)

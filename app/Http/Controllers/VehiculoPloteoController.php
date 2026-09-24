@@ -30,7 +30,8 @@ class VehiculoPloteoController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto'])
+        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto', 'instalador'])
+            ->visiblesPara(auth()->user())
             ->when($q !== '', function ($query) use ($q) {
                 $pat = $this->normalizarPatente($q);
                 $query->where(function ($sub) use ($q, $pat) {
@@ -51,7 +52,8 @@ class VehiculoPloteoController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto'])
+        $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto', 'instalador'])
+            ->visiblesPara(auth()->user())
             ->when($q !== '', function ($query) use ($q) {
                 $pat = $this->normalizarPatente($q);
                 $query->where(function ($sub) use ($q, $pat) {
@@ -124,6 +126,7 @@ class VehiculoPloteoController extends Controller
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
             'cliente_id'       => 'nullable|exists:clientes,id',
+            'instalador_id'    => 'nullable|exists:users,id',
             'tipo_ploteo'      => 'required|in:completo,parcial',
             'sector'           => 'nullable|string',
         ]);
@@ -139,6 +142,13 @@ class VehiculoPloteoController extends Controller
                 $data[$campo] = $request->file($campo)
                     ->store('vehiculos', 'public');
             }
+        }
+
+        $data['created_by'] = auth()->id();
+
+        // Si lo carga el propio colocador, queda asignado a él.
+        if (auth()->user()->esInstalador()) {
+            $data['instalador_id'] = auth()->id();
         }
 
         $vehiculo = VehiculoPloteo::create($data);
@@ -173,13 +183,44 @@ class VehiculoPloteoController extends Controller
         return $data;
     }
 
+    /**
+     * El instalador solo entra a lo suyo. Devuelve 403 en vez de 404 a propósito:
+     * el vehículo existe, simplemente no es de él.
+     */
+    private function verificarAcceso(VehiculoPloteo $vehiculo): void
+    {
+        $user = auth()->user();
+
+        if (! $user || ! $user->esInstalador()) {
+            return;
+        }
+
+        abort_unless(
+            $vehiculo->instalador_id === $user->id || $vehiculo->created_by === $user->id,
+            403,
+            'Este vehículo no está asignado a vos.'
+        );
+    }
+
     public function show(VehiculoPloteo $vehiculosPloteo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
         return view('vehiculos-ploteo.show', ['vehiculo' => $vehiculosPloteo->load(['orden.cliente', 'cliente', 'presupuesto'])]);
     }
 
     public function edit(VehiculoPloteo $vehiculosPloteo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
+        // El colocador tiene su propia pantalla: fotos, referencias y
+        // comentarios. Nada de patente, cliente, orden ni asignación.
+        if (auth()->user()->esInstalador()) {
+            $vehiculosPloteo->load('referencias');
+
+            return view('vehiculos-ploteo.edit-instalador', ['vehiculo' => $vehiculosPloteo]);
+        }
+
         $ordenes  = OrdenTrabajo::with('cliente')
             ->whereIn('estado', ['borrador', 'en_produccion'])
             ->orderByDesc('id')
@@ -198,6 +239,25 @@ class VehiculoPloteoController extends Controller
 
     public function update(Request $request, VehiculoPloteo $vehiculosPloteo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
+        // El colocador solo edita fotos, referencias y observaciones: su
+        // formulario ni siquiera trae patente / marca / modelo, así que pedirlos
+        // como required lo dejaría sin poder guardar.
+        if (auth()->user()->esInstalador()) {
+            $data = $request->validate([
+                'observaciones' => 'nullable|string',
+            ]);
+
+            $vehiculosPloteo->update($data);
+
+            $this->guardarFotos($request, $vehiculosPloteo);
+            $this->guardarReferencias($request, $vehiculosPloteo);
+
+            return redirect()->route('vehiculos-ploteo.show', $vehiculosPloteo->id)
+                ->with('success', 'Vehículo actualizado.');
+        }
+
         $data = $request->validate([
             'patente'          => 'required|string|max:20',
             'marca_id'         => 'required|exists:marcas,id',
@@ -206,6 +266,7 @@ class VehiculoPloteoController extends Controller
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
             'cliente_id'       => 'nullable|exists:clientes,id',
+            'instalador_id'    => 'nullable|exists:users,id',
             'tipo_ploteo'      => 'required|in:completo,parcial',
             'sector'           => 'nullable|string',
         ]);
@@ -235,6 +296,9 @@ class VehiculoPloteoController extends Controller
 
     public function destroy(VehiculoPloteo $vehiculosPloteo)
     {
+        // Eliminar un vehículo no es tarea del colocador.
+        abort_if(auth()->user()->esInstalador(), 403);
+
         $vehiculosPloteo->delete();
 
         return redirect()->route('vehiculos-ploteo.index')
@@ -246,6 +310,32 @@ class VehiculoPloteoController extends Controller
      * (Los archivos viven en storage/tenant{id}/... y el symlink /storage
      * central no los alcanza → se sirven por ruta de la app, detrás de login.)
      */
+    /**
+     * Guarda las fotos fijas (antes / después) que vengan en el request,
+     * reemplazando la anterior si había. Lo usa la edición del colocador, que
+     * es justamente para eso.
+     */
+    private function guardarFotos(Request $request, VehiculoPloteo $vehiculo): void
+    {
+        $cambios = [];
+
+        foreach (array_merge(self::FOTOS, self::ARCHIVOS) as $campo) {
+            if (! $request->hasFile($campo)) {
+                continue;
+            }
+
+            if ($vehiculo->$campo) {
+                Storage::disk('public')->delete($vehiculo->$campo);
+            }
+
+            $cambios[$campo] = $request->file($campo)->store('vehiculos', 'public');
+        }
+
+        if ($cambios) {
+            $vehiculo->update($cambios);
+        }
+    }
+
     /**
      * Guarda las imágenes / archivos de referencia que vengan en el request.
      * Son varios: el que plotea necesita frente, lateral, detalle del logo, etc.
@@ -281,9 +371,36 @@ class VehiculoPloteoController extends Controller
         }
     }
 
+    /**
+     * Buscador de colocadores para el Select2 de asignación.
+     * Solo usuarios con rol instalador; el propio instalador no asigna.
+     */
+    public function instaladores(Request $request)
+    {
+        abort_if(auth()->user()->esInstalador(), 403);
+
+        $q = trim((string) $request->q);
+
+        $users = \App\Models\User::where('rol', 'instalador')
+            ->when($q !== '', fn ($query) => $query->where(function ($sub) use ($q) {
+                $sub->where('name', 'like', '%' . $q . '%')
+                    ->orWhere('email', 'like', '%' . $q . '%');
+            }))
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name', 'email']);
+
+        return response()->json($users->map(fn ($u) => [
+            'id'   => $u->id,
+            'text' => $u->name . ' · ' . $u->email,
+        ]));
+    }
+
     /** Ficha A4 del vehículo para el taller: todos los datos, referencias y fotos. */
     public function print(VehiculoPloteo $vehiculosPloteo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
         $vehiculosPloteo->load(['cliente', 'presupuesto', 'orden', 'referencias']);
 
         return view('vehiculos-ploteo.print', ['vehiculo' => $vehiculosPloteo]);
@@ -292,6 +409,8 @@ class VehiculoPloteoController extends Controller
     /** Sirve una referencia desde el storage del tenant (ver VehiculoArchivo::url). */
     public function archivo(VehiculoArchivo $archivo)
     {
+        $this->verificarAcceso($archivo->vehiculo);
+
         abort_if(! $archivo->ruta || ! Storage::disk('public')->exists($archivo->ruta), 404);
 
         return Storage::disk('public')->response($archivo->ruta, $archivo->nombre_original);
@@ -299,6 +418,8 @@ class VehiculoPloteoController extends Controller
 
     public function destroyArchivo(VehiculoArchivo $archivo)
     {
+        $this->verificarAcceso($archivo->vehiculo);
+
         $vehiculoId = $archivo->vehiculo_ploteo_id;
         $archivo->delete();
 
@@ -308,6 +429,8 @@ class VehiculoPloteoController extends Controller
 
     public function foto(VehiculoPloteo $vehiculosPloteo, string $campo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
         abort_unless(in_array($campo, array_merge(self::FOTOS, self::ARCHIVOS), true), 404);
 
         $ruta = $vehiculosPloteo->$campo;
@@ -336,6 +459,8 @@ class VehiculoPloteoController extends Controller
 
     public function destroyFoto(Request $request, VehiculoPloteo $vehiculosPloteo)
     {
+        $this->verificarAcceso($vehiculosPloteo);
+
         $todos  = array_merge(self::FOTOS, self::ARCHIVOS);
         $campo  = $request->validate(['campo' => 'required|in:' . implode(',', $todos)])['campo'];
 

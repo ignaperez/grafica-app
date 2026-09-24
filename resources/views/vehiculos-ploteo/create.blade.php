@@ -148,6 +148,8 @@
                     </select>
                     @error('cliente_id')<div class="gerr">{{ $message }}</div>@enderror
                 </div>
+
+                @include('vehiculos-ploteo._instalador-field', ['asignado' => null])
             </div>
         </div>
 
@@ -195,6 +197,28 @@
 </form>
 
 @include('vehiculos-ploteo._marca-modelo-modals')
+
+{{-- Buscador de colocadores --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.jQuery || !$('#sel-instalador').length) return;
+    $('#sel-instalador').select2({
+        ajax: {
+            url: '{{ route("vehiculos-ploteo.instaladores") }}',
+            dataType: 'json',
+            delay: 250,
+            data:           params => ({ q: params.term }),
+            processResults: data   => ({ results: data }),
+            cache: true,
+        },
+        minimumInputLength: 0,
+        allowClear: true,
+        placeholder: '— Sin asignar —',
+        width: '100%',
+    });
+});
+</script>
+
 @endsection
 
 @section('scripts')
