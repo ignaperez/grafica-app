@@ -29,13 +29,17 @@ composer run dev             # inicia server + queue + logs + vite juntos
 
 ## Roles de usuario
 
-Campo `users.rol` (string). Tres valores posibles:
+Campo `users.rol` (string). Cuatro valores posibles:
 
 | Rol | Acceso |
 |---|---|
 | `admin` | Todo |
-| `ventas` | Órdenes, trabajos, clientes, configuración (tipos/materiales/máquinas) |
-| `produccion` | Solo producción (muy limitado por ahora) |
+| `ventas` | Órdenes, vehículos, clientes, presupuestos, facturas, remitos, servicios |
+| `produccion` | Órdenes / trabajos + vehículos |
+| `instalador` | **Solo vehículos, y solo los que tiene asignados** (colocador tercerizado) |
+
+> El rol es la **plantilla**; el acceso fino lo da `users.modulos`. Ver
+> "Permisos por módulo" y "Rol instalador".
 
 **Middleware:** `RolMiddleware` → se usa en rutas como `['auth', 'rol:admin,ventas']`
 
@@ -749,10 +753,11 @@ central** (`plote.ar/super-admin`, que gestiona empresas) — esto es por-empres
 NO editable por UI (queda fijo; para transferirlo, cambiar `es_super` a mano en DB).
 
 **Permisos por módulo:** `users.modulos` (JSON con las keys habilitadas). Const
-`User::MODULOS` (10: ordenes, clientes, presupuestos, facturas, remitos, seguimiento, servicios,
-configuracion, rrhh, papelera). `User::modulosPorRol($rol)` = plantilla default (admin=todos,
-ventas=ordenes/clientes/presupuestos/facturas/remitos/servicios, produccion=ordenes). Helpers
-`esSuper()`, `puedeModulo($k)`.
+`User::MODULOS` (11: ordenes, **vehiculos**, clientes, presupuestos, facturas, remitos,
+seguimiento, servicios, configuracion, rrhh, papelera). `User::modulosPorRol($rol)` = plantilla
+default (admin=todos, ventas=ordenes/vehiculos/clientes/presupuestos/facturas/remitos/servicios,
+produccion=ordenes/vehiculos, instalador=vehiculos). Helpers `esSuper()`, `puedeModulo($k)`,
+`esInstalador()`.
 
 **Enforcement:** `ModuloAccessMiddleware` (alias `modulo.access`, aplicado al grupo externo de
 `routes/tenant.php`) mapea el **nombre de ruta → módulo** (`self::MAPA`) y bloquea si el usuario
@@ -1140,6 +1145,210 @@ exento es el comprador, no la venta. La condición del cliente define solo la **
 
 **Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
 
+## Producción — la OT no mostraba el cliente + limpieza de rutas (2026-09-23)
+
+**La OT no mostraba el cliente en NINGUNA vista** (show, index, print, trabajos): salía `-`.
+
+La tabla `orden_trabajos` arrastraba una columna de texto **`cliente`** (varchar, legacy) al lado
+de la FK `cliente_id`. En Eloquent los **atributos le ganan a las relaciones**, así que
+`$orden->cliente` devolvía esa columna —vacía en todas las filas de todos los tenants— en vez del
+Cliente relacionado. Ni el eager loading la salvaba, y el `withDefault(['nombre' => 'Sin
+especificar'])` tampoco llegaba a actuar porque la relación nunca se consultaba. Ver **gotcha 18**.
+
+Los datos nunca se perdieron: las OTs siempre tuvieron su `cliente_id` correcto. Era solo la
+lectura. Se eliminó la columna (migración `2026_09_23_000001`, tenant + central).
+
+**Editor inline del show:** al tocar "✎ Editar" el cliente desaparecía de la pantalla y no había
+NINGUNA pantalla viva para corregirlo (`edit()` solo redirigía al show, y
+`ordenes-trabajo/edit.blade.php` —que sí tiene el selector— está muerto). Ahora el form inline
+tiene selector de Cliente (Select2 AJAX a `clientes.search`) y `updateMetadata()` lo guarda.
+Además dejó de borrar `fecha_recibido` cuando el campo viene vacío.
+
+**Asignar trabajos a una orden existente** pedía el NÚMERO DE ORDEN a mano en un input numérico.
+Ahora es un selector que se arma solo con las órdenes del MISMO cliente que los trabajos tildados
+(`Orden #16 · CLIENTE · 23/09/2026 · borrador`), y solo las abiertas
+(borrador / en_produccion / lista). Las órdenes van todas al navegador y se filtran ahí porque la
+selección de trabajos es dinámica. **El armado de las etiquetas se hace en el controller**:
+`@json()` de Blade parte su argumento por comas y una expresión compleja lo rompe.
+
+**Baja de `edit()` y `update()` de `OrdenTrabajoController`** (y del `Route::resource`, con
+`->except(['edit','update'])`). `update()` era código muerto **pero ruteado**, y borraba los
+trabajos de la orden que no vinieran en el request: una mina para el día que alguien reviviera esa
+pantalla. El único link vivo (botón "Editar" del listado, que redirigía al show) se eliminó.
+
+> El listado de OTs sigue viviendo en la carpeta VIEJA `resources/views/ordenes/index.blade.php`
+> (Bootstrap, no el tema oscuro). Blades huérfanos pendientes de limpieza: `ordenes-test`,
+> `ordenes/create*`, `ordenes/edit`, `ordenes-trabajo/edit`, `ordenes-trabajo_create`,
+> `ordenes-trabajo_trabajos`.
+
+## Producción — la OT muestra e imprime TODO (2026-09-23)
+
+Ver una orden mostraba un resumen recortado de cada trabajo. Faltaban unidad, largo, medidas de
+texto, fecha de carga, servicio, cliente del trabajo y la descripción completa; y los archivos
+para imprimir iban como lista de nombres, sin miniatura.
+
+**Medidas según la unidad** (helpers nuevos en `Trabajo`, compartidos por pantalla e impresión).
+Las dos vistas hacían `ancho × alto × cantidad` SIEMPRE, así que un trabajo por metro lineal o por
+unidad mostraba un total inventado:
+
+| unidad | ejemplo | total |
+|---|---|---|
+| m2 | 2 m × 1,5 m × 3 | 9,00 m² |
+| ml | 4 m × 2 | 8,00 ml |
+| unidad | — × 5 | 5 u. |
+
+`unidadLabel()`, `medidaUnitariaTexto()`, `medidaTotal()`, `medidaTotalTexto()`.
+
+Cada trabajo muestra ahora tipo, material, máquina, servicio, unidad, medidas, medidas de texto
+(legacy), cantidad, total, fecha de carga, entrega, cliente —solo si difiere del de la orden— y la
+descripción completa respetando saltos de línea.
+
+**Archivos:** referencias Y archivos para imprimir, los dos en grilla de miniaturas con nombre y
+peso. `TrabajoArchivo::$es_imagen` y `$extension` reemplazan el `pathinfo` repetido en cada vista.
+En la hoja A4 las miniaturas llevan rótulo y `page-break-inside: avoid`.
+
+`show()` y `print()` suman `trabajos.producto` y `trabajos.cliente` al eager loading: la OT
+completa renderiza en 6 consultas.
+
+## Facturación — factura acreditada por nota de crédito (2026-09-23)
+
+El estado de cobro se derivaba solo de Σ cobros vs `imp_total`, así que una factura acreditada por
+una NC quedaba **"Pendiente" para siempre** e inflaba el "Por cobrar" del listado y del dashboard.
+
+- `Factura::notasCredito()` — las NC emitidas contra esa factura. **El vínculo no es una FK**: la
+  NC guarda `nc_tipo + nc_pto_vta + nc_nro` (lo mismo que se informa a ARCA en `CbtesAsoc`).
+  Se memoiza por instancia.
+- `totalAcreditado()` — suma de esas NC. Las anuladas no cuentan y una NC no se acredita a sí misma.
+- `saldoPendiente()` = `imp_total − cobrado − acreditado` (piso en 0).
+- `estadoCobro()` suma el estado **`acreditada`** (azul), distinto de `cobrada`: no entró plata, se
+  anuló el comprobante. La diferencia es la que sirve para auditar después.
+
+En el listado el botón "Cobrar" y el "resta $X" dependen del **saldo real** en vez del estado, así
+que desaparecen solos en una factura acreditada.
+
+| caso | estado | saldo |
+|---|---|---|
+| sin nada | Pendiente | 100.000 |
+| NC por el total | **Acreditada** | 0 |
+| NC parcial 40k | Parcial | 60.000 |
+| cobro 60k + NC 40k | Cobrada | 0 |
+| NC anulada | Pendiente | 100.000 |
+
+## Vehículos — referencias múltiples, ficha imprimible y navegación (2026-09-24)
+
+**Varias referencias por vehículo.** El que plotea necesita ver frente, lateral, detalle del logo,
+el arte… y el vehículo aceptaba UNA sola (columna `refe`, un archivo, input sin `multiple`).
+- Tabla **`vehiculo_archivos`** (tenant + central, SoftDeletes), mismo patrón que
+  `trabajo_archivos`. Migración `2026_09_24_000001` con **backfill** de la `refe` ya cargada; la
+  columna se conserva con su valor y la ficha la sigue mostrando como respaldo si no hay filas.
+- **`VehiculoArchivo`** con `url`, `es_imagen`, `extension`, `tamanio_formateado`. La url va por
+  **ruta de la app** (`vehiculos-ploteo.archivo`), no por `Storage::url()` — ver el gotcha de
+  storage multi-tenant en la sección de fichaje.
+- Alta y edición aceptan varias a la vez (`referencias[]`); en editar se ven las ya cargadas con
+  su botón de quitar. **La validación de los archivos va aparte del `validate()` principal**: si
+  entrara ahí, la clave caería en `$data` y el `create()` fallaría por mass assignment.
+
+**La ficha (Ver)** muestra las referencias en grilla de miniaturas **arriba de las fotos
+antes/después** (es el orden en que las necesita el colocador); en el teléfono baja a 2 columnas.
+Las imágenes abren en lightbox, el resto muestra un recuadro con la extensión.
+
+**Ficha imprimible A4** (`vehiculos-ploteo.print`, vista standalone con botones Imprimir/Cerrar
+igual que la de OT): patente grande, datos, observaciones, referencias en grande (48mm,
+`object-fit: contain` para no recortar el arte) y las fotos antes/después.
+
+**Anterior / siguiente** arriba de la card, cada uno con la patente del destino. Sigue el MISMO
+orden del listado (id desc, así que "Anterior" es la fila de arriba) y se resuelve con
+`visiblesPara()`: **un colocador se mueve solo entre los suyos y saltea los ajenos**, en vez de
+chocar con un 403 al navegar. En los extremos el link queda apagado, no desaparece (si no, la
+barra cambia de alto entre fichas). Las flechas ← → del teclado hacen lo mismo, salvo que el foco
+esté en un input/textarea/select.
+
+**Terminado explícito** (`vehiculo_ploteos.terminado_at`, migración `2026_09_24_000003`). Antes se
+deducía de tener alguna foto del después — servía como aproximación pero no es lo mismo (se
+pueden subir fotos a mitad del trabajo, o terminar uno sin sacar las cuatro). Se guarda la FECHA en
+vez de un booleano: además de saber si está terminado queda cuándo. `terminado()` =
+`terminado_at !== null`; scopes `terminados()` / `pendientes()`. Botón ✓ Terminado / ↩ Reabrir
+(partial `_terminado-boton`), lo usan tanto el colocador como producción. La migración backfillea
+lo que ya figuraba como terminado.
+
+## Rol instalador — colocación tercerizada (2026-09-24)
+
+La colocación vehicular se terceriza: producción carga el vehículo y se lo **asigna a un
+colocador**, que entra con su usuario, ve solo lo suyo y sube las fotos del antes y del después.
+
+**Módulo `vehiculos` separado de `ordenes`.** Las rutas de vehículos pedían el módulo `ordenes`,
+así que dárselo a un instalador le abriría también órdenes de trabajo y trabajos. La migración
+`2026_09_24_000002` backfillea `vehiculos` a todo usuario que ya tenía `ordenes`: **nadie pierde el
+acceso que tenía**.
+
+Entra al grupo `rol:admin,ventas,produccion,instalador` de `routes/tenant.php` y el módulo lo
+acota — el diseño de siempre: el rol es la plantilla, el módulo restringe.
+
+- **`vehiculo_ploteos.instalador_id`** y **`.created_by`**. Si el vehículo lo carga el propio
+  colocador, queda asignado a él.
+- **`scopeVisiblesPara($user)`** acota listado y exportación a `instalador_id` o `created_by`
+  propios. Para el resto no cambia nada.
+- **`verificarAcceso()`** corta con **403** —no 404: el vehículo existe, no es suyo— en show, edit,
+  update, print, foto, destroyFoto y los archivos de referencia.
+- **Pantalla propia** `vehiculos-ploteo/edit-instalador.blade.php`: datos del vehículo en solo
+  lectura, las referencias para mirar, las 8 fotos para subir y un campo de comentarios.
+- **`update()` se bifurca**: al instalador le valida SOLO `observaciones`. Si no, el `required` de
+  patente/marca/modelo —campos que su formulario ni trae— lo dejaría sin poder guardar.
+  Verificado que inyectar `patente` en el request no la cambia.
+- No puede borrar vehículos ni asignar colocadores (403 en ambos).
+
+**Asignación:** Select2 con búsqueda AJAX (`vehiculos-ploteo.instaladores`, solo usuarios con rol
+instalador). Partial `_instalador-field`, se ve en alta y edición, nunca para el propio instalador.
+El colocador asignado aparece en la ficha, en la ficha imprimible y en una columna del listado.
+
+**Tablero propio.** Después del login todos caen en `inicio`, y el reparto era
+`produccion ? inicio-produccion : inicio-ventas` — el instalador terminaba en **la vista de
+ventas**. Ahora `inicio()` corta antes y devuelve `inicio-instalador`: se corta ANTES de calcular
+los números de órdenes, entregas y m², así que esos datos ni se consultan. `/dashboard` lo redirige
+a `inicio`. El tablero tiene asignados / pendientes / terminados, la lista de pendientes —cada uno
+linkeado directo a cargar fotos— y los últimos terminados. Pensado para el teléfono.
+
+En el sidebar el colocador ve **solo Inicio y Vehículos**.
+
+## Vehículos ↔ presupuesto — desmarcar y N° en el badge (2026-09-24)
+
+Seleccionando varios vehículos y **borrando una fila** en el formulario del presupuesto, el
+vehículo borrado quedaba igual marcado como presupuestado: los ids viajaban en inputs ocultos a
+nivel del FORMULARIO (`vehiculo_ids[]`), sueltos de las filas, y `store()` los marcaba todos con un
+`whereIn` sin mirar qué ítems habían sobrevivido.
+
+Ahora el vínculo viaja **dentro de la fila** (`items[i][vehiculo_id]`, hidden en el template de
+`presupuestos/create`): al borrar la fila el id se va con ella, y `store()` junta los ids de los
+ítems que efectivamente llegaron. `syncItems()` elige sus campos uno por uno, así que la clave
+extra en el ítem no lo afecta.
+
+> **Alcance:** esto cubre la CREACIÓN. Si después se edita un presupuesto guardado y se le borra un
+> ítem, el vehículo sigue marcado — el `presupuesto_items` no guarda a qué vehículo correspondía la
+> línea. Para ese caso está el botón **✕ Presup.** del listado, que desmarca a mano.
+
+El badge del listado pasa de "✓ Presup." genérico a mostrar el número, **"✓ P-0025"**, linkeado al
+presupuesto (`numeroFormateado()`, el mismo formato del resto de la app).
+
+## Usuarios — el navegador autocompletaba la clave del admin (2026-09-24)
+
+Al abrir "Nuevo usuario", el email y la contraseña aparecían con los datos del administrador
+logueado. El gestor de contraseñas del navegador toma el formulario por un login —tiene email +
+password— y lo autocompleta.
+
+**NO había fuga:** el servidor manda esos campos vacíos (verificado sobre el HTML renderizado:
+`value=""` en email, sin `value` en las claves, y ni el email ni el hash aparecen en la página).
+El riesgo real es otro: si no se mira, **se crea (o peor, se edita) un usuario con la contraseña
+del administrador** sin que nadie se entere.
+
+Dos capas:
+- `autocomplete="off"` en los dos formularios y en el email, y **`autocomplete="new-password"`** en
+  las cuatro entradas de contraseña — es lo único que Chrome respeta de verdad para no ofrecer una
+  clave guardada.
+- **`UserController::rechazarSiEsMiPropiaClave()`**: si la contraseña que llega es la del usuario
+  logueado (`Hash::check` contra su propio hash), se rechaza con un mensaje que explica qué pasó.
+  El `autocomplete` es una sugerencia que el navegador puede ignorar; esto lo corta del lado del
+  servidor. Corre en alta y en edición.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -1160,3 +1369,4 @@ exento es el comprador, no la venta. La condición del cliente define solo la **
 
 16. **Cache en contexto tenant — NUNCA usar la facade `Cache` directo:** con tenancy inicializada el binding `cache` **no** es el `CacheManager` de Laravel sino `Stancl\Tenancy\CacheManager`, cuyo `__call()` reescribe cualquier método no declarado como `->tags([...])->metodo(...)`. Como en Laravel 12 `Illuminate\Cache\DatabaseStore` **dejó de extender `TaggableStore`**, un `Cache::put()` / `Cache::get()` / `Cache::lock()` ahí tira `BadMethodCallException: This cache store does not support tagging`. Usar **`Cache::store(config('cache.default'))`** — `store()` sí está declarado en el manager, así que esquiva el `__call` y devuelve un `Repository` normal (ver `FacturaController::cacheRepo()`). La aislación por empresa no se pierde: `cache`/`cache_locks` viven en la DB del tenant y además va el prefijo de cache. **Esto muerde en silencio si se envuelve en try/catch:** el candado anti doble-emisión quedó siendo un no-op hasta que se detectó.
 17. **`<select>` con un value que no existe entre sus `<option>`:** el navegador selecciona la **primera opción**, sin error. Pasó con el tipo de comprobante: una NC precargada con tipo 13 (NC-C) sobre un emisor RI — que solo ofrece 1/6/3/8 — dejaba el select en **Factura A**, ocultaba el bloque de NC y se podía emitir una factura real creyendo emitir una nota de crédito. Al precargar un tipo por `old()`, validar en el controller que esté entre los ofrecidos.
+18. **Una columna con el mismo nombre que una relación la TAPA:** en Eloquent los atributos le ganan a las relaciones, así que si la tabla tiene una columna `cliente` y el modelo tiene `cliente()`, `$modelo->cliente` devuelve **la columna**, no el Cliente. Ni el eager loading ni el `withDefault()` cambian eso: la relación nunca se consulta. Pasó con `orden_trabajos.cliente` (varchar legacy vacía al lado de `cliente_id`) y la OT no mostró el cliente en ninguna vista durante meses. Para detectarlo: buscar tablas que tengan `X` y `X_id` a la vez. En `vehiculo_ploteos` conviven `marca`/`marca_id` y `modelo`/`modelo_id` **a propósito** — por eso esas relaciones se llaman `marcaRel()` / `modeloRel()`.
