@@ -72,10 +72,22 @@
                         {{ $v->patente }}
                     </span>
                     @if($v->presupuestado())
-                        <span title="Presupuestado{{ $v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : ' (manual)' }}"
-                              style="margin-left:6px;display:inline-flex;align-items:center;gap:3px;
-                                     background:#1c3a29;color:#3fb96a;font-size:9.5px;font-weight:700;
-                                     padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px">✓ {{ $v->presupuesto?->numeroFormateado() ?? 'Presup.' }}</span>
+                        @php
+                            $badgeTxt   = $v->presupuesto?->numeroFormateado() ?? 'Presup.';
+                            $badgeTit   = 'Presupuestado' . ($v->presupuesto ? ' · '.$v->presupuesto->numeroFormateado() : ' (manual)');
+                            $badgeStyle = 'margin-left:6px;display:inline-flex;align-items:center;gap:3px;'
+                                        . 'background:#1c3a29;color:#3fb96a;font-size:9.5px;font-weight:700;'
+                                        . 'padding:2px 6px;border-radius:10px;vertical-align:middle;letter-spacing:.3px';
+                        @endphp
+                        {{-- Link al presupuesto solo si hay uno vinculado y el usuario tiene el módulo
+                             (la marca manual no tiene a dónde ir). Mismo criterio que la ficha. --}}
+                        @if($puedePresu && $v->presupuesto_id)
+                            <a href="{{ route('presupuestos.show', $v->presupuesto_id) }}"
+                               title="Ver presupuesto {{ $badgeTit }}"
+                               style="{{ $badgeStyle }};text-decoration:none">✓ {{ $badgeTxt }}</a>
+                        @else
+                            <span title="{{ $badgeTit }}" style="{{ $badgeStyle }}">✓ {{ $badgeTxt }}</span>
+                        @endif
                     @endif
                 </td>
                 <td>
