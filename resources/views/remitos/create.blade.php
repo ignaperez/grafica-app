@@ -214,6 +214,35 @@
                 </div>
                 @error('tipo')<div class="gerr">{{ $message }}</div>@enderror
             </div>
+
+            {{-- Talonario + número fiscal (solo remito oficial) --}}
+            <div id="bloque-oficial" style="display:none;border:1px solid var(--bm);border-radius:8px;padding:12px;margin-bottom:12px;background:#0d0d0d">
+                <div class="gfg">
+                    <label class="glabel">Talonario (CAI)</label>
+                    <select name="remito_cai_id" class="gselect" id="sel-cai">
+                        <option value="">Automático — el vigente para la fecha</option>
+                        @foreach($cais as $c)
+                            <option value="{{ $c->id }}" {{ (string) old('remito_cai_id') === (string) $c->id ? 'selected' : '' }}>
+                                CAI {{ $c->codigo }} · PV {{ str_pad($c->punto_venta, 4, '0', STR_PAD_LEFT) }}
+                                · {{ $c->numero_desde }}–{{ $c->numero_hasta }}
+                                · vence {{ $c->vencimiento->format('d/m/Y') }}{{ $c->activo ? '' : ' · inactivo' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('remito_cai_id')<div class="gerr">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="gfg" style="margin-bottom:0">
+                    <label class="glabel">N° fiscal del remito</label>
+                    <input type="number" name="numero_fiscal_manual" class="ginput" min="1"
+                        id="inp-numero-fiscal" placeholder="auto"
+                        value="{{ old('numero_fiscal_manual') }}">
+                    <div class="txd" style="font-size:11px;margin-top:3px" id="fiscal-info">
+                        Escribí el número del talonario de papel. Dejá vacío para el siguiente automático.
+                    </div>
+                    @error('numero_fiscal_manual')<div class="gerr">{{ $message }}</div>@enderror
+                </div>
+            </div>
             @else
             {{-- Producción solo puede hacer internos --}}
             <input type="hidden" name="tipo" value="interno">
@@ -333,38 +362,76 @@
     }
     actualizarNroSugerido();
 
-    // ── CAI vigente según la FECHA del remito (no solo hoy) ──────────────
+    // ── Talonarios CAI ───────────────────────────────────────────────────
     var cais = [
         @foreach($cais as $c)
-        { venc: '{{ $c->vencimiento->toDateString() }}', pv: {{ $c->punto_venta }}, prox: {{ $c->ultimo_numero + 1 }}, hasta: {{ $c->numero_hasta }} },
+        { id: {{ $c->id }}, venc: '{{ $c->vencimiento->toDateString() }}', pv: {{ $c->punto_venta }},
+          desde: {{ $c->numero_desde }}, hasta: {{ $c->numero_hasta }},
+          prox: {{ $c->ultimo_numero + 1 }}, activo: {{ $c->activo ? 'true' : 'false' }} },
         @endforeach
     ];
+
+    function caiPorId(id) {
+        for (var i = 0; i < cais.length; i++) {
+            if (String(cais[i].id) === String(id)) return cais[i];
+        }
+        return null;
+    }
 
     // Mismo criterio que el server (vigenteParaFecha): activo + venc >= fecha
     // + con stock, ya vienen ordenados por id desc.
     function caiParaFecha(fecha) {
         for (var i = 0; i < cais.length; i++) {
-            if (cais[i].venc >= fecha && cais[i].prox <= cais[i].hasta) return cais[i];
+            if (cais[i].activo && cais[i].venc >= fecha && cais[i].prox <= cais[i].hasta) return cais[i];
         }
         return null;
     }
 
+    // El talonario que se va a usar: el elegido a mano, o el vigente para la fecha.
+    function caiElegido() {
+        var id = $('#sel-cai').val();
+        return id ? caiPorId(id) : caiParaFecha($('input[name="fecha"]').val() || '');
+    }
+
     function actualizarLabelOficial() {
-        var fecha = $('input[name="fecha"]').val() || '';
-        var c = caiParaFecha(fecha);
+        var c = caiElegido();
+
         if (c) {
             $('#oficial-info').html('PV ' + String(c.pv).padStart(4, '0') + ' · nro ' + c.prox)
                               .css('color', 'var(--txd)');
+            $('#inp-numero-fiscal')
+                .attr('placeholder', 'auto (' + c.prox + ')')
+                .attr('min', c.desde)
+                .attr('max', c.hasta);
+            $('#fiscal-info').html(
+                'Rango autorizado: <b>' + c.desde + '–' + c.hasta + '</b>' +
+                ' · próximo automático: <b>' + c.prox + '</b>. Dejá vacío para usar ese.'
+            );
         } else {
             $('#oficial-info').html('<span style="color:var(--ac)">Sin CAI para esa fecha</span>');
+            $('#inp-numero-fiscal').attr('placeholder', 'auto').removeAttr('min').removeAttr('max');
+            $('#fiscal-info').html(
+                '<span style="color:var(--ac)">No hay talonario vigente para esa fecha: elegí uno arriba.</span>'
+            );
         }
     }
+
+    // El talonario y el N° fiscal solo aplican al remito oficial.
+    function actualizarBloqueOficial() {
+        var esOficial = $('input[name="tipo"]:checked').val() === 'oficial';
+        $('#bloque-oficial').toggle(esOficial);
+        if (esOficial) actualizarLabelOficial();
+    }
+
     actualizarLabelOficial();
+    actualizarBloqueOficial();
     $(document).on('change', 'input[name="fecha"]', actualizarLabelOficial);
+    $(document).on('change', '#sel-cai', actualizarLabelOficial);
 
     // ── Selector tipo remito ─────────────────────────────────────────────
     $(document).on('change', '.tipo-radio', function () {
         actualizarNroSugerido();
+        actualizarBloqueOficial();
         $('.tipo-radio').each(function () {
             const lbl = $(this).closest('label');
             if ($(this).is(':checked')) {

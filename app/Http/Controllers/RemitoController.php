@@ -47,13 +47,15 @@ class RemitoController extends Controller
         $puedeOficial = in_array($rol, ['admin', 'ventas']);
         $caiVigente   = $puedeOficial ? RemitoCai::vigente() : null;
 
-        // CAIs utilizables (activos, con stock) para resolver la vigencia por
-        // fecha del remito en el front (no solo contra hoy).
+        // Talonarios CAI cargados (no archivados). Van TODOS para que se pueda
+        // elegir a mano cuál usar; el front marca cuál es el vigente para la
+        // fecha elegida y arma el número sugerido de cada uno.
         $cais = $puedeOficial
-            ? RemitoCai::where('activo', true)
-                ->whereRaw('ultimo_numero < numero_hasta')
-                ->orderByDesc('id')
-                ->get(['id', 'punto_venta', 'vencimiento', 'ultimo_numero', 'numero_hasta'])
+            ? RemitoCai::orderByDesc('id')
+                ->get([
+                    'id', 'codigo', 'punto_venta', 'vencimiento', 'activo',
+                    'numero_desde', 'numero_hasta', 'ultimo_numero',
+                ])
             : collect();
 
         // Remito electrónico disponible si hay PV REM configurado
@@ -73,6 +75,8 @@ class RemitoController extends Controller
             'cliente_id'           => 'required|exists:clientes,id',
             'fecha'                => 'required|date',
             'numero_manual'        => 'nullable|integer|min:1',
+            'remito_cai_id'        => 'nullable|exists:remito_cais,id',
+            'numero_fiscal_manual' => 'nullable|integer|min:1',
             'tipo'                 => 'required|in:interno,oficial,electronico',
             'observaciones'        => 'nullable|string',
             'items'                => 'required|array|min:1',
@@ -135,23 +139,68 @@ class RemitoController extends Controller
         }
 
         // ── Asignar CAI si es oficial (papel) ────────────────────────────
-        // La vigencia se evalúa contra la FECHA del remito (no contra hoy),
-        // así un remito fechado el día 4 usa el CAI que vencía el día 4.
         if ($tipo === 'oficial') {
-            $cai = RemitoCai::vigenteParaFecha($request->fecha);
-            if (!$cai) {
-                return back()->withInput()->with('error',
-                    'No hay ningún CAI válido para la fecha ' .
-                    \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') .
-                    ' con números disponibles. Revisá la fecha del remito o cargá/activá el CAI correspondiente.'
-                );
+            // Talonario: el elegido a mano manda. Si no se eligió ninguno, el
+            // vigente para la FECHA del remito (no contra hoy), así un remito
+            // fechado el día 4 usa el CAI que vencía el día 4.
+            if ($request->filled('remito_cai_id')) {
+                $cai = RemitoCai::find($request->remito_cai_id);
+                if (!$cai) {
+                    return back()->withInput()->with('error',
+                        'El talonario (CAI) elegido ya no existe. Elegí otro.'
+                    );
+                }
+            } else {
+                $cai = RemitoCai::vigenteParaFecha($request->fecha);
+                if (!$cai) {
+                    return back()->withInput()->with('error',
+                        'No hay ningún CAI válido para la fecha ' .
+                        \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') .
+                        ' con números disponibles. Elegí el talonario a mano, revisá la fecha del remito o cargá/activá el CAI correspondiente.'
+                    );
+                }
             }
-            $nroFiscal = $cai->reservarNumero();
-            if (!$nroFiscal) {
-                return back()->withInput()->with('error',
-                    'El CAI ' . $cai->codigo . ' ya no tiene números disponibles (rango agotado).'
-                );
+
+            // Número fiscal: el que se escribe a mano manda (es el del papel que
+            // se tiene en la mano). Si no viene, el siguiente del talonario.
+            if ($request->filled('numero_fiscal_manual')) {
+                $nroFiscal = (int) $request->numero_fiscal_manual;
+
+                if ($nroFiscal < $cai->numero_desde || $nroFiscal > $cai->numero_hasta) {
+                    return back()->withInput()->with('error',
+                        'El número ' . $nroFiscal . ' está fuera del rango autorizado del CAI ' .
+                        $cai->codigo . ' (' . $cai->numero_desde . ' a ' . $cai->numero_hasta . ').'
+                    );
+                }
+
+                $yaUsado = Remito::withTrashed()
+                    ->where('tipo', 'oficial')
+                    ->where('punto_venta', $cai->punto_venta)
+                    ->where('numero_fiscal', $nroFiscal)
+                    ->exists();
+
+                if ($yaUsado) {
+                    return back()->withInput()->with('error',
+                        'Ya existe un remito oficial con el número ' .
+                        RemitoCai::formatearNumero($cai->punto_venta, $nroFiscal) . '.'
+                    );
+                }
+
+                // Adelantar el contador del talonario para que el próximo
+                // automático siga desde acá. Nunca hacia atrás: los números
+                // anteriores ya se dan por usados.
+                if ($nroFiscal > $cai->ultimo_numero) {
+                    $cai->update(['ultimo_numero' => $nroFiscal]);
+                }
+            } else {
+                $nroFiscal = $cai->reservarNumero();
+                if (!$nroFiscal) {
+                    return back()->withInput()->with('error',
+                        'El CAI ' . $cai->codigo . ' ya no tiene números disponibles (rango agotado).'
+                    );
+                }
             }
+
             $remData = [
                 'remito_cai_id' => $cai->id,
                 'numero_fiscal' => $nroFiscal,
