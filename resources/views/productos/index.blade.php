@@ -29,8 +29,8 @@
                 <tr>
                     <th>Nombre</th>
                     <th>Proceso</th>
-                    <th>Material</th>
                     <th>Unidad</th>
+                    <th style="text-align:right">Precio</th>
                     <th style="text-align:right">M.O.</th>
                     <th>Estado</th>
                     <th style="width:120px"></th>
@@ -46,12 +46,14 @@
                         @endif
                     </td>
                     <td class="txd">{{ $p->tipoTrabajo?->nombre ?? '—' }}</td>
-                    <td class="txd">{{ $p->material?->nombre ?? '—' }}</td>
                     <td>
                         <span class="mono" style="font-size:12px;color:var(--ac)">{{ $p->unidad }}</span>
                     </td>
+                    <td style="text-align:right" class="mono">
+                        {{ $p->precio > 0 ? '$' . number_format($p->precio, 2, ',', '.') : '—' }}
+                    </td>
                     <td style="text-align:right" class="mono txd">
-                        {{ $p->costo_mano_obra > 0 ? '$' . number_format($p->costo_mano_obra, 2) : '—' }}
+                        {{ $p->costo_mano_obra > 0 ? '$' . number_format($p->costo_mano_obra, 2, ',', '.') : '—' }}
                     </td>
                     <td>
                         @if($p->activo)

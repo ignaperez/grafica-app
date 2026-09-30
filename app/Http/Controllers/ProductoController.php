@@ -24,7 +24,7 @@ class ProductoController extends Controller
         $tipoFiltro = $request->input('tipo_trabajo_id');
 
         // Orden: por tipo de proceso (nulls al final) y luego alfabético por nombre
-        $productos = Producto::with(['tipoTrabajo', 'material'])
+        $productos = Producto::with('tipoTrabajo')
             ->leftJoin('tipo_trabajos', 'tipo_trabajos.id', '=', 'productos.tipo_trabajo_id')
             ->when($tipoFiltro, fn ($q) => $q->where('productos.tipo_trabajo_id', $tipoFiltro))
             ->orderByRaw('tipo_trabajos.nombre IS NULL, tipo_trabajos.nombre ASC')
