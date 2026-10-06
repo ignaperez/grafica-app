@@ -1349,6 +1349,68 @@ Dos capas:
   El `autocomplete` es una sugerencia que el navegador puede ignorar; esto lo corta del lado del
   servidor. Corre en alta y en edición.
 
+## Permisos — perfil propio, instalador y módulos que no mentían (2026-09-30)
+
+Revisión del control de acceso. El diseño de dos capas no cambió (**el rol es el techo y el
+módulo recorta; nunca suma**), se arreglaron tres agujeros y se hizo visible la regla.
+
+**1. Nadie que no fuera admin podía cambiar su propia contraseña.** `/profile` estaba dentro del
+grupo `rol:admin` de `routes/tenant.php`, así que ventas, producción y los colocadores no tenían
+pantalla de perfil: dependían de que el admin se la cambiara. Ahora hay un grupo `auth` propio
+(detrás de `modulo.access`, que no mapea `profile.*` → pasa libre). Dos cosas que aparecieron al
+abrirlo:
+- La vista era la de **Breeze** (`<x-app-layout>`, Tailwind + navbar viejo): un vendedor hubiera
+  visto una pantalla blanca de otro sistema. Reescrita con `@extends('layouts.app')` — mis datos
+  + cambiar contraseña. Los errores de la clave van en el bag **`updatePassword`** (así los manda
+  `Auth\PasswordController`), que el layout NO muestra → se renderizan a mano en la vista.
+- **Tenía "eliminar mi cuenta".** Abrirla tal cual le daba a cualquier vendedor un botón para
+  borrarse solo. **`profile.destroy` no se expone** (las bajas se hacen desde Usuarios). Quedaron
+  huérfanos los 3 partials de `views/profile/partials/` y `ProfileController::destroy`, ya sin ruta.
+- No había link a perfil en NINGUNA parte: se agregó **Mi perfil** en el `.s-user` del sidebar.
+
+**2. `RolMiddleware` no conocía el rol `instalador`.** Su `match` por rol tenía admin/ventas/
+produccion y `default => route('login')`, así que un colocador que tocara una URL ajena caía **en
+el login** y le parecía que se le había cerrado la sesión. Ahora es
+`$usuario ? (rol === 'admin' ? dashboard : inicio) : login` → cubre también cualquier rol futuro.
+
+**3. `clientes.debug-padron` estaba en el grupo `auth` suelto**, sin módulo: cualquier logueado
+—incluido un colocador tercerizado— le pegaba. En producción ya devolvía 404 por el
+`abort_unless(config('app.debug'))` del controller, pero ahora además está en `rol:admin,ventas`
++ módulo `clientes`, junto al resto de clientes (defensa en capas, no un solo flag).
+
+**4. Los checkboxes de módulos mentían.** El form ofrecía los 11 módulos para cualquier rol, pero
+4 son letra muerta fuera de admin (sus rutas son `rol:admin`): tildarle "RRHH" a un vendedor
+guardaba contento y no hacía nada. Fuente de verdad nueva **`User::MODULO_ROLES`** — espeja los
+grupos `rol:` de `routes/tenant.php`; **si se mueve un grupo de rutas, actualizarla**.
+
+| módulo | admin | ventas | produccion | instalador |
+|---|---|---|---|---|
+| ordenes · vehiculos · remitos | ✓ | ✓ | ✓ | ✓ |
+| clientes · presupuestos · facturas · servicios · configuracion¹ | ✓ | ✓ | — | — |
+| seguimiento · rrhh · papelera | ✓ | — | — | — |
+
+¹ ventas entra a tipos/materiales/máquinas pero NO a la configuración de la empresa → se avisa
+con `User::MODULO_NOTAS`. Disponibles reales: admin 11, ventas 8, producción 3, instalador 3.
+
+- Helpers: `moduloAplicaA()`, `modulosDisponibles($rol)`, `modulosEfectivos()` (los tildados que
+  ADEMÁS sirven con su rol), `rolesDeModuloLabel()`, `moduloNota()`. `User::ROLES` reemplaza la
+  lista de roles hardcodeada en los selects; `ROLES_CORTO` es para listar roles dentro de un texto
+  separado por " / " (si no, "Instalador / Colocador" se mezcla con el separador).
+- **`usuarios/_modulos.blade`**: los que no aplican salen atenuados + `disabled` + "solo Admin".
+  **El `<span class="mod-nota">` se renderiza SIEMPRE (aunque vacío)** — el JS reescribe su texto
+  al cambiar el rol y si no existe no lo crea.
+- **`usuarios/_modulos-js.blade`** (nuevo, compartido por create y edit; `$pretildar = true` solo
+  en el alta, que además tilda los defaults del rol): repinta la grilla al cambiar el select.
+- **Nada se pierde en silencio:** un checkbox `disabled` no se envía, así que un módulo tildado que
+  el rol nuevo no habilita viaja en un **hidden `data-preserva`** y se recupera si se le vuelve a
+  dar ese rol. Por eso `UserController::modulosDesde()` ahora hace **`array_unique`** (el hidden y
+  el checkbox pueden llegar juntos si el rol cambió en la misma carga).
+- **`usuarios/index`**: el badge dejó de contar crudo. Muestra `modulosEfectivos()` sobre
+  `modulosDisponibles($rol)` → **"2 de 8 módulos · +2 sin efecto"** en vez de "4 de 11". El rol
+  `instalador` ya tiene color y etiqueta propia (antes caía en el gris del `default`).
+
+**Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
