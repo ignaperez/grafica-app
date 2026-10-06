@@ -1411,6 +1411,26 @@ con `User::MODULO_NOTAS`. Disponibles reales: admin 11, ventas 8, producción 3,
 
 **Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
 
+## Servicios — buscador en el listado (2026-10-05)
+
+`productos.index` solo tenía el filtro por Proceso (el `<select>` de la topbar). Con 39 servicios
+cargados en 123ploteos, encontrar uno era scrollear.
+
+- **`ProductoController@index`** toma `?q=` (`trim`) y busca en **`productos.nombre`,
+  `productos.descripcion` y `tipo_trabajos.nombre`** — lo último sale gratis porque el `leftJoin`
+  con `tipo_trabajos` ya estaba ahí para el orden. **Las columnas van calificadas**: con el join,
+  un `where('nombre', ...)` suelto es ambiguo.
+- **Buscador y filtro de Proceso se combinan y no se pisan.** Son **dos `<form method="GET">`
+  separados** (el select vive en `@section('topbar-actions')`, el input en el `content`), así que
+  cada uno lleva el valor del otro en un **hidden** — si no, enviar uno borraba el parámetro del
+  otro. "Limpiar" quita solo `q` y conserva el proceso elegido.
+- **Estado vacío según el caso.** Antes decía "No hay servicios cargados todavía · Crear el
+  primero" incluso con 39 cargados, cuando lo que no matcheaba era la búsqueda. Ahora distingue
+  sin-match-por-q / por-proceso / por-ambos / catálogo realmente vacío, y el contador dice
+  "N resultados para «q»" vs "N registros".
+
+**Sin migración.** Deploy = `git pull` + `php artisan view:clear`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -1432,3 +1452,9 @@ con `User::MODULO_NOTAS`. Disponibles reales: admin 11, ventas 8, producción 3,
 16. **Cache en contexto tenant — NUNCA usar la facade `Cache` directo:** con tenancy inicializada el binding `cache` **no** es el `CacheManager` de Laravel sino `Stancl\Tenancy\CacheManager`, cuyo `__call()` reescribe cualquier método no declarado como `->tags([...])->metodo(...)`. Como en Laravel 12 `Illuminate\Cache\DatabaseStore` **dejó de extender `TaggableStore`**, un `Cache::put()` / `Cache::get()` / `Cache::lock()` ahí tira `BadMethodCallException: This cache store does not support tagging`. Usar **`Cache::store(config('cache.default'))`** — `store()` sí está declarado en el manager, así que esquiva el `__call` y devuelve un `Repository` normal (ver `FacturaController::cacheRepo()`). La aislación por empresa no se pierde: `cache`/`cache_locks` viven en la DB del tenant y además va el prefijo de cache. **Esto muerde en silencio si se envuelve en try/catch:** el candado anti doble-emisión quedó siendo un no-op hasta que se detectó.
 17. **`<select>` con un value que no existe entre sus `<option>`:** el navegador selecciona la **primera opción**, sin error. Pasó con el tipo de comprobante: una NC precargada con tipo 13 (NC-C) sobre un emisor RI — que solo ofrece 1/6/3/8 — dejaba el select en **Factura A**, ocultaba el bloque de NC y se podía emitir una factura real creyendo emitir una nota de crédito. Al precargar un tipo por `old()`, validar en el controller que esté entre los ofrecidos.
 18. **Una columna con el mismo nombre que una relación la TAPA:** en Eloquent los atributos le ganan a las relaciones, así que si la tabla tiene una columna `cliente` y el modelo tiene `cliente()`, `$modelo->cliente` devuelve **la columna**, no el Cliente. Ni el eager loading ni el `withDefault()` cambian eso: la relación nunca se consulta. Pasó con `orden_trabajos.cliente` (varchar legacy vacía al lado de `cliente_id`) y la OT no mostró el cliente en ninguna vista durante meses. Para detectarlo: buscar tablas que tengan `X` y `X_id` a la vez. En `vehiculo_ploteos` conviven `marca`/`marca_id` y `modelo`/`modelo_id` **a propósito** — por eso esas relaciones se llaman `marcaRel()` / `modeloRel()`.
+19. **Una directiva Blade pegada a una LETRA no se compila:** `@if($x)el proceso@endif.` deja el
+    `@endif` como texto crudo y la vista explota con `syntax error, unexpected end of file,
+    expecting "endif"`. Pegada a un carácter no alfanumérico sí funciona (`»@endif` compila), por
+    eso el bug aparece y desaparece según el texto de al lado. Para armar frases condicionales
+    cortas, juntar las partes en un `@php` y `implode()`, en vez de intercalar `@if`/`@endif`
+    dentro del texto (ver el estado vacío de `productos/index.blade.php`).
