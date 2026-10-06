@@ -25,13 +25,13 @@ class RolMiddleware
                 abort(403, 'Acceso no autorizado.');
             }
 
-            // Redirigir al home del rol correspondiente
-            $home = match($usuario?->rol) {
-                'admin'      => route('dashboard'),
-                'ventas'     => route('inicio'),
-                'produccion' => route('inicio'),
-                default      => route('login'),
-            };
+            // Redirigir al home del rol correspondiente. Sin usuario → login;
+            // con usuario → su tablero. El `match` por rol dejaba al instalador
+            // (y a cualquier rol nuevo) cayendo en el default = login, así que
+            // tocar una URL ajena le parecía que se le había cerrado la sesión.
+            $home = $usuario
+                ? ($usuario->rol === 'admin' ? route('dashboard') : route('inicio'))
+                : route('login');
 
             return redirect($home)->with('error', 'No tenés permiso para acceder a esa sección.');
         }

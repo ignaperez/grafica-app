@@ -77,10 +77,6 @@ Route::middleware([
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/reportes/produccion', [ReporteController::class, 'index'])->name('reportes.produccion');
 
-        Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
-        Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
-        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
         Route::get('/admin', fn () => 'Bienvenido administrador.');
         Route::post('/usuarios/{usuario}/cerrar-sesiones', [UserController::class, 'cerrarSesiones'])->name('usuarios.cerrar-sesiones');
         Route::resource('usuarios', UserController::class)->except(['show']);
@@ -142,6 +138,21 @@ Route::middleware([
 
     /*
     |----------------------------------------------------------------------
+    | Perfil propio — cualquier usuario autenticado
+    |----------------------------------------------------------------------
+    | Estaba dentro del grupo `rol:admin`, así que ventas, producción y los
+    | colocadores no tenían pantalla para cambiar su propia contraseña:
+    | dependían de que el admin se la cambiara. No se expone `destroy`
+    | (nadie se autoelimina — las bajas se hacen desde Usuarios).
+    */
+
+    Route::middleware('auth')->group(function () {
+        Route::get('/profile',   [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    });
+
+    /*
+    |----------------------------------------------------------------------
     | AJAX — búsquedas Select2
     |----------------------------------------------------------------------
     */
@@ -150,7 +161,6 @@ Route::middleware([
         Route::get('/clientes/search',         [ClienteController::class,   'search'])->name('clientes.search');
         Route::post('/clientes/quick',         [ClienteController::class,   'quickStore'])->name('clientes.quick');
         Route::get('/clientes/consultar-cuit', [ClienteController::class,   'consultarCuit'])->name('clientes.consultar-cuit');
-        Route::get('/clientes/debug-padron',   [ClienteController::class,   'debugPadron'])->name('clientes.debug-padron');
         Route::get('/productos/search',        [ProductoController::class,  'search'])->name('productos.search');
         Route::get('/listas-precios/buscar',   [ListaPrecioController::class,'search'])->name('listas-precios.search');
     });
@@ -249,6 +259,9 @@ Route::middleware([
     Route::middleware(['auth', 'rol:admin,ventas'])->group(function () {
 
         Route::resource('clientes', ClienteController::class);
+        // Debug del padrón AFIP: además del abort_unless(app.debug) del controller,
+        // queda detrás del rol y del módulo Clientes (antes la veía cualquier logueado).
+        Route::get('/clientes/debug-padron', [ClienteController::class, 'debugPadron'])->name('clientes.debug-padron');
 
         Route::resource('tipo-trabajos', TipoTrabajoController::class)->parameters(['tipo-trabajos' => 'tipoTrabajo']);
         Route::resource('materiales', MaterialController::class)->parameters(['materiales' => 'material']);

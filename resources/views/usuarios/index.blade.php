@@ -29,6 +29,7 @@
                     'admin'      => ['color'=>'var(--ac)',    'bg'=>'rgba(230,80,42,.08)',  'border'=>'rgba(230,80,42,.2)'],
                     'ventas'     => ['color'=>'var(--blue)',  'bg'=>'rgba(61,143,212,.08)', 'border'=>'rgba(61,143,212,.2)'],
                     'produccion' => ['color'=>'var(--green)', 'bg'=>'rgba(63,185,106,.08)','border'=>'rgba(63,185,106,.2)'],
+                    'instalador' => ['color'=>'#c9a227',      'bg'=>'rgba(201,162,39,.08)', 'border'=>'rgba(201,162,39,.25)'],
                     default      => ['color'=>'var(--txd)',   'bg'=>'transparent',          'border'=>'#333'],
                 };
             @endphp
@@ -54,14 +55,23 @@
                                  border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.3px;
                                  color:{{ $rolColor['color'] }};background:{{ $rolColor['bg'] }};
                                  border:1px solid {{ $rolColor['border'] }}">
-                        {{ ucfirst($u->rol) }}
+                        {{ \App\Models\User::ROLES[$u->rol] ?? ucfirst($u->rol) }}
                     </span>
                     @if($u->esSuper())
                         <span title="Administrador principal — acceso total"
                               style="margin-left:6px;font-size:10.5px;font-weight:700;color:var(--ac)">★ Principal</span>
                     @else
-                        <div class="txd" style="font-size:10.5px;margin-top:4px">
-                            {{ count($u->modulos ?? []) }} de {{ count(\App\Models\User::MODULOS) }} módulos
+                        @php
+                            $efectivos   = $u->modulosEfectivos();
+                            $disponibles = \App\Models\User::modulosDisponibles($u->rol);
+                            $inservibles = count($u->modulos ?? []) - count($efectivos);
+                        @endphp
+                        <div class="txd" style="font-size:10.5px;margin-top:4px"
+                             title="{{ $efectivos ? implode(', ', array_map(fn($m) => \App\Models\User::MODULOS[$m], $efectivos)) : 'Sin módulos habilitados' }}">
+                            {{ count($efectivos) }} de {{ count($disponibles) }} módulos
+                            @if($inservibles > 0)
+                                <span title="Tildados pero sin efecto para su rol — se conservan por si cambia de rol">· +{{ $inservibles }} sin efecto</span>
+                            @endif
                         </div>
                     @endif
                 </td>

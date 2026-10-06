@@ -32,7 +32,7 @@
             <label class="glabel">Rol *</label>
             <select name="rol" class="gselect" required>
                 <option value="">— Seleccioná —</option>
-                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción','instalador'=>'Instalador / Colocador'] as $val => $lbl)
+                @foreach(\App\Models\User::ROLES as $val => $lbl)
                     <option value="{{ $val }}" {{ old('rol') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                 @endforeach
             </select>
@@ -56,7 +56,7 @@
     </div>
 </div>
 
-@include('usuarios._modulos', ['seleccionados' => old('modulos', [])])
+@include('usuarios._modulos', ['seleccionados' => old('modulos', []), 'rolActual' => old('rol', '')])
 
 <div style="margin-top:16px;display:flex;gap:8px">
     <button type="submit" class="gbtn gbtn-primary">Crear usuario</button>
@@ -67,23 +67,5 @@
 @endsection
 
 @section('scripts')
-<script>
-// Al elegir el rol, pre-tildar los módulos default de esa plantilla.
-(function () {
-    const DEFAULTS = {
-        admin:      @json(array_keys(\App\Models\User::MODULOS)),
-        ventas:     @json(\App\Models\User::modulosPorRol('ventas')),
-        produccion: @json(\App\Models\User::modulosPorRol('produccion')),
-        instalador: @json(\App\Models\User::modulosPorRol('instalador')),
-    };
-    const $rol = document.querySelector('select[name="rol"]');
-    if (!$rol) return;
-    $rol.addEventListener('change', function () {
-        const mods = DEFAULTS[this.value] || [];
-        document.querySelectorAll('#modulos-grid input[type="checkbox"]').forEach(function (chk) {
-            chk.checked = mods.includes(chk.value);
-        });
-    });
-})();
-</script>
+    @include('usuarios._modulos-js', ['pretildar' => true])
 @endsection

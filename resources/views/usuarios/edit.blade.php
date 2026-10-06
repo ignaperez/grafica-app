@@ -31,7 +31,7 @@
         <div class="gfg mb-0">
             <label class="glabel">Rol *</label>
             <select name="rol" class="gselect" required>
-                @foreach(['admin'=>'Admin','ventas'=>'Ventas','produccion'=>'Producción','instalador'=>'Instalador / Colocador'] as $val => $lbl)
+                @foreach(\App\Models\User::ROLES as $val => $lbl)
                     <option value="{{ $val }}" {{ old('rol', $usuario->rol) === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                 @endforeach
             </select>
@@ -68,7 +68,10 @@
         </div>
     </div>
 @else
-    @include('usuarios._modulos', ['seleccionados' => old('modulos', $usuario->modulos ?? [])])
+    @include('usuarios._modulos', [
+        'seleccionados' => old('modulos', $usuario->modulos ?? []),
+        'rolActual'     => old('rol', $usuario->rol),
+    ])
 @endif
 
 <div style="margin-top:16px;display:flex;gap:8px">
@@ -77,4 +80,10 @@
 </div>
 </form>
 </div>
+@endsection
+
+@section('scripts')
+    @unless($usuario->esSuper())
+        @include('usuarios._modulos-js', ['pretildar' => false])
+    @endunless
 @endsection

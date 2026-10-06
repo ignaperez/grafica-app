@@ -436,10 +436,15 @@
         <div class="s-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div>
         <div>
             <div class="s-uname">{{ auth()->user()->name }}</div>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="s-logout">Cerrar sesión</button>
-            </form>
+            <div style="display:flex;align-items:center;gap:8px">
+                <a href="{{ route('profile.edit') }}" class="s-logout"
+                   style="text-decoration:none">Mi perfil</a>
+                <span style="color:#2a2a2a;font-size:10px">|</span>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="s-logout">Cerrar sesión</button>
+                </form>
+            </div>
         </div>
     </div>
 </aside>

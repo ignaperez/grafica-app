@@ -125,10 +125,12 @@ class UserController extends Controller
             return User::modulosPorRol($rol);
         }
 
-        return array_values(array_intersect(
+        // array_unique: el hidden que preserva un módulo no disponible para el
+        // rol puede llegar junto al checkbox si el rol cambió en la misma carga.
+        return array_values(array_unique(array_intersect(
             (array) $request->input('modulos', []),
             array_keys(User::MODULOS)
-        ));
+        )));
     }
 
     public function destroy(User $usuario)
