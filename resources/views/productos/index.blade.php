@@ -4,6 +4,9 @@
 
 @section('topbar-actions')
     <form method="GET" style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">
+        {{-- Son dos forms distintos: cada uno lleva el valor del otro en un
+             hidden para que cambiar el proceso no borre la búsqueda. --}}
+        <input type="hidden" name="q" value="{{ $q }}">
         <span class="txd" style="font-size:12px">Proceso</span>
         <select name="tipo_trabajo_id" class="gselect" style="width:auto;padding:6px 10px;font-size:12.5px"
                 onchange="this.form.submit()">
@@ -18,10 +21,28 @@
 
 @section('content')
 
+<form method="GET" style="display:flex;gap:8px;margin-bottom:14px;max-width:460px">
+    <input type="hidden" name="tipo_trabajo_id" value="{{ $tipoFiltro }}">
+    <input type="text" name="q" value="{{ $q }}" class="ginput"
+           placeholder="Buscar por nombre, descripción o proceso…" autofocus>
+    <button class="gbtn gbtn-primary gbtn-sm">Buscar</button>
+    @if($q !== '')
+        {{-- Limpia la búsqueda pero conserva el filtro de proceso elegido. --}}
+        <a href="{{ route('productos.index', ['tipo_trabajo_id' => $tipoFiltro]) }}"
+           class="gbtn gbtn-ghost gbtn-sm">Limpiar</a>
+    @endif
+</form>
+
 <div class="gcard">
     <div class="gcard-hd">
         <span class="gcard-title">Servicios / productos</span>
-        <span class="txd" style="font-size:12px">{{ $productos->count() }} registros</span>
+        <span class="txd" style="font-size:12px">
+            @if($q !== '')
+                {{ $productos->count() }} {{ $productos->count() === 1 ? 'resultado' : 'resultados' }} para «{{ $q }}»
+            @else
+                {{ $productos->count() }} {{ $productos->count() === 1 ? 'registro' : 'registros' }}
+            @endif
+        </span>
     </div>
     <div class="gcard-bd" style="padding:0">
         <table class="gtable">
@@ -74,8 +95,18 @@
                 @empty
                 <tr>
                     <td colspan="7" style="text-align:center;color:var(--txd);padding:32px">
-                        No hay servicios cargados todavía.
-                        <a href="{{ route('productos.create') }}" style="color:var(--ac)">Crear el primero</a>
+                        @if($q !== '' || $tipoFiltro)
+                            @php
+                                $criterios = [];
+                                if ($q !== '')  { $criterios[] = '«' . $q . '»'; }
+                                if ($tipoFiltro) { $criterios[] = 'el proceso elegido'; }
+                            @endphp
+                            Ningún servicio coincide con {{ implode(' en ', $criterios) }}.
+                            <a href="{{ route('productos.index') }}" style="color:var(--ac)">Ver todos</a>
+                        @else
+                            No hay servicios cargados todavía.
+                            <a href="{{ route('productos.create') }}" style="color:var(--ac)">Crear el primero</a>
+                        @endif
                     </td>
                 </tr>
                 @endforelse

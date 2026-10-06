@@ -22,17 +22,25 @@ class ProductoController extends Controller
         // Tipos para el filtro (los que existen, ordenados alfabéticamente)
         $tipos      = TipoTrabajo::orderBy('nombre')->get();
         $tipoFiltro = $request->input('tipo_trabajo_id');
+        $q          = trim((string) $request->query('q', ''));
 
         // Orden: por tipo de proceso (nulls al final) y luego alfabético por nombre
         $productos = Producto::with('tipoTrabajo')
             ->leftJoin('tipo_trabajos', 'tipo_trabajos.id', '=', 'productos.tipo_trabajo_id')
-            ->when($tipoFiltro, fn ($q) => $q->where('productos.tipo_trabajo_id', $tipoFiltro))
+            ->when($tipoFiltro, fn ($sub) => $sub->where('productos.tipo_trabajo_id', $tipoFiltro))
+            // Busca por nombre, descripción y nombre del proceso. Las columnas van
+            // calificadas: con el leftJoin, `nombre` sola es ambigua.
+            ->when($q !== '', fn ($sub) => $sub->where(function ($w) use ($q) {
+                $w->where('productos.nombre', 'like', "%{$q}%")
+                  ->orWhere('productos.descripcion', 'like', "%{$q}%")
+                  ->orWhere('tipo_trabajos.nombre', 'like', "%{$q}%");
+            }))
             ->orderByRaw('tipo_trabajos.nombre IS NULL, tipo_trabajos.nombre ASC')
             ->orderBy('productos.nombre')
             ->select('productos.*')
             ->get();
 
-        return view('productos.index', compact('productos', 'tipos', 'tipoFiltro'));
+        return view('productos.index', compact('productos', 'tipos', 'tipoFiltro', 'q'));
     }
 
     public function create()
