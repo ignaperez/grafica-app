@@ -43,6 +43,30 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withExceptions(function (Exceptions $exceptions) {
 
+        /*
+         * Escaneo de bots: NO ensuciar el log.
+         *
+         * La app identifica la empresa por subdominio, así que todo pedido a un
+         * subdominio que no es una empresa (m.plote.ar, backoffice.plote.ar,
+         * sonicwall.plote.ar…) o directo a la IP tiraba una de estas dos
+         * excepciones, y Laravel la registraba como ERROR con stack trace
+         * completo. Son escáneres automáticos buscando paneles expuestos: 289
+         * en un solo día, y el laravel.log llegó a 124 MB.
+         *
+         * El costo real no es el disco: un error de VERDAD se pierde entre el
+         * ruido. El server block `catch-all` de Nginx (444 en :80, handshake
+         * rechazado en :443) ya corta los pedidos a la IP y a otros dominios,
+         * pero los *.plote.ar inexistentes matchean el wildcard de la app y
+         * Nginx no puede filtrarlos: qué subdominio es una empresa está en la
+         * base. Así que se silencian acá.
+         *
+         * Se silencia el REPORTE, no el rechazo: el pedido sigue sin entrar.
+         */
+        $exceptions->dontReport([
+            \Stancl\Tenancy\Exceptions\TenantCouldNotBeIdentifiedOnDomainException::class,
+            \Stancl\Tenancy\Exceptions\NotASubdomainException::class,
+        ]);
+
         // Sesión expirada / inválida en rutas tenant → redirigir al login en vez de 500
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
 
