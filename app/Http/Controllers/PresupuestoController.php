@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PresupuestoPdfService;
 use Illuminate\Http\Request;
 use App\Models\Presupuesto;
 use App\Models\PresupuestoItem;
@@ -199,6 +200,25 @@ class PresupuestoController extends Controller
     {
         $presupuesto->load(['cliente', 'items.maquina', 'items.material']);
         return view('presupuestos.print', compact('presupuesto'));
+    }
+
+    /**
+     * PDF A4 generado en el servidor con mPDF (igual que factura y remito).
+     * El `print` de arriba queda como vista en pantalla; la DESCARGA viene por
+     * acá, porque el window.print() del navegador no reservaba el espacio del
+     * encabezado/pie por hoja y a partir de la hoja 2 tapaba filas y el total.
+     * Inline por defecto; `?download=1` fuerza la descarga.
+     */
+    public function pdf(Presupuesto $presupuesto, Request $request, PresupuestoPdfService $pdfService)
+    {
+        $mpdf   = $pdfService->generar($presupuesto);
+        $nombre = $pdfService->nombreArchivo($presupuesto) . '.pdf';
+
+        return response($mpdf->Output($nombre, 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline')
+                                     . '; filename="' . $nombre . '"',
+        ]);
     }
 
     public function convertirAOT(Presupuesto $presupuesto)

@@ -69,7 +69,7 @@
                         <a href="{{ route('presupuestos.show', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs">Ver</a>
                         <a href="{{ route('presupuestos.edit', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
                         <a href="{{ route('presupuestos.print', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Imprimir">🖨</a>
-                        <a href="{{ route('presupuestos.print', ['presupuesto' => $p->id, 'auto' => 1]) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Descargar PDF">⬇</a>
+                        <a href="{{ route('presupuestos.pdf', ['presupuesto' => $p->id, 'download' => 1]) }}" class="gbtn gbtn-ghost gbtn-xs" title="Descargar PDF">⬇</a>
 
                         {{-- Emitir: factura y remito --}}
                         @if($p->facturado_count > 0)

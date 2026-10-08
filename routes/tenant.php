@@ -275,6 +275,7 @@ Route::middleware([
         Route::get('/presupuestos/export', [PresupuestoController::class, 'exportar'])->name('presupuestos.export');
         Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
         Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');
+        Route::get('/presupuestos/{presupuesto}/pdf', [PresupuestoController::class, 'pdf'])->name('presupuestos.pdf');
         Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
         Route::post('/presupuestos/{presupuesto}/convertir-ot', [PresupuestoController::class, 'convertirAOT'])->name('presupuestos.convertir-ot');
         Route::resource('presupuestos', PresupuestoController::class)->only(['index','create','store','show','edit','update','destroy']);
