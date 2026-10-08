@@ -1431,6 +1431,53 @@ cargados en 123ploteos, encontrar uno era scrollear.
 
 **Sin migración.** Deploy = `git pull` + `php artisan view:clear`.
 
+## Presupuesto PDF A4 con mPDF — el total ya no se pierde (2026-10-07)
+
+El "Descargar PDF" del presupuesto era el `window.print()` del navegador sobre
+`presupuestos/print.blade.php`, que repetía encabezado y pie con **`position: fixed`** y
+reservaba el espacio con **márgenes estimados a ojo en píxeles** (`margin-top: 130px;
+margin-bottom: 210px`, con los comentarios admitiéndolo: "Encabezado en pantalla ~80px…").
+
+**Por qué fallaba:** un elemento `fixed` se pinta en TODAS las hojas, pero ese margen solo reserva
+lugar al principio y al final del **documento entero**, no en cada hoja. Con varias hojas el pie
+se dibujaba encima del total (`.total-row`, al final del contenido) — de ahí el "se pierde el
+total" — y, peor, **el encabezado tapaba las primeras filas de la tabla de la hoja 2 en adelante**.
+Puede haber presupuestos largos enviados con ítems tapados.
+
+**Solución: `App\Services\PresupuestoPdfService`**, espejando `RemitoPdfService` /
+`FacturaPdfService` (mismo patrón que ya corre en producción desde junio).
+- `SetHTMLHeader` / `SetHTMLFooter` → encabezado y pie **nativos de mPDF**: se repiten de verdad y
+  el cuerpo nunca entra en su banda (`margin_top: 52`, `margin_bottom: 20`).
+- Cuerpo = cliente + tabla de ítems; mPDF pagina solo y repite el `<thead>`.
+- **Cierre = total + condiciones, SOLO en la última hoja**, anclado al fondo con el truco de
+  `alturaMm()` + `SetY($limiteY - $cierreH - 3)`. Verificado con 7/21/35/63/98 ítems: el cierre
+  cae siempre en la última hoja y nunca entra en la banda del pie (246,6 + 27,4 = 274 ≤ 277mm).
+  Con 21 ítems los ítems terminan en `y=263.8` de la hoja 2, el cierre no cabe y **pasa limpio a
+  la hoja 3** en vez de superponerse.
+- `Pág. {PAGENO}/{nbpg}` en el pie (X/Y real, lo resuelve mPDF al cerrar).
+
+**Decisiones de diseño (cambian respecto del print viejo):**
+- Las **condiciones se movieron al cierre** (última hoja, junto al total). Antes el pie fijo las
+  repetía en cada hoja; así las hojas intermedias son todas ítems. Para repetirlas, mover el
+  bloque de `cierre.blade` a `footer.blade`.
+- El **total queda apoyado sobre el pie**, no pegado a la última fila (igual que factura/remito).
+  Con pocos ítems deja un hueco en el medio de la hoja.
+- **Tipografías:** Manrope / JetBrains Mono no vienen en mPDF → `dejavusans` / `dejavusansmono`.
+  Para usar las originales habría que embeber los `.ttf`.
+- **El logo va embebido en base64** (`logoDataUri()`), no por `Storage::url()`: en contexto tenant
+  eso da 404 (gotcha de storage multi-tenant) y mPDF tampoco podría descargarlo. Hoy ningún tenant
+  tiene logo cargado, así que es latente — pero el print viejo lo mostraría roto.
+
+- **Vistas:** `resources/views/presupuestos/pdf/{styles,header,body,cierre,footer}.blade.php`
+  (HTML compatible con mPDF: todo con tablas, sin flex / `var()` / `position:absolute` / grid).
+- **Ruta:** `GET /presupuestos/{presupuesto}/pdf` → `presupuestos.pdf` (inline; `?download=1`
+  fuerza descarga), registrada al lado de `presupuestos.print`, ANTES del resource.
+- **Botones:** el **⬇** de `index` y el **⬇ Descargar PDF** de `show` apuntan acá; en `show` se
+  agregó **👁 Ver PDF** (inline). **`presupuestos.print` queda** como vista en pantalla (el 🖨
+  sigue yendo ahí), igual que `facturas.print` convive con `facturas.pdf`.
+
+**Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
