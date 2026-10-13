@@ -136,11 +136,27 @@
           form.reset();
           if (success) {
             success.classList.add("show");
-            setTimeout(function () { success.classList.remove("show"); }, 6000);
+            setTimeout(function () { success.classList.remove("show"); }, 10000);
           }
-          // Y además lo abre por WhatsApp, para que quede por los dos canales.
+
+          // Y además por WhatsApp, para que quede por los dos canales.
+          //
+          // window.open() acá lo bloquean casi todos los navegadores: estamos
+          // dentro del .then() de un fetch, así que el "gesto del usuario" del
+          // clic ya se perdió y la ventana cuenta como popup no solicitado. Se
+          // intenta igual (si pasa, mejor), pero la que vale es el botón: un
+          // clic directo del usuario nunca se bloquea.
           if (data && data.whatsapp_url) {
-            window.open(data.whatsapp_url, "_blank", "noopener");
+            var win = null;
+            try { win = window.open(data.whatsapp_url, "_blank", "noopener"); } catch (err) { win = null; }
+
+            if (!win || win.closed || typeof win.closed === "undefined") {
+              var link = document.getElementById("waLink");
+              if (link) {
+                link.href = data.whatsapp_url;
+                link.style.display = "inline-block";
+              }
+            }
           }
         })
         .catch(function () {

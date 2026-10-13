@@ -224,7 +224,19 @@
           </div>
 
           <button class="btn full" type="submit">Enviar consulta →</button>
-          <div class="form-success" id="formSuccess">✓ ¡Recibido! Te contactamos a la brevedad.</div>
+          <div class="form-success" id="formSuccess">
+            ✓ ¡Recibido! Te contactamos a la brevedad.
+            {{-- Si el navegador bloquea la apertura automática de WhatsApp (lo
+                 habitual: el window.open sale del .then de un fetch, sin gesto
+                 del usuario), el JS muestra este botón. Un clic directo nunca
+                 se bloquea. --}}
+            <a id="waLink" href="#" target="_blank" rel="noopener"
+               style="display:none;margin-top:10px;background:#25d366;color:#fff;
+                      padding:9px 16px;text-decoration:none;font-weight:700;
+                      font-size:.82rem;border:3px solid var(--ink)">
+              Enviar también por WhatsApp →
+            </a>
+          </div>
           <div class="form-success" id="formError"
                style="background:#7a1f12;color:#fff">✕ No pudimos enviar la consulta. Escribinos por WhatsApp.</div>
         </form>
