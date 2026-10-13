@@ -99,7 +99,7 @@
 
     <p style="margin-bottom:0">
       Si tenés dudas, respondé este correo o escribinos por
-      <a href="https://wa.me/5493410000000" style="color:#e6502a">WhatsApp</a>.
+      <a href="https://wa.me/5491121728813" style="color:#e6502a">WhatsApp</a>.
     </p>
   </div>
 

@@ -1478,6 +1478,51 @@ Puede haber presupuestos largos enviados con ítems tapados.
 
 **Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
 
+## Landing — el formulario de contacto no enviaba NADA (2026-10-13)
+
+El formulario de `plote.ar/#contacto` era una maqueta conectada a nada. El handler de
+`public/landing/script.js` hacia `e.preventDefault()`, validaba, `form.reset()` y mostraba
+**"✓ ¡Recibido! Te contactamos a la brevedad"** — sin `fetch`, sin `action`, sin `method`, y sin
+ninguna ruta POST en `routes/web.php`. El visitante cargaba nombre, email, teléfono, servicio y
+mensaje, recibía la promesa de respuesta, y **los datos se descartaban en el navegador**.
+No hay forma de saber cuántas consultas se perdieron: nunca quedo registro de ninguna.
+
+Los datos de contacto también eran placeholders: teléfono `+54 9 341 000 0000` (los ceros no son
+un número real, el botón de WhatsApp no llevaba a ningún lado) y mail `hola@plote.ar`.
+
+**Ahora: se GUARDA primero y después se manda el mail.** Ese orden es a propósito — si el envío
+falla, rebota o cae en spam, la consulta ya está en la base.
+
+- **`config/contacto.php`** (nuevo) — ÚNICA fuente del número de WhatsApp y de las casillas que
+  reciben las consultas. Antes el número estaba repetido en tres vistas. **Requiere
+  `config:cache` al deployar.** Hoy: WhatsApp `5491121728813`, mails
+  `info@sistemasintegrales.net` + `impresion@sistemasintegrales.com.ar`.
+- **Tabla `consultas`** — migración `2026_10_13_000001`, en la base **CENTRAL**: el landing vive
+  en el dominio central y NO inicializa tenancy, así que **no se duplica en
+  `database/migrations/tenant/`**. Campos: nombre, email, telefono, servicio, mensaje, ip,
+  user_agent, `mail_enviado`, `mail_error`, `leida_at`. SoftDeletes.
+- **`ContactoController@store`** → `POST /contacto` (`contacto.store`), con **`throttle:5,1`**
+  (endpoint público) y un **honeypot** (campo `website`, invisible; si viene lleno responde 200
+  fingiendo éxito para no señalarle al bot que fue detectado). Guarda, manda el mail en
+  try/catch (un fallo NO le rompe la respuesta al visitante) y devuelve el link de WhatsApp.
+- **Mail a las dos casillas en el MISMO envío** (ambas en el `To`, así cada una ve la consulta
+  completa). `ConsultaContacto` pone **`replyTo` = el que consultó**, para que responder desde el
+  cliente de correo le llegue a él y no a `noreply@plote.ar`.
+- **WhatsApp en paralelo:** el controller arma un `wa.me/<numero>?text=<consulta urlencoded>` y el
+  JS lo abre en una pestaña nueva tras guardar — la consulta queda por los dos canales. No es la
+  API de WhatsApp Business (eso necesita cuenta de Meta, número verificado y plantillas
+  aprobadas): el mensaje lo manda el visitante desde su propio teléfono.
+- **JS:** el handler ahora postea de verdad. **Si no hay `data-endpoint`, no finge éxito**; si el
+  POST falla muestra `#formError` y **NO limpia el formulario**, así lo escrito queda para
+  reintentar. El endpoint, el token CSRF y el número viajan en `data-*` desde Blade.
+- **Pantalla `super-admin/consultas`** (grupo auth + super-admin): listado con filtros
+  todas / sin leer / mail no enviado, badge con las sin leer en el nav, marcar leída (alterna),
+  **↻ Reenviar** las que fallaron y eliminar. Link de WhatsApp al teléfono del que consultó
+  (`Consulta::whatsappUrl()`, asume 54 9 si vino sin país).
+
+**Deploy = `git pull` + `migrate` (central, NO tenants:migrate) + `config:cache` + `view:clear` +
+`route:cache`.**
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

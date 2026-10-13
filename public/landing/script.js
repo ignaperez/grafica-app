@@ -104,11 +104,56 @@
       if (!mensaje.value.trim()) { setInvalid(mensaje, true); ok = false; } else setInvalid(mensaje, false);
 
       if (!ok) return;
-      form.reset();
-      if (success) {
-        success.classList.add("show");
-        setTimeout(function () { success.classList.remove("show"); }, 6000);
-      }
+
+      // Hasta acá el handler validaba, limpiaba el formulario y mostraba
+      // "¡Recibido!" SIN enviar nada: los datos se descartaban en el navegador.
+      // Ahora se postean de verdad, y recién con la respuesta del servidor se
+      // limpia el formulario y se abre WhatsApp con la consulta ya escrita.
+      var endpoint = form.getAttribute("data-endpoint");
+      var btn = form.querySelector('button[type="submit"]');
+      var textoBtn = btn ? btn.textContent : "";
+
+      if (!endpoint) return;               // sin endpoint no se finge éxito
+
+      if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
+
+      var datos = new FormData(form);
+
+      fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "X-CSRF-TOKEN": form.getAttribute("data-csrf") || "",
+          "X-Requested-With": "XMLHttpRequest",
+          "Accept": "application/json"
+        },
+        body: datos
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          form.reset();
+          if (success) {
+            success.classList.add("show");
+            setTimeout(function () { success.classList.remove("show"); }, 6000);
+          }
+          // Y además lo abre por WhatsApp, para que quede por los dos canales.
+          if (data && data.whatsapp_url) {
+            window.open(data.whatsapp_url, "_blank", "noopener");
+          }
+        })
+        .catch(function () {
+          // No se limpia el formulario: lo escrito queda para reintentar.
+          var err = document.getElementById("formError");
+          if (err) {
+            err.classList.add("show");
+            setTimeout(function () { err.classList.remove("show"); }, 8000);
+          }
+        })
+        .finally(function () {
+          if (btn) { btn.disabled = false; btn.textContent = textoBtn; }
+        });
     });
 
     // Limpiar error al tipear

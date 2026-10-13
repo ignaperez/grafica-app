@@ -94,6 +94,17 @@ input.gin:focus,select.gin:focus,textarea.gin:focus{border-color:var(--ac)}
        style="font-size:.82rem;color:{{ request()->routeIs('super-admin.email.*') ? 'var(--ac)' : 'var(--txm)' }};text-decoration:none">
         Email
     </a>
+    @php
+        // Consultas del formulario del landing todavía sin leer
+        $sinLeer = \App\Models\Consulta::whereNull('leida_at')->count();
+    @endphp
+    <a href="{{ route('super-admin.consultas.index') }}"
+       style="font-size:.82rem;color:{{ request()->routeIs('super-admin.consultas.*') ? 'var(--ac)' : 'var(--txm)' }};text-decoration:none">
+        Consultas
+        @if($sinLeer > 0)
+            <span style="background:var(--ac);color:#fff;border-radius:9px;padding:1px 6px;font-size:.68rem;margin-left:3px">{{ $sinLeer }}</span>
+        @endif
+    </a>
     <span class="sa-user">{{ auth()->user()->name }}</span>
     <a href="{{ route('super-admin.cambiar-clave') }}" class="sa-logout" style="text-decoration:none">Cambiar clave</a>
     <form method="POST" action="{{ route('super-admin.logout') }}" style="display:inline" id="sa-logout-form">

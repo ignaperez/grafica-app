@@ -34,6 +34,17 @@ Route::get('/', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Formulario de contacto del landing
+|--------------------------------------------------------------------------
+| El throttle acota el abuso de un endpoint público: 5 envíos por minuto por
+| IP. El controller además tiene un honeypot.
+*/
+Route::post('/contacto', [App\Http\Controllers\ContactoController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('contacto.store');
+
+/*
+|--------------------------------------------------------------------------
 | Panel Super-Admin
 |--------------------------------------------------------------------------
 */
@@ -76,6 +87,12 @@ Route::prefix('super-admin')->name('super-admin.')->group(function () {
         Route::post('/email/{mailAccount}/reset-password',          [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'resetPassword'])->name('email.reset-password');
         Route::post('/email/{mailAccount}/toggle',                  [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'toggle'])->name('email.toggle');
         Route::delete('/email/{mailAccount}',                       [\App\Http\Controllers\SuperAdmin\MailAccountController::class, 'destroy'])->name('email.destroy');
+
+        // Consultas del formulario de contacto del landing
+        Route::get('/consultas',                        [\App\Http\Controllers\SuperAdmin\ConsultaController::class, 'index'])->name('consultas.index');
+        Route::post('/consultas/{consulta}/leida',      [\App\Http\Controllers\SuperAdmin\ConsultaController::class, 'marcarLeida'])->name('consultas.leida');
+        Route::post('/consultas/{consulta}/reenviar',   [\App\Http\Controllers\SuperAdmin\ConsultaController::class, 'reenviar'])->name('consultas.reenviar');
+        Route::delete('/consultas/{consulta}',          [\App\Http\Controllers\SuperAdmin\ConsultaController::class, 'destroy'])->name('consultas.destroy');
 
     });
 

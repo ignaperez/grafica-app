@@ -163,7 +163,12 @@
         <span class="idx">[ 03 ] — CONTACTO</span>
       </div>
       <div class="contact-grid reveal">
-        <form class="contact-form" id="contactForm" novalidate>
+        {{-- El JS postea a contacto.store por fetch. Los datos del endpoint, el
+             token CSRF y el número de WhatsApp viajan en data-* para que el
+             script no tenga nada hardcodeado. --}}
+        <form class="contact-form" id="contactForm" novalidate
+              data-endpoint="{{ route('contacto.store') }}"
+              data-csrf="{{ csrf_token() }}">
           <h3>Pedí tu presupuesto</h3>
           <p class="sub">Contanos qué necesitás. Te respondemos en el día.</p>
           <div class="field">
@@ -202,18 +207,26 @@
             <textarea id="mensaje" name="mensaje" placeholder="Medidas, cantidades, plazos, lo que tengas en mente…"></textarea>
             <span class="err">Contanos un poco más.</span>
           </div>
+          {{-- Honeypot: invisible para el visitante, los bots lo llenan. --}}
+          <div style="position:absolute;left:-9999px" aria-hidden="true">
+            <label for="website">No completar</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
           <button class="btn full" type="submit">Enviar consulta →</button>
           <div class="form-success" id="formSuccess">✓ ¡Recibido! Te contactamos a la brevedad.</div>
+          <div class="form-success" id="formError"
+               style="background:#7a1f12;color:#fff">✕ No pudimos enviar la consulta. Escribinos por WhatsApp.</div>
         </form>
 
         <aside class="contact-info">
           <div class="info-item">
             <div class="lab">WhatsApp</div>
-            <a class="val" href="https://wa.me/5493410000000" target="_blank" rel="noopener">+54 9 341 000 0000</a>
+            <a class="val" href="https://wa.me/{{ config('contacto.whatsapp') }}" target="_blank" rel="noopener">{{ config('contacto.whatsapp_label') }}</a>
           </div>
           <div class="info-item">
             <div class="lab">Email</div>
-            <a class="val" href="mailto:hola@plote.ar">hola@plote.ar</a>
+            <a class="val" href="mailto:{{ config('contacto.email_publico') }}">{{ config('contacto.email_publico') }}</a>
           </div>
           <div class="info-item">
             <div class="lab">Taller / Showroom</div>
@@ -249,7 +262,7 @@
   </div>
 </footer>
 
-<a class="wa-float" href="https://wa.me/5493410000000" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
+<a class="wa-float" href="https://wa.me/{{ config('contacto.whatsapp') }}" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.8 4.9-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.9.8.8-2.8-.2-.3A8 8 0 0 1 12 4zm-2.7 3.6c-.2 0-.5 0-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3 .2.3.3.5c.6 1 1.6 1.9 2.8 2.4 1.6.6 1.9.5 2.3.5s1.2-.5 1.4-1c.2-.5.2-.9.1-1l-.6-.3s-1-.5-1.2-.6c-.2-.1-.3-.1-.5.1l-.6.8c-.1.2-.3.2-.5.1s-.9-.3-1.7-1c-.6-.6-1-1.3-1.2-1.5s0-.4.1-.5l.4-.4.2-.4v-.4l-.7-1.6c-.1-.3-.3-.3-.4-.3z"/></svg>
   WhatsApp
 </a>
