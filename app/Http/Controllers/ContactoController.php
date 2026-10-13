@@ -30,6 +30,27 @@ class ContactoController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        // Tope por IP y por día. El `throttle:5,1` de la ruta corta las ráfagas;
+        // esto corta el goteo sostenido (5 por minuto son 7.200 en un día).
+        // Depende de que $request->ip() sea confiable: ver el trustProxies de
+        // bootstrap/app.php, que estaba en '*' y permitía falsear la IP.
+        $delDia = Consulta::where('ip', $request->ip())
+            ->where('created_at', '>=', now()->subDay())
+            ->count();
+
+        if ($delDia >= (int) config('contacto.max_por_ip_dia')) {
+            Log::warning('Consulta web: tope diario por IP alcanzado', [
+                'ip'          => $request->ip(),
+                'del_dia'     => $delDia,
+            ]);
+
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => 'Ya recibimos varias consultas desde esta conexión hoy. '
+                           . 'Escribinos por WhatsApp y te respondemos al toque.',
+            ], 429);
+        }
+
         $datos = $request->validate([
             'nombre'   => 'required|string|max:150',
             'email'    => 'required|email|max:150',
@@ -55,6 +76,41 @@ class ContactoController extends Controller
         // una ve la consulta completa). Un fallo acá NO le rompe la respuesta
         // al visitante: la consulta ya quedó guardada.
         $destinos = array_filter((array) config('contacto.emails'));
+
+        /*
+         * Cortafuegos de reputación: tope de mails por hora.
+         *
+         * Si alguien logra pasar los otros límites, lo que NO se puede permitir
+         * es que el servidor mande miles de mails: el dominio queda marcado como
+         * spammer y dejan de llegar TODOS los mails del sistema, no solo estos.
+         * Pasado el tope la consulta se sigue guardando y queda en el panel con
+         * el motivo, así que no se pierde ninguna — solo no se envía.
+         */
+        $enviadosUltimaHora = Consulta::where('mail_enviado', true)
+            ->where('created_at', '>=', now()->subHour())
+            ->count();
+
+        $tope = (int) config('contacto.max_mails_hora');
+
+        if ($enviadosUltimaHora >= $tope) {
+            $consulta->update([
+                'mail_enviado' => false,
+                'mail_error'   => "No se envió: se alcanzó el tope de {$tope} mails por hora "
+                                . '(protección anti-abuso). La consulta quedó guardada; '
+                                . 'se puede reenviar desde el panel.',
+            ]);
+
+            Log::warning('Consulta web: tope horario de mails alcanzado, no se envió', [
+                'consulta_id'          => $consulta->id,
+                'enviados_ultima_hora' => $enviadosUltimaHora,
+                'tope'                 => $tope,
+            ]);
+
+            return response()->json([
+                'ok'           => true,
+                'whatsapp_url' => $this->whatsappUrl($consulta),
+            ]);
+        }
 
         try {
             Mail::to($destinos)->send(new ConsultaContacto($consulta));

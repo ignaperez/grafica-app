@@ -129,6 +129,16 @@
         body: datos
       })
         .then(function (r) {
+          // 429 = tope por IP/día o el throttle de la ruta. Trae un mensaje
+          // para mostrarle al visitante en vez del error genérico.
+          if (r.status === 429) {
+            return r.json().catch(function () { return {}; }).then(function (d) {
+              var e = new Error("limite");
+              e.mensaje = (d && d.mensaje) ||
+                "Recibimos varias consultas desde esta conexión. Escribinos por WhatsApp.";
+              throw e;
+            });
+          }
           if (!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
@@ -159,12 +169,13 @@
             }
           }
         })
-        .catch(function () {
+        .catch(function (e) {
           // No se limpia el formulario: lo escrito queda para reintentar.
           var err = document.getElementById("formError");
           if (err) {
+            if (e && e.mensaje) err.textContent = "✕ " + e.mensaje;
             err.classList.add("show");
-            setTimeout(function () { err.classList.remove("show"); }, 8000);
+            setTimeout(function () { err.classList.remove("show"); }, 9000);
           }
         })
         .finally(function () {

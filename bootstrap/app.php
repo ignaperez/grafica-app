@@ -17,8 +17,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Confiar en el proxy Nginx local para que Laravel sepa que la conexión es HTTPS
-        $middleware->trustProxies(at: '*');
+        /*
+         * Confiar SOLO en el proxy local.
+         *
+         * Estaba en '*', o sea "creerle a cualquiera lo que diga sobre su propia
+         * IP". Con eso, un `X-Forwarded-For: 9.9.9.9` puesto por el cliente hacía
+         * que `$request->ip()` devolviera 9.9.9.9 — verificado — así que todo
+         * rate limit por IP (el `throttle` del formulario de contacto, el de
+         * login) se evadía cambiando un header en cada request.
+         *
+         * No se pierde nada: Nginx habla con PHP por FastCGI y pasa
+         * `fastcgi_param HTTPS on`, así que Laravel sabe que la conexión es
+         * segura por $_SERVER['HTTPS'], no por X-Forwarded-Proto.
+         *
+         * Si algún día se pone Cloudflare (o cualquier proxy) delante, hay que
+         * agregar acá sus rangos o volver a '*' detrás de ese proxy.
+         */
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
 
         $middleware->alias([
             'rol'        => RolMiddleware::class,
