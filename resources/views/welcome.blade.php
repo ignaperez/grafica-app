@@ -1,3 +1,13 @@
+@php
+    // Nginx sirve /landing/* con `Cache-Control: public, immutable, max-age=2592000`,
+    // o sea "no vuelvas a pedirlo por 30 dias". Sin versionar la URL, un cambio en
+    // el CSS/JS no le llega a nadie que ya visito la pagina. El mtime cambia con el
+    // archivo, asi que la URL cambia y la cache se invalida sola.
+    $v = function (string $ruta) {
+        $abs = public_path($ruta);
+        return asset($ruta) . '?v=' . (is_file($abs) ? filemtime($abs) : '1');
+    };
+@endphp
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -8,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="{{ asset('landing/styles.css') }}" />
+<link rel="stylesheet" href="{{ $v('landing/styles.css') }}" />
 </head>
 <body>
 
@@ -275,8 +285,8 @@
   </div>
 </div>
 
-<script src="{{ asset('landing/image-slot.js') }}"></script>
-<script src="{{ asset('landing/script.js') }}"></script>
+<script src="{{ $v('landing/image-slot.js') }}"></script>
+<script src="{{ $v('landing/script.js') }}"></script>
 
 </body>
 </html>
