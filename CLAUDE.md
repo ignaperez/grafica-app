@@ -1523,6 +1523,66 @@ falla, rebota o cae en spam, la consulta ya está en la base.
 **Deploy = `git pull` + `migrate` (central, NO tenants:migrate) + `config:cache` + `view:clear` +
 `route:cache`.**
 
+### Seguridad del formulario (2026-10-13)
+
+El endpoint es publico y **cada consulta dispara un mail**. El riesgo grande no es el disco: es que
+un script inunde las casillas y, peor, que el dominio quede marcado como **spammer** — y ahi dejan
+de llegar TODOS los mails del sistema (bienvenidas, etc.), no solo los del formulario. Recuperar
+reputacion lleva semanas.
+
+**AGUJERO QUE HABIA: `trustProxies(at: '*')` permitia falsear la IP.** Con eso, un
+`X-Forwarded-For: 9.9.9.9` puesto por el propio cliente hacia que `$request->ip()` devolviera esa
+IP — **verificado** — asi que TODO rate limit por IP (el del formulario y el del login) se evadia
+cambiando un header en cada request. Ahora es `at: ['127.0.0.1', '::1']`. **No se pierde nada**:
+Nginx habla con PHP por **FastCGI** y pasa `fastcgi_param HTTPS on`, asi que Laravel sabe que la
+conexion es segura por `$_SERVER['HTTPS']`, NO por `X-Forwarded-Proto` (verificado despues del
+cambio: `isSecure=si`, URLs `https://`). **Si algun dia se pone Cloudflare delante, hay que agregar
+sus rangos aca o el rate limit vuelve a ver la IP del proxy.**
+
+Capas, de menos a mas efectiva:
+
+| Capa | Frena | NO frena |
+|---|---|---|
+| Token CSRF | que otro sitio postee desde el navegador de un visitante | bots: un script hace GET, saca el `data-csrf` y postea |
+| Honeypot (`website`) | bots genericos que llenan todos los campos | un script hecho para esta pagina |
+| `throttle:5,1` en la ruta | rafagas desde una IP | el goteo sostenido (5/min son 7.200/dia) |
+| `max_por_ip_dia` (20) | el goteo sostenido | IPs rotativas de verdad (botnet, proxies) |
+| `max_mails_hora` (30) | **que se queme la reputacion del dominio** | — es el cortafuegos final |
+
+- Los dos topes estan en `config/contacto.php` (`CONTACTO_MAX_POR_IP_DIA`, `CONTACTO_MAX_MAILS_HORA`).
+- **El tope horario NO descarta la consulta**: la guarda con el motivo en `mail_error` y devuelve
+  200 al visitante (que no ve ningun error) + el link de WhatsApp. Queda en el panel con el boton
+  **Reenviar**. Ninguna consulta se pierde por el limite.
+- El tope por IP devuelve **429** con un mensaje para el visitante ("escribinos por WhatsApp"), y
+  el JS lo muestra en `#formError` en vez del error genérico. Ese caso SI descarta (no guarda).
+- Verificado con 30 intentos seguidos: corta en 20, **y sigue cortando en 20 con el
+  `X-Forwarded-For` falseado en cada request**. Con 30 mails ya enviados en la hora, la consulta 31
+  se guarda, no se envia, y el visitante igual recibe su link de WhatsApp.
+- **Pendiente: captcha.** Es lo unico que separa humano de script de verdad. Cloudflare Turnstile
+  es gratis e invisible; falta crear el widget y poner `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`.
+
+### Gotcha de la cache del landing (2026-10-13)
+
+Nginx sirve `/landing/*` con **`Cache-Control: public, immutable, max-age=2592000`**. `immutable`
+le dice al navegador que el archivo **nunca** cambia: no lo revalida **ni con F5**, y se queda con
+la copia vieja 30 dias. Un arreglo en `script.js` o `styles.css` NO le llega a nadie que ya visito
+la pagina. Por eso `welcome.blade.php` define un helper `$v()` que agrega **`?v=<filemtime>`** a
+cada asset: la URL cambia con el archivo y la cache se invalida sola. **Cualquier asset nuevo del
+landing tiene que pasar por `$v()`.**
+
+Esto hizo perder un rato: el formulario "seguia sin enviar" despues de deployar el fix, porque el
+navegador ejecutaba el `script.js` viejo (el que fingia el exito). El sintoma delator fue que **no
+habia ningun POST en el servidor**: cero consultas en la base, nada en el mail log y ningun error
+en el log de Laravel a esa hora.
+
+### Gotcha del `window.open` tras un fetch (2026-10-13)
+
+`window.open()` dentro del `.then()` de un `fetch` **lo bloquea el navegador**: el gesto del
+usuario que origino el clic ya se perdio y la ventana cuenta como popup no solicitado. Por eso el
+WhatsApp no se abria. Se sigue intentando, y si falla el JS muestra un boton verde
+**"Enviar tambien por WhatsApp"** dentro del cartel de exito (`#waLink`) — un clic directo del
+usuario no se bloquea nunca.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
