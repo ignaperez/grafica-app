@@ -16,13 +16,109 @@ class PresupuestoController extends Controller
 {
     public function index()
     {
-        $presupuestos = Presupuesto::with(['cliente', 'createdBy', 'updatedBy'])
+        $presupuestos = Presupuesto::with(['cliente', 'createdBy', 'updatedBy', 'agrupadoEn'])
             // Cantidad de facturas NO anuladas → para bloquear el botón "Facturar"
             ->withCount(['facturas as facturado_count' => fn ($q) => $q->where('estado', '!=', 'anulada')])
+            // Cuántos presupuestos agrupa este (si agrupa, no se puede re-agrupar)
+            ->withCount('agrupados')
             ->orderByDesc('numero')
             ->get();
 
         return view('presupuestos.index', compact('presupuestos'));
+    }
+
+    /**
+     * Agrupa varios presupuestos existentes en uno NUEVO.
+     *
+     * Mismo patrón que desdeTrabajos / desdeVehiculos: NO crea nada todavía,
+     * precarga el formulario de alta y se guarda al confirmar. El presupuesto
+     * nuevo es INDEPENDIENTE — se copian los datos y después se edita libre;
+     * no queda ninguna sincronización con los originales.
+     *
+     * Los precios se copian TAL CUAL fueron cotizados (los ítems ya tienen el
+     * precio congelado, ver gotcha 11). Si algún presupuesto es viejo se avisa
+     * en el formulario con su fecha, para revisarlos antes de guardar.
+     */
+    public function desdePresupuestos(Request $request)
+    {
+        $ids = array_filter((array) $request->input('presupuesto_ids', []));
+
+        if (count($ids) < 2) {
+            return back()->with('error', 'Seleccioná al menos dos presupuestos para agrupar.');
+        }
+
+        $presupuestos = Presupuesto::with(['items', 'cliente'])
+            ->withCount([
+                'facturas as facturado_count' => fn ($q) => $q->where('estado', '!=', 'anulada'),
+                'agrupados',
+            ])
+            ->whereIn('id', $ids)
+            ->orderBy('numero')
+            ->get();
+
+        if ($presupuestos->count() < 2) {
+            return back()->with('error', 'No se encontraron los presupuestos seleccionados.');
+        }
+
+        // Mismo cliente: juntar presupuestos de clientes distintos no tiene sentido
+        $clienteIds = $presupuestos->pluck('cliente_id')->unique();
+        if ($clienteIds->count() !== 1 || $clienteIds->first() === null) {
+            return back()->with('error', 'Los presupuestos deben ser del mismo cliente para agruparse.');
+        }
+
+        // No agrupar lo ya facturado, lo ya agrupado, ni lo que agrupa a otros
+        $noSePueden = $presupuestos->reject(fn ($p) => $p->puedeAgruparse());
+        if ($noSePueden->isNotEmpty()) {
+            $motivo = $noSePueden->map(function ($p) {
+                if ($p->estaAgrupado())            $m = 'ya está agrupado en ' . $p->agrupadoEn?->numeroFormateado();
+                elseif ($p->facturado_count > 0)   $m = 'ya está facturado';
+                elseif ($p->agrupados_count > 0)   $m = 'ya agrupa otros presupuestos';
+                else                               $m = 'está rechazado';
+
+                return $p->numeroFormateado() . ' (' . $m . ')';
+            })->implode(', ');
+
+            return back()->with('error', 'No se pueden agrupar: ' . $motivo . '.');
+        }
+
+        $cliente = Cliente::find($clienteIds->first());
+
+        // Ítems de todos, en orden de presupuesto y después por su propio orden
+        $items  = [];
+        $viejos = [];
+        foreach ($presupuestos as $p) {
+            if ($p->fecha && $p->fecha->diffInDays(now()) > 30) {
+                $viejos[] = $p->numeroFormateado() . ' del ' . $p->fecha->format('d/m/Y');
+            }
+
+            foreach ($p->items as $it) {
+                $items[] = [
+                    'descripcion' => $it->descripcion,
+                    'unidad'      => $it->unidad,
+                    'cantidad'    => $it->cantidad,
+                    'precio'      => $it->precio_unitario,
+                    'ancho'       => $it->ancho,
+                    'alto'        => $it->alto,
+                    'largo'       => $it->largo,
+                ];
+            }
+        }
+
+        if (empty($items)) {
+            return back()->with('error', 'Los presupuestos seleccionados no tienen ítems.');
+        }
+
+        $numeros = $presupuestos->map->numeroFormateado()->implode(', ');
+
+        return redirect()->route('presupuestos.create')->with('presu_prefill', [
+            'cliente_id'     => $cliente->id,
+            'cliente_nombre' => $cliente->nombre,
+            'items'          => $items,
+            // Se marcan como agrupados recién al guardar (si cancela, no pasa nada)
+            'agrupar_ids'    => $presupuestos->pluck('id')->all(),
+            'agrupar_label'  => $numeros,
+            'agrupar_viejos' => $viejos,
+        ]);
     }
 
     /** Descarga el listado de presupuestos como Excel. */
@@ -107,8 +203,43 @@ class PresupuestoController extends Controller
             VehiculoPloteo::whereIn('id', $vehiculoIds)->update(['presupuesto_id' => $presupuesto->id]);
         }
 
-        return redirect()->route('presupuestos.show', $presupuesto->id)
-            ->with('success', 'Presupuesto ' . $presupuesto->numeroFormateado() . ' creado.');
+        // Si se armó agrupando presupuestos, marcar los originales recién AHORA.
+        // Sin esta marca su botón "⚡ Factura" sigue activo y se podría facturar
+        // dos veces el mismo trabajo. Se re-chequea `puedeAgruparse()` porque
+        // entre la precarga y el guardado pudo cambiar algo (otra pestaña).
+        $agrupados = 0;
+        $agruparIds = array_filter((array) $request->input('agrupar_ids', []));
+
+        if ($agruparIds) {
+            $candidatos = Presupuesto::withCount([
+                    'facturas as facturado_count' => fn ($q) => $q->where('estado', '!=', 'anulada'),
+                    'agrupados',
+                ])
+                ->whereIn('id', $agruparIds)
+                ->where('id', '!=', $presupuesto->id)
+                ->where('cliente_id', $presupuesto->cliente_id)
+                ->get()
+                ->filter(fn ($p) => $p->puedeAgruparse());
+
+            foreach ($candidatos as $p) {
+                $p->update(['agrupado_en_id' => $presupuesto->id, 'updated_by' => auth()->id()]);
+                $agrupados++;
+            }
+
+            // Los vehículos marcados en los originales pasan al nuevo: si no,
+            // seguirían apuntando a un presupuesto que ya no se va a facturar.
+            VehiculoPloteo::whereIn('presupuesto_id', $candidatos->pluck('id'))
+                ->update(['presupuesto_id' => $presupuesto->id]);
+        }
+
+        $msg = 'Presupuesto ' . $presupuesto->numeroFormateado() . ' creado.';
+        if ($agrupados > 0) {
+            $msg .= ' Se agruparon ' . $agrupados . ' presupuestos'
+                  . ($agrupados !== count($agruparIds) ? ' (de ' . count($agruparIds) . ' seleccionados)' : '')
+                  . ', que quedaron marcados y ya no se pueden facturar por separado.';
+        }
+
+        return redirect()->route('presupuestos.show', $presupuesto->id)->with('success', $msg);
     }
 
     public function show(Presupuesto $presupuesto)

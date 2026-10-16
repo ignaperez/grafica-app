@@ -27,7 +27,7 @@ class Presupuesto extends Model
         'numero', 'cliente_id', 'lista_precio_id',
         'multiplicador', 'mo_m2', 'mo_ml', 'mo_unidad',
         'estado', 'fecha', 'fecha_vencimiento', 'observaciones', 'nota_interna',
-        'total', 'orden_trabajo_id',
+        'total', 'orden_trabajo_id', 'agrupado_en_id',
         'created_by', 'updated_by',
     ];
 
@@ -52,6 +52,12 @@ class Presupuesto extends Model
     public function createdBy()    { return $this->belongsTo(\App\Models\User::class, 'created_by'); }
     public function updatedBy()    { return $this->belongsTo(\App\Models\User::class, 'updated_by'); }
 
+    /** El presupuesto nuevo en el que SE AGRUPÓ este (si se agrupó). */
+    public function agrupadoEn()   { return $this->belongsTo(self::class, 'agrupado_en_id'); }
+
+    /** Los presupuestos que se agruparon EN este. */
+    public function agrupados()    { return $this->hasMany(self::class, 'agrupado_en_id')->orderBy('numero'); }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     public function numeroFormateado(): string
@@ -68,6 +74,29 @@ class Presupuesto extends Model
     public static function proximoNumero(): int
     {
         return (static::withTrashed()->max('numero') ?? 0) + 1;
+    }
+
+    /** ¿Se agrupó dentro de otro presupuesto? Entonces no se factura solo. */
+    public function estaAgrupado(): bool
+    {
+        return $this->agrupado_en_id !== null;
+    }
+
+    /**
+     * ¿Se puede agrupar en uno nuevo? No si ya está agrupado (evita cadenas),
+     * si ya se facturó, si él mismo agrupa a otros (sería anidar), o si está
+     * rechazado. Usa los `withCount` del listado si están cargados.
+     */
+    public function puedeAgruparse(): bool
+    {
+        $facturas  = $this->facturado_count
+            ?? $this->facturas()->where('estado', '!=', 'anulada')->count();
+        $agrupados = $this->agrupados_count ?? $this->agrupados()->count();
+
+        return ! $this->estaAgrupado()
+            && $this->estado !== 'rechazado'
+            && (int) $facturas === 0
+            && (int) $agrupados === 0;
     }
 
     public function estadoLabel(): string

@@ -272,6 +272,7 @@ Route::middleware([
 
         Route::post('/presupuestos/desde-trabajos', [PresupuestoController::class, 'desdeTrabajos'])->name('presupuestos.desde-trabajos');
         Route::post('/presupuestos/desde-vehiculos', [PresupuestoController::class, 'desdeVehiculos'])->name('presupuestos.desde-vehiculos');
+        Route::post('/presupuestos/agrupar', [PresupuestoController::class, 'desdePresupuestos'])->name('presupuestos.agrupar');
         Route::get('/presupuestos/export', [PresupuestoController::class, 'exportar'])->name('presupuestos.export');
         Route::get('/presupuestos/precio-servicio', [PresupuestoController::class, 'precioServicio'])->name('presupuestos.precio-servicio');
         Route::get('/presupuestos/{presupuesto}/print', [PresupuestoController::class, 'print'])->name('presupuestos.print');

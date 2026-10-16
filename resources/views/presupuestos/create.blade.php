@@ -11,6 +11,31 @@
 <form method="POST" action="{{ route('presupuestos.store') }}" id="form-presupuesto">
 @csrf
 
+{{-- Si se llegó acá agrupando presupuestos, los ids viajan para marcarlos al
+     guardar. Se marcan recién al confirmar: si cancela, no pasa nada. --}}
+@foreach(($prefill['agrupar_ids'] ?? []) as $pid)
+    <input type="hidden" name="agrupar_ids[]" value="{{ $pid }}">
+@endforeach
+
+@if(! empty($prefill['agrupar_label']))
+    <div class="gcard" style="margin-bottom:14px;border-color:rgba(230,80,42,.35)">
+        <div class="gcard-bd" style="font-size:13px;line-height:1.6">
+            <strong style="color:var(--ac)">Agrupando {{ $prefill['agrupar_label'] }}</strong><br>
+            <span class="txd">
+                Los ítems vienen con el precio tal cual fue cotizado. Este presupuesto es
+                independiente: edita lo que quieras, no se toca el original. Al guardar, esos
+                presupuestos quedan marcados como agrupados y no se podrán facturar por separado.
+            </span>
+            @if(! empty($prefill['agrupar_viejos']))
+                <div style="margin-top:8px;color:#e6a23c">
+                    ⚠ Ojo con los precios de {{ implode(' · ', $prefill['agrupar_viejos']) }} —
+                    tienen más de 30 días.
+                </div>
+            @endif
+        </div>
+    </div>
+@endif
+
 {{-- ── Cabecera ───────────────────────────────────────────────────────────── --}}
 <div class="gcard" style="margin-bottom:16px">
     <div class="gcard-hd">
