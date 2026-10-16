@@ -1583,6 +1583,46 @@ WhatsApp no se abria. Se sigue intentando, y si falla el JS muestra un boton ver
 **"Enviar tambien por WhatsApp"** dentro del cartel de exito (`#waLink`) — un clic directo del
 usuario no se bloquea nunca.
 
+## Presupuestos — agrupar varios en uno nuevo (2026-10-16)
+
+Se eligen varios presupuestos ya hechos del listado y se juntan en uno nuevo. **Mismo patron que
+`desdeTrabajos` / `desdeVehiculos`**: NO crea nada todavia, precarga el formulario de alta con
+todos los items de todos los presupuestos y se guarda al confirmar (si cancela, no pasa nada).
+
+- **El nuevo es INDEPENDIENTE.** Se copian los datos y despues se edita libre: no hay ninguna
+  sincronizacion con los originales (decision explicita del usuario).
+- **Los precios vienen tal cual fueron cotizados** — los items ya los tienen congelados
+  (gotcha 11). Si algun presupuesto tiene **mas de 30 dias**, el formulario avisa cual y de que
+  fecha, para revisarlos antes de guardar.
+- **El JS del form ya soportaba todo**: `aplicarDatos()` lee descripcion, unidad, cantidad,
+  precio, ancho, alto y largo — justo los campos de un `presupuesto_item`. No hubo que tocarlo.
+
+**Los originales quedan marcados** (`presupuestos.agrupado_en_id`, migracion `2026_10_16_000001`,
+tenant + central, FK nullOnDelete). **Esto es lo importante, no es cosmetico**: sin la marca su
+boton "⚡ Factura" sigue activo y se puede facturar dos veces el mismo trabajo — exactamente lo
+que paso en septiembre con dos CAE reales. En el listado el original muestra **"↳ en P-00XX"**
+(linkeado) y su boton de facturar pasa a **"⤷ Agrupado"**; el que agrupa muestra "agrupa N".
+
+- **`Presupuesto::puedeAgruparse()`** — no se agrupa lo ya facturado, lo ya agrupado (evita
+  cadenas), lo que agrupa a otros (seria anidar) ni lo rechazado. Usa los `withCount` del listado
+  si estan cargados, para no consultar de mas por fila.
+- **`desdePresupuestos()`** → `POST /presupuestos/agrupar` (`presupuestos.agrupar`): valida minimo
+  dos, mismo cliente, y lista **con el motivo por numero** los que no se pueden agrupar.
+- **`store()` re-chequea `puedeAgruparse()`** antes de marcar: entre la precarga y la confirmacion
+  pudo cambiar algo en otra pestaña. Si marca menos de los seleccionados, el mensaje lo aclara.
+- **Los vehiculos marcados en los originales pasan al nuevo** — si no, seguirian apuntando a un
+  presupuesto que ya no se va a facturar.
+- UI: checkbox por fila (solo en los agrupables) + "seleccionar todos" + barra flotante que valida
+  mismo cliente y minimo dos antes de habilitar el boton. **No usa `sessionStorage`** como la de
+  vehiculos porque este listado NO pagina (`->get()`).
+
+Verificado contra produccion con P-0011 + P-0012 (6 items, $17.100.000) **dentro de una
+transaccion con rollback**, para no consumir un numero ni dejar datos: el nuevo sale con los 6
+items y el total coincide al centavo, los dos originales quedan con `agrupado_en_id` y
+`puedeAgruparse()` en false, y las tres validaciones rechazan.
+
+**Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.**
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
