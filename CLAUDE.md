@@ -1623,6 +1623,55 @@ items y el total coincide al centavo, los dos originales quedan con `agrupado_en
 
 **Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.**
 
+## Produccion — el listado de ordenes al tema de la app (2026-10-16)
+
+El listado de OTs vivia en la carpeta vieja `resources/views/ordenes/index.blade.php` con
+**Bootstrap** (`container`, `list-group`, `btn-success`), fuera del tema oscuro del resto. Se
+reescribio como **`ordenes-trabajo/index.blade.php`** con `gcard` / `gtable` / `gbtn` /
+`badge-estado` y la barra `gprog`. `OrdenTrabajoController@index` ahora apunta ahi.
+
+**Dos bugs que arrastraba:**
+- **`paginate(10)` SIN renderizar los links.** Con 11 ordenes en 123ploteos habia **una
+  inalcanzable** desde la pantalla, y el problema crecia solo. Ahora pagina de 20, renderiza
+  `$ordenes->links()` y usa **`withQueryString()`** — sin eso los filtros se pierden al cambiar
+  de pagina.
+- **Los filtros `estado` / `desde` / `hasta` que el controller YA soportaba no existian en la
+  vista**: eran codigo muerto desde la UI. Ahora estan, y el estado vacio distingue "no hay
+  ordenes" de "el filtro no matchea".
+
+Suma ademas el badge de estado, cuantos trabajos van terminados con el porcentaje, y el boton de
+imprimir que no estaba.
+
+**Limpieza de 9 blades huerfanos** (0 referencias, todos Bootstrap):
+`ordenes/{index,create,create_original,edit}`, `ordenes-test`,
+`ordenes-trabajo/{edit,ordenes-trabajo_create,ordenes-trabajo_trabajos}` y
+`ordenes-trabajo/partials/lista`. **La carpeta `ordenes/` ya no existe** — queda solo
+`ordenes-trabajo/` (create, index, print, show, trabajos).
+
+> Uno era una mina: `ordenes-trabajo_trabajos` tenia un `route('ordenes-trabajo.edit')` y esa
+> ruta **se elimino en septiembre**, asi que habria explotado con `RouteNotFoundException` el dia
+> que alguien abriera esa pantalla.
+
+Verificado en produccion: sin filtro **11 de 11** (antes 10 de 11), filtro `borrador` 11, filtro
+`entregada` 0 con el mensaje del filtro.
+
+**Sin migracion.** Deploy = `git pull` + `view:clear` + `route:cache`.
+
+### DKIM del correo — la clave YA existe, falta publicar el DNS (2026-10-16)
+
+Buscando por que los mails podian caer en spam: **OpenDKIM ya esta instalado, activo y enganchado
+a Postfix** (`smtpd_milters = inet:127.0.0.1:8891`), firmando `*@plote.ar`. Lo que falta es
+**publicar la clave publica en el DNS de Wiroos** — por eso `dig TXT default._domainkey` y `mail._domainkey`
+daban vacio: **el selector es `mail2026`**, no los habituales.
+
+- Clave: `/etc/opendkim/keys/plote.ar/mail2026.private` (+ el `.txt` con el valor para el DNS)
+- `signing.table`: `*@plote.ar mail2026._domainkey.plote.ar`
+- **Falta:** registro TXT `mail2026._domainkey.plote.ar` en el panel de Wiroos con el
+  `v=DKIM1; h=sha256; k=rsa; p=...` del `.txt` (concatenando los trozos entre comillas, sin
+  espacios). Hasta entonces el mail sale firmado pero **nadie puede validar la firma**.
+- SPF y DMARC ya estan (`v=spf1 mx ip4:148.113.192.65 ~all` / `p=none`). El PTR es
+  `c1116.cloud.wiroos.net`, no coincide con plote.ar.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
