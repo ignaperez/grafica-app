@@ -31,10 +31,10 @@ class OrdenTrabajoController extends Controller
             $query->whereDate('fecha_recibido', '<=', $request->hasta);
         }
 
-        $ordenes = $query->paginate(10);
+        // withQueryString: sin esto los filtros se pierden al pasar de página
+        $ordenes = $query->paginate(20)->withQueryString();
 
-        // OJO: elegí UNA carpeta de vistas. Si tu index está en ordenes-trabajo.index, cambialo acá.
-        return view('ordenes.index', compact('ordenes'));
+        return view('ordenes-trabajo.index', compact('ordenes'));
     }
 
     public function create()
@@ -43,7 +43,6 @@ class OrdenTrabajoController extends Controller
         $clientes  = Cliente::orderBy('nombre')->get();
         $productos = Producto::orderBy('nombre')->get();
 
-        // OJO: elegí UNA carpeta de vistas. Si tu create está en ordenes.create, cambialo acá.
         return view('ordenes-trabajo.create', compact('clientes', 'productos'));
     }
 
