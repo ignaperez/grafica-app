@@ -1623,6 +1623,35 @@ items y el total coincide al centavo, los dos originales quedan con `agrupado_en
 
 **Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.**
 
+### Seguimiento — leyenda de agrupado y totales que NO duplican (2026-10-19)
+
+Al agrupar presupuestos la planilla de Seguimiento no mostraba nada: las filas de los originales
+quedaban identicas y no habia forma de seguir el proceso desde ahi.
+
+- **`detalle` de cada original** → `"Agrupado en P-00XX"`, y **el del nuevo** → `"Agrupa P-0011,
+  P-0012"`, asi se sigue desde los dos lados. **`Seguimiento::agregarAlDetalle()` AGREGA con
+  " · " en vez de pisar** (el campo es manual y puede tener algo escrito) y **no duplica** si se
+  reintenta. Se engancha en `PresupuestoController@store`, donde ya se marcan los agrupados.
+- La fila agrupada queda **visible pero distinguible**: borde naranja (`.seg-row.agrupado`) y los
+  montos atenuados.
+
+**BUG que aparecio al revisar esto: los totales DUPLICABAN.** `totalesAnio()` hacia
+`$rows->sum(montoBase())` sobre TODAS las filas, asi que agrupar P-0011 + P-0012 en P-0042
+contaba el mismo trabajo **dos veces** en "presupuestado" — y `pendiente = presupuestado −
+cobrado` arrastraba el error. Ahora se descartan las filas cuyo presupuesto esta agrupado
+(`Seguimiento::estaAgrupado()`) y el panel avisa cuantas quedaron afuera.
+
+> **En produccion esto corregia $22.700.000**: el presupuestado de 2026 pasó de $301.046.300 a
+> $278.346.300 (habia 3 presupuestos agrupados en P-0042). El monto vale una sola vez, en el
+> agrupador.
+
+**Backfill:** los presupuestos agrupados ANTES de esta feature no tenian la leyenda. Se corrio un
+script idempotente que la agrega recorriendo `whereNotNull('agrupado_en_id')` en todos los tenants
+(P-0012 / P-0013 / P-0035 → "Agrupado en P-0042", y P-0042 → "Agrupa P-0012, P-0013, P-0035").
+**Si se vuelve a correr no duplica nada.**
+
+**Sin migracion.** Deploy = `git pull` + `view:clear`.
+
 ## Produccion — el listado de ordenes al tema de la app (2026-10-16)
 
 El listado de OTs vivia en la carpeta vieja `resources/views/ordenes/index.blade.php` con
