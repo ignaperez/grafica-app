@@ -3,7 +3,9 @@
 @section('page-title', 'Clientes')
 
 @section('topbar-actions')
-    <a href="{{ route('clientes.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo cliente</a>
+    @puede('clientes', 'crear')
+        <a href="{{ route('clientes.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo cliente</a>
+    @endpuede
 @endsection
 
 @section('content')
@@ -61,7 +63,9 @@
                 <td style="color:var(--txm);font-size:12px;">{{ $cliente->telefono ?: '—' }}</td>
                 <td style="font-size:12px;color:var(--txm);">{{ $cliente->listaPrecio->nombre ?? '—' }}</td>
                 <td style="text-align:right;white-space:nowrap;">
-                    <a href="{{ route('clientes.edit', $cliente->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
+                    @puede('clientes', 'editar')
+                        <a href="{{ route('clientes.edit', $cliente->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
+                    @endpuede
                 </td>
             </tr>
             @endforeach

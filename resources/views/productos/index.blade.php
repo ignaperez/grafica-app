@@ -16,7 +16,9 @@
             @endforeach
         </select>
     </form>
-    <a href="{{ route('productos.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo servicio</a>
+    @puede('servicios', 'crear')
+        <a href="{{ route('productos.create') }}" class="gbtn gbtn-primary gbtn-sm">+ Nuevo servicio</a>
+    @endpuede
 @endsection
 
 @section('content')
@@ -84,12 +86,16 @@
                         @endif
                     </td>
                     <td style="text-align:right">
+                        @puede('servicios', 'editar')
                         <a href="{{ route('productos.edit', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
+                        @endpuede
+                        @puede('servicios', 'borrar')
                         <form action="{{ route('productos.destroy', $p->id) }}" method="POST" class="d-inline"
                               onsubmit="return confirm('¿Eliminar « {{ $p->nombre }} »?')">
                             @csrf @method('DELETE')
                             <button class="gbtn gbtn-danger gbtn-xs">Quitar</button>
                         </form>
+                        @endpuede
                     </td>
                 </tr>
                 @empty
