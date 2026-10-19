@@ -36,7 +36,7 @@ class Permisos
         'seguimientos'     => 'seguimiento',
         'productos'        => 'servicios',
         'catalogo'         => 'servicios',
-        'listas-precios'   => 'servicios',
+        'listas-precios'   => 'precios',
         'tipo-trabajos'    => 'configuracion',
         'materiales'       => 'configuracion',
         'maquinas'         => 'configuracion',

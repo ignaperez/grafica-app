@@ -22,6 +22,7 @@ class User extends Authenticatable
         'remitos'       => 'Remitos',
         'seguimiento'   => 'Seguimiento',
         'servicios'     => 'Servicios / Catálogo',
+        'precios'       => 'Precios (ver importes)',
         'configuracion' => 'Configuración',
         'rrhh'          => 'RRHH',
         'papelera'      => 'Papelera',
@@ -211,7 +212,7 @@ class User extends Authenticatable
     {
         $modulos = match ($rol) {
             'admin'      => array_keys(self::MODULOS),
-            'ventas'     => ['ordenes', 'vehiculos', 'clientes', 'presupuestos', 'facturas', 'remitos', 'servicios'],
+            'ventas'     => ['ordenes', 'vehiculos', 'clientes', 'presupuestos', 'facturas', 'remitos', 'servicios', 'precios'],
             'produccion' => ['ordenes', 'vehiculos', 'remitos'],
             // El colocador tercerizado entra solo a los vehículos que le
             // asignaron (scopeVisiblesPara) y a subir fotos → sin borrar.

@@ -53,8 +53,10 @@
                     <th>Nombre</th>
                     <th>Proceso</th>
                     <th>Unidad</th>
-                    <th style="text-align:right">Precio</th>
-                    <th style="text-align:right">M.O.</th>
+                    @puede('precios')
+                        <th style="text-align:right">Precio</th>
+                        <th style="text-align:right">M.O.</th>
+                    @endpuede
                     <th>Estado</th>
                     <th style="width:120px"></th>
                 </tr>
@@ -72,12 +74,14 @@
                     <td>
                         <span class="mono" style="font-size:12px;color:var(--ac)">{{ $p->unidad }}</span>
                     </td>
+                    @puede('precios')
                     <td style="text-align:right" class="mono">
                         {{ $p->precio > 0 ? '$' . number_format($p->precio, 2, ',', '.') : '—' }}
                     </td>
                     <td style="text-align:right" class="mono txd">
                         {{ $p->costo_mano_obra > 0 ? '$' . number_format($p->costo_mano_obra, 2, ',', '.') : '—' }}
                     </td>
+                    @endpuede
                     <td>
                         @if($p->activo)
                             <span style="color:#4caf50;font-size:12px">● activo</span>
@@ -100,7 +104,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" style="text-align:center;color:var(--txd);padding:32px">
+                    <td colspan="{{ auth()->user()?->puede('precios') ? 7 : 5 }}" style="text-align:center;color:var(--txd);padding:32px">
                         @if($q !== '' || $tipoFiltro)
                             @php
                                 $criterios = [];

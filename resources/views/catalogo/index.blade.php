@@ -23,8 +23,8 @@
 </div>
 @else
 
-{{-- MO activa --}}
-@if($mo['m2'] > 0 || $mo['ml'] > 0 || $mo['unidad'] > 0)
+{{-- MO activa (solo con permiso de precios) --}}
+@if(auth()->user()?->puede('precios') && ($mo['m2'] > 0 || $mo['ml'] > 0 || $mo['unidad'] > 0))
 <div style="margin-bottom:16px;font-size:12px;color:var(--txd)">
     MO colocación global:
     @if($mo['m2'] > 0) <span class="mono" style="color:var(--ac)">${{ number_format($mo['m2'],2) }}/m²</span> @endif
@@ -46,9 +46,13 @@
                 <tr>
                     <th>Servicio</th>
                     <th>Material</th>
-                    <th style="text-align:right">Costo base</th>
-                    <th style="text-align:right">+ MO</th>
-                    <th style="text-align:right">Total costo</th>
+                    @puede('precios')
+                        <th style="text-align:right">Costo base</th>
+                        <th style="text-align:right">+ MO</th>
+                        <th style="text-align:right">Total costo</th>
+                    @else
+                        <th style="text-align:right">Unidad</th>
+                    @endpuede
                     <th style="width:60px"></th>
                 </tr>
             </thead>
@@ -60,6 +64,7 @@
                 <tr>
                     <td style="font-weight:600;color:var(--tx)">{{ $c['maquina']->nombre }}</td>
                     <td class="txd">{{ $c['material']->nombre }}</td>
+                    @puede('precios')
                     <td style="text-align:right" class="mono txd">
                         ${{ number_format($c['maq'] + $c['mat'], 2) }}
                     </td>
@@ -70,6 +75,11 @@
                         <strong style="color:var(--ac)">${{ number_format($c['costo'], 2) }}</strong>
                         <span class="txd" style="font-size:11px"> / {{ $label }}</span>
                     </td>
+                    @else
+                    {{-- Sin permiso de precios igual se ve la unidad: el
+                         catálogo sirve para saber qué combinaciones existen. --}}
+                    <td style="text-align:right;font-size:11px" class="txd">por {{ $label }}</td>
+                    @endpuede
                     <td style="text-align:right">
                         <a href="{{ route('materiales.edit', $c['material']->id) }}"
                            style="font-size:11px;color:var(--txd)">editar</a>
