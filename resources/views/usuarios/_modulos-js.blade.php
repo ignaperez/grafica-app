@@ -1,75 +1,89 @@
 @php
-    // $pretildar = true en el alta: al elegir el rol se tildan sus módulos default.
+    // $pretildar = true en el alta: al elegir el rol se proponen sus permisos.
     $pretildar      = $pretildar ?? false;
-    $rolesPorModulo = \App\Models\User::MODULO_ROLES;
-    $notasModulo    = \App\Models\User::MODULO_NOTAS;
     $defaultsPorRol = collect(array_keys(\App\Models\User::ROLES))
         ->mapWithKeys(fn ($r) => [$r => \App\Models\User::modulosPorRol($r)])
         ->all();
-    $labelRoles = collect(array_keys(\App\Models\User::MODULOS))
-        ->mapWithKeys(fn ($k) => [$k => \App\Models\User::rolesDeModuloLabel($k)])
-        ->all();
 @endphp
 <script>
-// Los módulos que el rol elegido no habilita se atenúan y se deshabilitan: antes
-// se podían tildar los 11 para cualquier rol y no hacían nada (las rutas los
-// cortan por rol). Espeja App\Models\User::MODULO_ROLES.
+// Matriz de permisos: módulo × acción.
+//
+// El rol ya NO limita nada — es solo una plantilla que propone permisos al
+// elegirlo en el alta. Antes los checkboxes de los módulos que el rol no
+// habilitaba salían atenuados y no servían para nada; ahora todos se pueden
+// marcar y todos tienen efecto.
 (function () {
-    const ROLES_POR_MODULO = @json($rolesPorModulo);
-    const NOTAS            = @json($notasModulo);
-    const LABEL_ROLES      = @json($labelRoles);
-    const DEFAULTS         = @json($defaultsPorRol);
-    const PRETILDAR        = @json($pretildar);
+    const DEFAULTS  = @json($defaultsPorRol);
+    const PRETILDAR = @json($pretildar);
 
     const $rol  = document.querySelector('select[name="rol"]');
-    const $grid = document.getElementById('modulos-grid');
-    if (!$rol || !$grid) return;
+    const filas = () => Array.from(document.querySelectorAll('.perm-tabla tbody tr'));
 
-    function pintar(rol) {
-        $grid.querySelectorAll('.mod-item').forEach(function (item) {
-            const mod    = item.dataset.modulo;
-            const chk    = item.querySelector('input[type="checkbox"]');
-            const nota   = item.querySelector('.mod-nota');
-            const aplica = rol === '' || (ROLES_POR_MODULO[mod] || []).includes(rol);
+    function sincronizarFila(tr) {
+        const chks  = Array.from(tr.querySelectorAll('.perm-chk'));
+        const todo  = tr.querySelector('.perm-todo');
+        const ver   = tr.querySelector('.perm-chk[data-accion="ver"]');
+        const todos = chks.every(c => c.checked);
 
-            item.classList.toggle('mod-na', !aplica);
-            chk.disabled = !aplica;
-            item.title   = aplica ? '' : 'Disponible solo para: ' + LABEL_ROLES[mod];
+        if (todo) todo.checked = todos;
 
-            // Un checkbox deshabilitado no se envía: si el módulo está tildado se
-            // preserva en un hidden para no perderlo al guardar.
-            let hidden = $grid.querySelector('input[data-preserva="' + mod + '"]');
-            if (!aplica && chk.checked) {
-                if (!hidden) {
-                    hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.name = 'modulos[]';
-                    hidden.value = mod;
-                    hidden.dataset.preserva = mod;
-                    item.insertAdjacentElement('afterend', hidden);
-                }
-            } else if (hidden) {
-                hidden.remove();
-            }
+        // Sin "Ver" la sección no aparece en el menú: se marca la fila como
+        // inactiva para que se note de un vistazo.
+        tr.classList.toggle('sin-ver', !!ver && !ver.checked && chks.some(c => c.checked));
+    }
 
-            if (nota) {
-                nota.textContent = !aplica
-                    ? 'solo ' + LABEL_ROLES[mod]
-                    : ((NOTAS[mod] || {})[rol] || '');
-            }
+    function aplicar(permisos) {
+        filas().forEach(tr => {
+            const mod = tr.dataset.modulo;
+            const dar = (permisos && permisos[mod]) || [];
+            tr.querySelectorAll('.perm-chk').forEach(c => {
+                c.checked = dar.includes(c.dataset.accion);
+            });
+            sincronizarFila(tr);
         });
     }
 
-    $rol.addEventListener('change', function () {
-        if (PRETILDAR) {
-            const mods = DEFAULTS[this.value] || [];
-            $grid.querySelectorAll('input[type="checkbox"]').forEach(function (chk) {
-                chk.checked = mods.includes(chk.value);
+    window.permTodos = function (valor) {
+        document.querySelectorAll('.perm-chk').forEach(c => { c.checked = valor; });
+        filas().forEach(sincronizarFila);
+    };
+
+    window.permSoloVer = function () {
+        filas().forEach(tr => {
+            tr.querySelectorAll('.perm-chk').forEach(c => {
+                c.checked = c.dataset.accion === 'ver';
             });
-        }
-        pintar(this.value);
+            sincronizarFila(tr);
+        });
+    };
+
+    // "Todo" de la fila
+    document.querySelectorAll('.perm-todo').forEach(todo => {
+        todo.addEventListener('change', function () {
+            const tr = this.closest('tr');
+            tr.querySelectorAll('.perm-chk').forEach(c => { c.checked = todo.checked; });
+            sincronizarFila(tr);
+        });
     });
 
-    pintar($rol.value || '');
+    // Marcar cualquier acción implica poder ver: sin "Ver" no llega a la pantalla
+    document.querySelectorAll('.perm-chk').forEach(chk => {
+        chk.addEventListener('change', function () {
+            const tr = this.closest('tr');
+            if (this.checked && this.dataset.accion !== 'ver') {
+                const ver = tr.querySelector('.perm-chk[data-accion="ver"]');
+                if (ver) ver.checked = true;
+            }
+            sincronizarFila(tr);
+        });
+    });
+
+    if ($rol && PRETILDAR) {
+        $rol.addEventListener('change', function () {
+            aplicar(DEFAULTS[this.value] || {});
+        });
+    }
+
+    filas().forEach(sincronizarFila);
 })();
 </script>

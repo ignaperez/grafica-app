@@ -56,7 +56,7 @@
     </div>
 </div>
 
-@include('usuarios._modulos', ['seleccionados' => old('modulos', []), 'rolActual' => old('rol', '')])
+@include('usuarios._modulos', ['seleccionados' => old('permisos', [])])
 
 <div style="margin-top:16px;display:flex;gap:8px">
     <button type="submit" class="gbtn gbtn-primary">Crear usuario</button>

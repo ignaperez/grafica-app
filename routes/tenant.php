@@ -72,12 +72,15 @@ Route::middleware([
     |----------------------------------------------------------------------
     */
 
-    Route::middleware(['auth', 'rol:admin'])->group(function () {
+    Route::middleware('auth')->group(function () {
 
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        Route::get('/reportes/produccion', [ReporteController::class, 'index'])->name('reportes.produccion');
+        // Estas dos NO tienen modulo mapeado (son tableros, no una seccion), asi
+        // que conservan el rol: sin el quedarian abiertas a cualquier logueado.
+        Route::middleware('rol:admin')->group(function () {
+            Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+            Route::get('/reportes/produccion', [ReporteController::class, 'index'])->name('reportes.produccion');
+        });
 
-        Route::get('/admin', fn () => 'Bienvenido administrador.');
         Route::post('/usuarios/{usuario}/cerrar-sesiones', [UserController::class, 'cerrarSesiones'])->name('usuarios.cerrar-sesiones');
         Route::resource('usuarios', UserController::class)->except(['show']);
 
@@ -104,7 +107,7 @@ Route::middleware([
     |----------------------------------------------------------------------
     */
 
-    Route::middleware(['auth', 'rol:admin'])->prefix('rrhh')->name('rrhh.')->group(function () {
+    Route::middleware('auth')->prefix('rrhh')->name('rrhh.')->group(function () {
 
         Route::get('/', [FichadaController::class, 'dashboard'])->name('dashboard');
 
@@ -173,7 +176,7 @@ Route::middleware([
 
     // El instalador entra al grupo, pero solo tiene el módulo `vehiculos`:
     // `modulo.access` le corta órdenes y trabajos.
-    Route::middleware(['auth', 'rol:admin,ventas,produccion,instalador'])->group(function () {
+    Route::middleware('auth')->group(function () {
 
         Route::get('/inicio', [DashboardController::class, 'inicio'])->name('inicio');
 
@@ -256,7 +259,7 @@ Route::middleware([
     |----------------------------------------------------------------------
     */
 
-    Route::middleware(['auth', 'rol:admin,ventas'])->group(function () {
+    Route::middleware('auth')->group(function () {
 
         Route::resource('clientes', ClienteController::class);
         // Debug del padrón AFIP: además del abort_unless(app.debug) del controller,
@@ -300,7 +303,7 @@ Route::middleware([
         Route::resource('remito-cais', RemitoCaiController::class)
             ->only(['index', 'create', 'store', 'destroy'])
             ->parameters(['remito-cais' => 'remitoCai'])
-            ->middleware('rol:admin');
+            ;
 
     });
 

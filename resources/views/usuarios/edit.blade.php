@@ -68,10 +68,7 @@
         </div>
     </div>
 @else
-    @include('usuarios._modulos', [
-        'seleccionados' => old('modulos', $usuario->modulos ?? []),
-        'rolActual'     => old('rol', $usuario->rol),
-    ])
+    @include('usuarios._modulos', ['seleccionados' => old('permisos', $usuario->permisos())])
 @endif
 
 <div style="margin-top:16px;display:flex;gap:8px">

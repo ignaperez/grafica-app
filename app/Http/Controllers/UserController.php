@@ -53,8 +53,8 @@ class UserController extends Controller
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|string|min:8|confirmed',
             'rol'       => 'required|in:admin,ventas,produccion,instalador',
-            'modulos'   => 'nullable|array',
-            'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
+            'permisos'   => 'nullable|array',
+            'permisos.*' => 'nullable|array',
         ]);
 
         $this->rechazarSiEsMiPropiaClave($request);
@@ -80,8 +80,8 @@ class UserController extends Controller
             'email'     => ['required', 'email', Rule::unique('users')->ignore($usuario->id)],
             'password'  => 'nullable|string|min:8|confirmed',
             'rol'       => 'required|in:admin,ventas,produccion,instalador',
-            'modulos'   => 'nullable|array',
-            'modulos.*' => 'in:' . implode(',', array_keys(User::MODULOS)),
+            'permisos'   => 'nullable|array',
+            'permisos.*' => 'nullable|array',
         ]);
 
         $this->rechazarSiEsMiPropiaClave($request);
@@ -118,19 +118,39 @@ class UserController extends Controller
         return back()->with('success', 'Se cerró la sesión de ' . $usuario->name . ' (se le pedirá ingresar de nuevo).');
     }
 
-    /** Módulos elegidos en el form (o los default del rol si no vino la sección). */
+    /**
+     * Permisos elegidos en el form, como mapa modulo => [acciones].
+     * Si no vino la seccion, se usan los que propone el rol.
+     */
     private function modulosDesde(Request $request, string $rol): array
     {
         if (! $request->boolean('modulos_marcado')) {
             return User::modulosPorRol($rol);
         }
 
-        // array_unique: el hidden que preserva un módulo no disponible para el
-        // rol puede llegar junto al checkbox si el rol cambió en la misma carga.
-        return array_values(array_unique(array_intersect(
-            (array) $request->input('modulos', []),
-            array_keys(User::MODULOS)
-        )));
+        $validas = \App\Support\Permisos::todas();
+        $out     = [];
+
+        foreach ((array) $request->input('permisos', []) as $modulo => $acciones) {
+            if (! array_key_exists($modulo, User::MODULOS)) {
+                continue;
+            }
+
+            $acciones = array_values(array_unique(array_intersect((array) $acciones, $validas)));
+
+            if ($acciones === []) {
+                continue;   // sin ninguna accion, el modulo no se guarda
+            }
+
+            // Cualquier accion implica poder ver: sin eso no llega a la pantalla
+            if (! in_array('ver', $acciones, true)) {
+                array_unshift($acciones, 'ver');
+            }
+
+            $out[$modulo] = $acciones;
+        }
+
+        return $out;
     }
 
     public function destroy(User $usuario)

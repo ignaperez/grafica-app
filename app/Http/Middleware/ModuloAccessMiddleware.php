@@ -2,107 +2,88 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Permisos;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Controla el acceso por MÓDULO. Mapea el nombre de la ruta a un módulo y
- * verifica que el usuario lo tenga habilitado. El Administrador principal
- * (es_super) pasa siempre. Las rutas sin módulo (dashboard, perfil, etc.) son
- * libres. La sección de usuarios es exclusiva del Administrador principal.
+ * Control de acceso por MÓDULO y ACCIÓN.
+ *
+ * Resuelve el nombre de la ruta a (módulo, acción) con `App\Support\Permisos`
+ * y verifica que el usuario tenga esa acción.
+ *
+ * **El módulo manda.** Antes el `rol:` de las rutas era un techo y el módulo
+ * solo podía recortar: no se podía darle Clientes a producción por más que se
+ * tildara el checkbox. Ahora el rol quedó como la plantilla que se propone al
+ * crear el usuario, y lo que decide el acceso es lo que esté marcado acá.
+ *
+ * El rol se sigue usando para otras cosas: qué tablero ve al entrar y, en el
+ * caso del colocador, que solo vea los vehículos que le asignaron
+ * (`VehiculoPloteo::scopeVisiblesPara`).
  */
 class ModuloAccessMiddleware
 {
-    /** Prefijo del nombre de ruta → módulo. */
-    private const MAPA = [
-        'ordenes-trabajo'  => 'ordenes',
-        'ordenes.'         => 'ordenes',
-        'trabajos-libres'  => 'ordenes',
-        'trabajos.'        => 'ordenes',
-        'trabajo-archivos' => 'ordenes',
-        'vehiculos-ploteo' => 'vehiculos',
-        'clientes'         => 'clientes',
-        'presupuestos'     => 'presupuestos',
-        'facturas'         => 'facturas',
-        'cobros'           => 'facturas',
-        'remitos'          => 'remitos',
-        'remito-cais'      => 'remitos',
-        'seguimientos'     => 'seguimiento',
-        'productos'        => 'servicios',
-        'catalogo'         => 'servicios',
-        'listas-precios'   => 'servicios',
-        'tipo-trabajos'    => 'configuracion',
-        'materiales'       => 'configuracion',
-        'maquinas'         => 'configuracion',
-        'configuracion'    => 'configuracion',
-        'rrhh.'            => 'rrhh',
-        'papelera'         => 'papelera',
-        'usuarios'         => '__super__',   // solo Administrador principal
-    ];
-
-    /**
-     * Rutas "compartidas": buscar / crear un cliente al vuelo desde otros
-     * módulos (cargar un trabajo, hacer un remito, etc.). No requieren el
-     * módulo Clientes completo — alcanza con poder crear trabajo/remito/etc.
-     */
-    private const CLIENTE_COMPARTIDAS = [
-        'clientes.search',
-        'clientes.quick',
-        'clientes.consultar-cuit',
-    ];
-
     public function handle(Request $request, Closure $next): Response
     {
         $usuario = auth()->user();
 
-        // Sin sesión → dejar que 'auth' se encargue. Super → acceso total.
-        if (!$usuario || $usuario->esSuper()) {
+        // Sin sesión → que se encargue 'auth'. El Administrador principal pasa siempre.
+        if (! $usuario || $usuario->esSuper()) {
             return $next($request);
         }
 
         $nombre = $request->route()?->getName() ?? '';
 
         // Alta / búsqueda de cliente al vuelo: libre para quien cargue trabajos,
-        // remitos, presupuestos o facturas (sin necesidad del módulo Clientes).
-        if (in_array($nombre, self::CLIENTE_COMPARTIDAS, true)) {
+        // remitos, presupuestos o facturas (sin el módulo Clientes completo).
+        if (in_array($nombre, Permisos::CLIENTE_COMPARTIDAS, true)) {
             return $usuario->puedeCrearClientes()
                 ? $next($request)
                 : $this->denegar($request, $usuario);
         }
 
-        $modulo = $this->moduloDeRuta($nombre);
+        $modulo = Permisos::moduloDe($nombre);
 
         if ($modulo === null) {
-            return $next($request); // ruta sin módulo → libre
+            return $next($request);   // ruta sin módulo (login, perfil, inicio…)
         }
 
-        // Sección de usuarios: exclusiva del Administrador principal
-        if ($modulo === '__super__' || !$usuario->puedeModulo($modulo)) {
+        // La sección de usuarios es exclusiva del Administrador principal
+        if ($modulo === '__super__') {
             return $this->denegar($request, $usuario);
+        }
+
+        $accion = Permisos::accionDe($nombre, $request->route()?->methods() ?? []);
+
+        if (! $usuario->puede($modulo, $accion)) {
+            return $this->denegar($request, $usuario, $modulo, $accion);
         }
 
         return $next($request);
     }
 
-    private function moduloDeRuta(string $nombre): ?string
+    private function denegar(Request $request, $usuario, ?string $modulo = null, ?string $accion = null): Response
     {
-        foreach (self::MAPA as $prefijo => $modulo) {
-            if (str_starts_with($nombre, $prefijo)) {
-                return $modulo;
-            }
-        }
-        return null;
-    }
+        $etiqueta = $modulo ? (\App\Models\User::MODULOS[$modulo] ?? $modulo) : null;
 
-    private function denegar(Request $request, $usuario): Response
-    {
+        $msg = $etiqueta && $accion
+            ? 'No tenés permiso para ' . mb_strtolower(Permisos::ACCIONES[$accion] ?? $accion)
+              . ' en ' . $etiqueta . '.'
+            : 'No tenés acceso a esa sección.';
+
         if ($request->expectsJson()) {
-            abort(403, 'No tenés acceso a ese módulo.');
+            abort(403, $msg);
+        }
+
+        // Si tiene permiso de VER el módulo, se lo devuelve ahí en vez de
+        // echarlo al inicio: el caso típico es "puede mirar pero no editar".
+        if ($modulo && $accion !== 'ver' && $usuario->puede($modulo, 'ver')) {
+            return back()->with('error', $msg);
         }
 
         $home = $usuario->rol === 'admin' ? 'dashboard' : 'inicio';
 
-        return redirect()->route($home)->with('error', 'No tenés acceso a esa sección.');
+        return redirect()->route($home)->with('error', $msg);
     }
 }

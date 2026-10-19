@@ -62,16 +62,17 @@
                               style="margin-left:6px;font-size:10.5px;font-weight:700;color:var(--ac)">★ Principal</span>
                     @else
                         @php
-                            $efectivos   = $u->modulosEfectivos();
-                            $disponibles = \App\Models\User::modulosDisponibles($u->rol);
-                            $inservibles = count($u->modulos ?? []) - count($efectivos);
+                            // Detalle de qué puede hacer en cada sección, para el tooltip
+                            $detalle = collect($u->permisos())
+                                ->filter(fn ($a) => $a !== [])
+                                ->map(fn ($acc, $m) => (\App\Models\User::MODULOS[$m] ?? $m) . ': '
+                                    . implode('/', array_map(
+                                        fn ($a) => \App\Support\Permisos::ACCIONES[$a] ?? $a, $acc)))
+                                ->implode("\n");
                         @endphp
                         <div class="txd" style="font-size:10.5px;margin-top:4px"
-                             title="{{ $efectivos ? implode(', ', array_map(fn($m) => \App\Models\User::MODULOS[$m], $efectivos)) : 'Sin módulos habilitados' }}">
-                            {{ count($efectivos) }} de {{ count($disponibles) }} módulos
-                            @if($inservibles > 0)
-                                <span title="Tildados pero sin efecto para su rol — se conservan por si cambia de rol">· +{{ $inservibles }} sin efecto</span>
-                            @endif
+                             title="{{ $detalle ?: 'Sin permisos' }}">
+                            {{ $u->resumenPermisos() }}
                         </div>
                     @endif
                 </td>

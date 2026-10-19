@@ -27,33 +27,6 @@ class User extends Authenticatable
         'papelera'      => 'Papelera',
     ];
 
-    /**
-     * Qué roles pueden usar REALMENTE cada módulo. El módulo recorta dentro de
-     * lo que el rol ya abrió (`rol:` en routes/tenant.php): nunca suma. Por eso
-     * tildarle "RRHH" a un vendedor no hace nada — sus rutas son `rol:admin`.
-     * Esta tabla espeja esos grupos de rutas; si se mueve un grupo, actualizarla.
-     */
-    public const MODULO_ROLES = [
-        'ordenes'       => ['admin', 'ventas', 'produccion', 'instalador'],
-        'vehiculos'     => ['admin', 'ventas', 'produccion', 'instalador'],
-        'remitos'       => ['admin', 'ventas', 'produccion', 'instalador'],
-        'clientes'      => ['admin', 'ventas'],
-        'presupuestos'  => ['admin', 'ventas'],
-        'facturas'      => ['admin', 'ventas'],
-        'servicios'     => ['admin', 'ventas'],
-        'configuracion' => ['admin', 'ventas'],
-        'seguimiento'   => ['admin'],
-        'rrhh'          => ['admin'],
-        'papelera'      => ['admin'],
-    ];
-
-    /** Aclaraciones de alcance parcial, para mostrar en el formulario. */
-    public const MODULO_NOTAS = [
-        'configuracion' => [
-            'ventas' => 'Solo tipos, materiales y máquinas (no la configuración de la empresa).',
-        ],
-    ];
-
     /** Etiqueta corta, para listar roles dentro de un texto separado por " / ". */
     private const ROLES_CORTO = [
         'admin'      => 'Admin',
@@ -118,10 +91,61 @@ class User extends Authenticatable
         return (bool) $this->es_super;
     }
 
-    /** ¿Tiene habilitado este módulo? (el admin principal siempre). */
+    /**
+     * Permisos por módulo y acción.
+     *
+     * Formato en `users.modulos`:  {"ordenes": ["ver","crear"], "clientes": ["ver"]}
+     *
+     * Antes era un array plano de módulos y el ROL era el techo: el módulo solo
+     * podía recortar, así que no se podía darle Clientes a producción por más
+     * que se tildara el checkbox. Ahora **el módulo manda** y el rol quedó como
+     * la plantilla que se propone al crear el usuario.
+     *
+     * Se acepta el formato viejo (array plano) por si queda algún registro sin
+     * migrar: ahí se asumen TODAS las acciones, para no quitarle acceso a nadie.
+     */
+    public function permisos(): array
+    {
+        $raw = $this->modulos ?? [];
+        $out = [];
+
+        foreach ($raw as $clave => $valor) {
+            if (is_int($clave)) {
+                $out[$valor] = \App\Support\Permisos::todas();   // formato viejo
+            } else {
+                $out[$clave] = array_values(array_intersect(
+                    (array) $valor,
+                    \App\Support\Permisos::todas()
+                ));
+            }
+        }
+
+        return $out;
+    }
+
+    /** Acciones que tiene sobre un módulo. El Administrador principal, todas. */
+    public function accionesDe(string $modulo): array
+    {
+        if ($this->esSuper()) {
+            return \App\Support\Permisos::todas();
+        }
+
+        return $this->permisos()[$modulo] ?? [];
+    }
+
+    /** ¿Puede hacer esta acción en este módulo? */
+    public function puede(string $modulo, string $accion = 'ver'): bool
+    {
+        return in_array($accion, $this->accionesDe($modulo), true);
+    }
+
+    /**
+     * ¿Tiene algún acceso al módulo? Lo usan el sidebar y los botones: si no
+     * puede ni verlo, el módulo no existe para él.
+     */
     public function puedeModulo(string $modulo): bool
     {
-        return $this->esSuper() || in_array($modulo, $this->modulos ?? [], true);
+        return $this->accionesDe($modulo) !== [];
     }
 
     /**
@@ -131,9 +155,14 @@ class User extends Authenticatable
      */
     public function puedeCrearClientes(): bool
     {
-        foreach (['ordenes', 'remitos', 'presupuestos', 'facturas', 'servicios'] as $m) {
-            if ($this->puedeModulo($m)) return true;
+        if ($this->puede('clientes', 'crear')) {
+            return true;
         }
+
+        foreach (['ordenes', 'remitos', 'presupuestos', 'facturas', 'servicios'] as $m) {
+            if ($this->puede($m, 'crear')) return true;
+        }
+
         return false;
     }
 
@@ -144,61 +173,59 @@ class User extends Authenticatable
         return $this->rol === 'instalador';
     }
 
-    /** Módulos que ese rol puede usar (los demás no hacen nada). */
-    public static function modulosDisponibles(string $rol): array
-    {
-        return array_values(array_filter(
-            array_keys(self::MODULOS),
-            fn ($m) => self::moduloAplicaA($m, $rol)
-        ));
-    }
-
     /**
-     * Módulos tildados que ADEMÁS sirven con su rol. Se conservan los que no
-     * aplican (por si se le cambia el rol más adelante), así que el conteo
-     * crudo de `modulos` puede ser mayor que el acceso real.
+     * Módulos con algún permiso. Antes se filtraba por rol (el rol era el
+     * techo); ahora el módulo manda, así que son los que tienen al menos una
+     * acción marcada.
      */
     public function modulosEfectivos(): array
     {
-        return array_values(array_filter(
-            $this->modulos ?? [],
-            fn ($m) => self::moduloAplicaA($m, (string) $this->rol)
-        ));
+        return array_keys(array_filter($this->permisos(), fn ($acc) => $acc !== []));
     }
 
-    /** ¿Este módulo sirve para algo con ese rol? (ver MODULO_ROLES). */
-    public static function moduloAplicaA(string $modulo, string $rol): bool
+    /** Resumen de los permisos, para el listado de usuarios. */
+    public function resumenPermisos(): string
     {
-        return in_array($rol, self::MODULO_ROLES[$modulo] ?? [], true);
+        $perm = array_filter($this->permisos(), fn ($a) => $a !== []);
+        if ($perm === []) {
+            return 'sin acceso';
+        }
+
+        $todas     = count(\App\Support\Permisos::todas());
+        $completos = count(array_filter($perm, fn ($a) => count($a) === $todas));
+        $n         = count($perm);
+        $txt       = $n . ' ' . ($n === 1 ? 'módulo' : 'módulos');
+
+        if ($completos === $n) return $txt . ' · acceso completo';
+        if ($completos === 0)  return $txt . ' · solo algunas acciones';
+
+        return $txt . ' · ' . $completos . ' completo' . ($completos === 1 ? '' : 's');
     }
 
-    /** Roles que pueden usar el módulo, ya etiquetados para mostrar. */
-    public static function rolesDeModuloLabel(string $modulo): string
-    {
-        $roles = self::MODULO_ROLES[$modulo] ?? [];
-
-        return implode(' / ', array_map(
-            fn ($r) => self::ROLES_CORTO[$r] ?? ucfirst($r),
-            $roles
-        ));
-    }
-
-    /** Nota de alcance parcial del módulo para ese rol, si hay. */
-    public static function moduloNota(string $modulo, string $rol): ?string
-    {
-        return self::MODULO_NOTAS[$modulo][$rol] ?? null;
-    }
-
+    /**
+     * Plantilla de permisos que se PROPONE al elegir un rol en el alta. Es solo
+     * una sugerencia: después se marca lo que se quiera, módulo por módulo y
+     * acción por acción. **El rol ya no limita nada.**
+     */
     public static function modulosPorRol(string $rol): array
     {
-        return match ($rol) {
+        $modulos = match ($rol) {
             'admin'      => array_keys(self::MODULOS),
             'ventas'     => ['ordenes', 'vehiculos', 'clientes', 'presupuestos', 'facturas', 'remitos', 'servicios'],
-            'produccion' => ['ordenes', 'vehiculos'],
-            // El instalador terceriza la colocación: solo entra a los vehículos
-            // que tiene asignados, a subir fotos.
+            'produccion' => ['ordenes', 'vehiculos', 'remitos'],
+            // El colocador tercerizado entra solo a los vehículos que le
+            // asignaron (scopeVisiblesPara) y a subir fotos → sin borrar.
             'instalador' => ['vehiculos'],
             default      => [],
         };
+
+        $out = [];
+        foreach ($modulos as $m) {
+            $out[$m] = $rol === 'instalador'
+                ? ['ver', 'editar']
+                : \App\Support\Permisos::todas();
+        }
+
+        return $out;
     }
 }
