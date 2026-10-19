@@ -263,7 +263,10 @@
         $verServicios = $u->puedeModulo('servicios');
         $verSeg       = $u->puedeModulo('seguimiento');
         $verConfig    = $u->puedeModulo('configuracion');   // tipos/materiales/máquinas
-        $verCai       = $u->puedeModulo('remitos');
+        // Los talonarios CAI son configuración fiscal, no el día a día de
+        // remitos: con `remitos` a secas producción los veía.
+        $verCai       = $u->puedeModulo('configuracion');
+        $verPrecios   = $u->puedeModulo('precios');
         $verConfEmp   = $u->puedeModulo('configuracion');   // config empresa
         $verPapelera  = $u->puedeModulo('papelera');
         $verRrhh      = $u->puedeModulo('rrhh');
@@ -276,7 +279,7 @@
         $verRemitosP  = $rol === 'produccion' && $u->puedeModulo('remitos');
         $verRemitosV  = ! $verRemitosP && $u->puedeModulo('remitos');
 
-        $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg;
+        $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg || $verPrecios;
         $grupoConfig  = $verConfig || $verCai;
         $grupoSistema = $verUsuarios || $verConfEmp || $verPapelera;
 
@@ -363,12 +366,14 @@
             <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Catálogo
             </a>
-            {{-- Pertenece al módulo Servicios (listas-precios.* → servicios),
-                 pero estaba detrás de un @if($esAdmin): quien tenía Servicios
-                 veía Servicios y Catálogo, y esto no. --}}
+            {{-- Son importes puros: pertenece al módulo Precios, no a Servicios.
+                 Sin esto el link aparecía para quien tenía Servicios y al tocarlo
+                 rebotaba, porque la ruta exige `precios`. --}}
+            @if($verPrecios)
             <a href="{{ route('listas-precios.index') }}" class="s-item {{ request()->routeIs('listas-precios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Listas de precios
             </a>
+            @endif
             @endif
         </div>
         @endif

@@ -32,7 +32,7 @@ class Permisos
         'facturas'         => 'facturas',
         'cobros'           => 'facturas',
         'remitos'          => 'remitos',
-        'remito-cais'      => 'remitos',
+        'remito-cais'      => 'configuracion',   // talonarios CAI = config fiscal
         'seguimientos'     => 'seguimiento',
         'productos'        => 'servicios',
         'catalogo'         => 'servicios',
