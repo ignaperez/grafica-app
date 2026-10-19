@@ -245,25 +245,36 @@
         $u   = auth()->user();
         $rol = $u->rol;
 
-        // Acceso por módulo, respetando la restricción de rol de cada ruta.
+        /*
+         * Acceso por MÓDULO, sin mirar el rol.
+         *
+         * Estos flags tenían `$adminVentas &&` / `$esAdmin &&` de cuando el rol
+         * era el techo de las rutas. Al invertir el modelo (el módulo manda)
+         * eso quedó como un filtro fantasma: se le daba Clientes a producción,
+         * el permiso funcionaba, pero **el link no aparecía en el menú**.
+         */
         $esAdmin      = $rol === 'admin';
-        $adminVentas  = in_array($rol, ['admin', 'ventas']);
 
         $verOrdenes   = $u->puedeModulo('ordenes');
         $verVehiculos = $u->puedeModulo('vehiculos');
-        $verClientes  = $adminVentas && $u->puedeModulo('clientes');
-        $verPresup    = $adminVentas && $u->puedeModulo('presupuestos');
-        $verFacturas  = $adminVentas && $u->puedeModulo('facturas');
-        $verServicios = $adminVentas && $u->puedeModulo('servicios');
-        $verRemitosV  = $adminVentas && $u->puedeModulo('remitos');       // en grupo Ventas
-        $verRemitosP  = $rol === 'produccion' && $u->puedeModulo('remitos'); // en grupo Producción
-        $verSeg       = $esAdmin && $u->puedeModulo('seguimiento');
-        $verConfig    = $adminVentas && $u->puedeModulo('configuracion');  // tipos/materiales/máquinas
-        $verCai       = $esAdmin && $u->puedeModulo('remitos');
-        $verConfEmp   = $esAdmin && $u->puedeModulo('configuracion');      // config empresa
-        $verPapelera  = $esAdmin && $u->puedeModulo('papelera');
-        $verRrhh      = $esAdmin && $u->puedeModulo('rrhh');
+        $verClientes  = $u->puedeModulo('clientes');
+        $verPresup    = $u->puedeModulo('presupuestos');
+        $verFacturas  = $u->puedeModulo('facturas');
+        $verServicios = $u->puedeModulo('servicios');
+        $verSeg       = $u->puedeModulo('seguimiento');
+        $verConfig    = $u->puedeModulo('configuracion');   // tipos/materiales/máquinas
+        $verCai       = $u->puedeModulo('remitos');
+        $verConfEmp   = $u->puedeModulo('configuracion');   // config empresa
+        $verPapelera  = $u->puedeModulo('papelera');
+        $verRrhh      = $u->puedeModulo('rrhh');
         $verUsuarios  = $u->esSuper();
+
+        // Remitos aparece UNA sola vez: en el grupo de producción si es su
+        // tablero principal, si no en el de Ventas. Antes esto dependía del
+        // rol para decidir el grupo, y sigue igual — es solo dónde se ubica
+        // el link, no si lo ve.
+        $verRemitosP  = $rol === 'produccion' && $u->puedeModulo('remitos');
+        $verRemitosV  = ! $verRemitosP && $u->puedeModulo('remitos');
 
         $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg;
         $grupoConfig  = $verConfig || $verCai;
@@ -352,11 +363,12 @@
             <a href="{{ route('catalogo.index') }}" class="s-item {{ request()->routeIs('catalogo.*') ? 'on' : '' }}">
                 <span class="dot"></span> Catálogo
             </a>
-            @if($esAdmin)
+            {{-- Pertenece al módulo Servicios (listas-precios.* → servicios),
+                 pero estaba detrás de un @if($esAdmin): quien tenía Servicios
+                 veía Servicios y Catálogo, y esto no. --}}
             <a href="{{ route('listas-precios.index') }}" class="s-item {{ request()->routeIs('listas-precios.*') ? 'on' : '' }}">
                 <span class="dot"></span> Listas de precios
             </a>
-            @endif
             @endif
         </div>
         @endif
