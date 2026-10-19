@@ -49,6 +49,37 @@ class Seguimiento extends Model
         return is_null($this->presupuesto_id);
     }
 
+    /**
+     * ¿Su presupuesto se agrupó dentro de otro? Entonces este proceso no sigue
+     * solo: se factura y se cobra desde el agrupador. **NO suma en los totales**
+     * (si no, el mismo trabajo se contaría dos veces en "presupuestado").
+     */
+    public function estaAgrupado(): bool
+    {
+        return $this->presupuesto?->agrupado_en_id !== null;
+    }
+
+    /** Leyenda para el campo `detalle` cuando se agrupa. */
+    public static function leyendaAgrupado(string $numero): string
+    {
+        return 'Agrupado en ' . $numero;
+    }
+
+    /**
+     * Agrega una leyenda al `detalle` sin pisar lo que haya escrito a mano.
+     * Si ya está (por reintento), no la duplica.
+     */
+    public function agregarAlDetalle(string $texto): void
+    {
+        $actual = trim((string) $this->detalle);
+
+        if ($actual !== '' && str_contains($actual, $texto)) {
+            return;
+        }
+
+        $this->update(['detalle' => $actual === '' ? $texto : $actual . ' · ' . $texto]);
+    }
+
     /** Fecha de referencia: la del presupuesto o la cargada a mano. */
     public function fechaRef()
     {

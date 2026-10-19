@@ -58,6 +58,10 @@
     .seg-row.cobrado td { background:#cdeedd; }
     [data-theme="light"] .seg-row.cobrado td { background:#dcf3e6; }
     .seg-row.cobrado td.auto, .seg-row.cobrado td.calc, .seg-row.cobrado .seg-input { color:#123a26; }
+    /* Presupuesto agrupado en otro: sigue visible para seguirlo, pero NO suma
+       en los totales (el monto vale una sola vez, en el agrupador). */
+    .seg-row.agrupado td:first-child { border-left:3px solid #e0960a; }
+    .seg-row.agrupado td.auto, .seg-row.agrupado td.calc { opacity:.55; }
     .seg-row.saved td { animation:segflash 1s ease; }
     @keyframes segflash { 0%{ background:rgba(63,185,106,.18); } 100%{ } }
 
@@ -71,6 +75,16 @@
     <div class="seg-tc"><div class="l">Cobrado</div><div class="v" style="color:#3fb96a">${{ number_format($totales['cobrado'], 2, ',', '.') }}</div></div>
     <div class="seg-tc"><div class="l">Pendiente de cobro</div><div class="v" style="color:{{ $totales['pendiente'] > 0 ? '#e0960a' : 'var(--txd)' }}">${{ number_format($totales['pendiente'], 2, ',', '.') }}</div></div>
 </div>
+
+@if(($totales['agrupadas'] ?? 0) > 0)
+    {{-- Si sumaran, el mismo trabajo se contaria dos veces --}}
+    <div class="seg-hint" style="color:#e0960a">
+        {{ $totales['agrupadas'] }}
+        {{ $totales['agrupadas'] === 1 ? 'proceso quedó agrupado en otro presupuesto y no suma' : 'procesos quedaron agrupados en otros presupuestos y no suman' }}
+        en los totales — el monto cuenta una sola vez, en el que los agrupa.
+        Se ven con el borde naranja y la leyenda en Detalle.
+    </div>
+@endif
 
 {{-- ── Cargar proceso a mano (presupuesto del sistema anterior) ── --}}
 <details class="gcard" style="margin-bottom:14px">
@@ -125,7 +139,7 @@
     </thead>
     <tbody>
         @forelse($seguimientos as $s)
-        <tr class="seg-row {{ $s->esManual() ? 'manual' : '' }} {{ $s->estado === 'cobrado' ? 'cobrado' : '' }}"
+        <tr class="seg-row {{ $s->esManual() ? 'manual' : '' }} {{ $s->estado === 'cobrado' ? 'cobrado' : '' }} {{ $s->estaAgrupado() ? 'agrupado' : '' }}"
             data-id="{{ $s->id }}" data-url="{{ route('seguimientos.update', $s->id) }}"
             data-label="{{ $s->numeroRef() }}"
             data-ffact="{{ $s->factura?->fecha?->format('d/m/y') ?? '—' }}"

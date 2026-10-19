@@ -178,12 +178,24 @@ class SeguimientoController extends Controller
     {
         $rows = $this->baseQuery($anio)->with(['presupuesto', 'factura.cobros'])->get();
 
-        $presupuestado = round($rows->sum(fn ($s) => $s->montoBase()), 2);
-        $facturado     = round($rows->sum(fn ($s) => (float) ($s->factura?->imp_total ?? 0)), 2);
-        // Cobrado = monto de las filas marcadas COBRADO en la planilla (control manual).
-        $cobrado       = round($rows->where('estado', 'cobrado')->sum(fn ($s) => $s->montoBase()), 2);
-        $pendiente     = round($presupuestado - $cobrado, 2);
+        /*
+         * Las filas de presupuestos AGRUPADOS no suman.
+         *
+         * Al juntar P-0011 + P-0012 en P-0042, las tres filas conviven en la
+         * planilla (las dos primeras con su leyenda "Agrupado en P-0042", para
+         * poder seguirlas). Pero si las tres sumaran, "presupuestado" contaría
+         * el mismo trabajo dos veces — y "pendiente" (presupuestado − cobrado)
+         * arrastraría el error. El monto vale una sola vez: en el agrupador.
+         */
+        $suman = $rows->reject(fn ($s) => $s->estaAgrupado());
 
-        return compact('presupuestado', 'facturado', 'cobrado', 'pendiente');
+        $presupuestado = round($suman->sum(fn ($s) => $s->montoBase()), 2);
+        $facturado     = round($suman->sum(fn ($s) => (float) ($s->factura?->imp_total ?? 0)), 2);
+        // Cobrado = monto de las filas marcadas COBRADO en la planilla (control manual).
+        $cobrado       = round($suman->where('estado', 'cobrado')->sum(fn ($s) => $s->montoBase()), 2);
+        $pendiente     = round($presupuestado - $cobrado, 2);
+        $agrupadas     = $rows->count() - $suman->count();
+
+        return compact('presupuestado', 'facturado', 'cobrado', 'pendiente', 'agrupadas');
     }
 }

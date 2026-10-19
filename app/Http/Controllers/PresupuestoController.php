@@ -224,6 +224,23 @@ class PresupuestoController extends Controller
             foreach ($candidatos as $p) {
                 $p->update(['agrupado_en_id' => $presupuesto->id, 'updated_by' => auth()->id()]);
                 $agrupados++;
+
+                // Leyenda en la planilla de Seguimiento, para poder seguirlo
+                // desde ahí. Se AGREGA al detalle (no lo pisa): el campo es
+                // manual y puede tener algo escrito.
+                \App\Models\Seguimiento::where('presupuesto_id', $p->id)->first()
+                    ?->agregarAlDetalle(
+                        \App\Models\Seguimiento::leyendaAgrupado($presupuesto->numeroFormateado())
+                    );
+            }
+
+            // Y la leyenda inversa en la fila del nuevo: desde el agrupador se ve
+            // qué juntó. La fila ya existe (la crea el evento Presupuesto::created).
+            if ($candidatos->isNotEmpty()) {
+                \App\Models\Seguimiento::where('presupuesto_id', $presupuesto->id)->first()
+                    ?->agregarAlDetalle(
+                        'Agrupa ' . $candidatos->map->numeroFormateado()->implode(', ')
+                    );
             }
 
             // Los vehículos marcados en los originales pasan al nuevo: si no,
