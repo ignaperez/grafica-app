@@ -63,6 +63,18 @@ class VehiculoPloteo extends Model
         return ! is_null($this->presupuesto_id) || $this->presupuestado_manual;
     }
 
+    public function scopePresupuestados($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNotNull('presupuesto_id')->orWhere('presupuestado_manual', true);
+        });
+    }
+
+    public function scopeSinPresupuestar($query)
+    {
+        return $query->whereNull('presupuesto_id')->where('presupuestado_manual', false);
+    }
+
     /** Las cuatro vistas del "después", que es lo que carga el colocador al terminar. */
     public const FOTOS_DESPUES = ['foto_despues_frente', 'foto_despues_atras', 'foto_despues_izq', 'foto_despues_der'];
 
