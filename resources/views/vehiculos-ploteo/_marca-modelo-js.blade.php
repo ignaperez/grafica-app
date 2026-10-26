@@ -24,13 +24,30 @@
             .catch(() => $modelo.html('<option value="">— error al cargar —</option>'));
     }
 
-    $('#veh-marca').on('change', function () { fetchModelos(this.value, null); });
+    // ── Marca sin catálogo → el Modelo se escribe a mano ──────────
+    // Se deshabilita el campo que no se usa: así no viaja en el POST y el
+    // servidor no recibe un modelo_id viejo junto con el texto libre.
+    function toggleModelo() {
+        const libre = String($('#veh-marca option:selected').data('libre')) === '1';
+
+        $('#veh-modelo-catalogo').toggle(!libre);
+        $('#veh-modelo-libre').toggle(libre);
+
+        $('#veh-modelo').prop('disabled', libre);
+        $('#veh-modelo-libre-input').prop('disabled', !libre);
+
+        return libre;
+    }
+
+    $('#veh-marca').on('change', function () {
+        if (!toggleModelo()) fetchModelos(this.value, null);
+    });
 
     // Carga inicial (edit: precargar modelos de la marca guardada)
     $(function () {
         const marcaId = $('#veh-marca').val();
         const pre     = $('#veh-modelo').data('selected');
-        if (marcaId) fetchModelos(marcaId, pre);
+        if (!toggleModelo() && marcaId) fetchModelos(marcaId, pre);
     });
 
     // ── Patente: sin espacios + mayúsculas + aviso "ya estuvo" ───────
@@ -92,7 +109,7 @@
             addOption('#veh-marca', d.id, d.nombre);
             addOption('#modelo-marca', d.id, d.nombre);
             $('#veh-marca').val(d.id);
-            fetchModelos(d.id, null);
+            if (!toggleModelo()) fetchModelos(d.id, null);
             $('#marca-nombre').val('');
             cerrarModal('marca-overlay');
         })
