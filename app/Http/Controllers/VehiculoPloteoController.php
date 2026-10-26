@@ -28,7 +28,9 @@ class VehiculoPloteoController extends Controller
 
     public function index(Request $request)
     {
-        $q = trim((string) $request->query('q', ''));
+        $q      = trim((string) $request->query('q', ''));
+        $estado = $request->query('estado', '');  // '' | pendiente | terminado
+        $presup = $request->query('presup', '');  // '' | si | no
 
         $vehiculos = VehiculoPloteo::with(['orden.cliente', 'cliente', 'presupuesto', 'instalador'])
             ->visiblesPara(auth()->user())
@@ -40,11 +42,15 @@ class VehiculoPloteoController extends Controller
                         ->orWhere('modelo', 'like', "%{$q}%");
                 });
             })
+            ->when($estado === 'terminado', fn ($query) => $query->terminados())
+            ->when($estado === 'pendiente', fn ($query) => $query->pendientes())
+            ->when($presup === 'si', fn ($query) => $query->presupuestados())
+            ->when($presup === 'no', fn ($query) => $query->sinPresupuestar())
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
-        return view('vehiculos-ploteo.index', compact('vehiculos', 'q'));
+        return view('vehiculos-ploteo.index', compact('vehiculos', 'q', 'estado', 'presup'));
     }
 
     /** Descarga el listado de vehículos como Excel (respeta la búsqueda ?q=). */
