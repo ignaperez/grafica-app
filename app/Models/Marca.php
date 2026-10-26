@@ -9,9 +9,10 @@ class Marca extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['nombre', 'activo'];
+    protected $fillable = ['nombre', 'activo', 'modelo_libre'];
 
-    protected $casts = ['activo' => 'boolean'];
+    /** Marca sin catalogo de modelos: el modelo se escribe a mano (lancha, trailer...). */
+    protected $casts = ['activo' => 'boolean', 'modelo_libre' => 'boolean'];
 
     public function modelos()
     {

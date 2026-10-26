@@ -121,7 +121,10 @@ class VehiculoPloteoController extends Controller
         $data = $request->validate([
             'patente'          => 'required|string|max:20',
             'marca_id'         => 'required|exists:marcas,id',
-            'modelo_id'        => 'required|exists:modelos_vehiculo,id',
+            // El modelo puede venir del catálogo (modelo_id) o escrito a mano
+            // (modelo_libre), según la marca. Lo resuelve prepararMarcaModelo().
+            'modelo_id'        => 'nullable|exists:modelos_vehiculo,id',
+            'modelo_libre'     => 'nullable|string|max:100',
             'fecha_ploteo'     => 'nullable|date',
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
@@ -167,7 +170,34 @@ class VehiculoPloteoController extends Controller
     {
         $data['patente'] = $this->normalizarPatente($data['patente']);
 
-        $marca  = Marca::find($data['marca_id']);
+        $marca = Marca::find($data['marca_id']);
+
+        // Marca sin catálogo de modelos (una lancha, un trailer…): el modelo se
+        // escribe a mano y no se guarda FK.
+        if ($marca && $marca->modelo_libre) {
+            $libre = trim((string) ($data['modelo_libre'] ?? ''));
+
+            if ($libre === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'modelo_libre' => 'Escribí qué es (por ejemplo: Lancha Quicksilver 450).',
+                ]);
+            }
+
+            $data['modelo_id'] = null;
+            $data['marca']     = $marca->nombre;
+            $data['modelo']    = $libre;
+
+            unset($data['modelo_libre']);
+
+            return $data;
+        }
+
+        if (empty($data['modelo_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'modelo_id' => 'Elegí un modelo.',
+            ]);
+        }
+
         $modelo = ModeloVehiculo::find($data['modelo_id']);
 
         // El modelo debe pertenecer a la marca elegida.
@@ -179,6 +209,8 @@ class VehiculoPloteoController extends Controller
 
         $data['marca']  = $marca?->nombre;
         $data['modelo'] = $modelo?->nombre;
+
+        unset($data['modelo_libre']);
 
         return $data;
     }
@@ -280,7 +312,10 @@ class VehiculoPloteoController extends Controller
         $data = $request->validate([
             'patente'          => 'required|string|max:20',
             'marca_id'         => 'required|exists:marcas,id',
-            'modelo_id'        => 'required|exists:modelos_vehiculo,id',
+            // El modelo puede venir del catálogo (modelo_id) o escrito a mano
+            // (modelo_libre), según la marca. Lo resuelve prepararMarcaModelo().
+            'modelo_id'        => 'nullable|exists:modelos_vehiculo,id',
+            'modelo_libre'     => 'nullable|string|max:100',
             'fecha_ploteo'     => 'nullable|date',
             'observaciones'    => 'nullable|string',
             'orden_trabajo_id' => 'nullable|exists:orden_trabajos,id',
