@@ -146,25 +146,39 @@
                         {{ number_format($item->medidaTotal(), 3) }}
                     </td>
                     <td style="text-align:right" class="mono">
-                        ${{ number_format($item->precio_unitario, 2) }}
+                        ${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->precio_unitario) : $item->precio_unitario, 2) }}
                     </td>
                     <td style="text-align:right" class="mono">
-                        <strong>${{ number_format($item->subtotal, 2) }}</strong>
+                        <strong>${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->subtotal) : $item->subtotal, 2) }}</strong>
                     </td>
                 </tr>
                 @endforeach
                 </tbody>
                 <tfoot>
-                    <tr>
-                        <td colspan="5" style="text-align:right;font-weight:600;padding:12px 16px;border-top:1px solid var(--bm)">
-                            TOTAL
-                        </td>
-                        <td style="text-align:right;padding:12px 16px;border-top:1px solid var(--bm)">
-                            <strong class="mono" style="font-size:1.1rem">
-                                ${{ number_format($presupuesto->total, 2) }}
-                            </strong>
-                        </td>
-                    </tr>
+                    @php $aliTxt = rtrim(rtrim(number_format($presupuesto->alicuota(), 1, ',', ''), '0'), ',') . '%'; @endphp
+                    @if($presupuesto->discriminaIva())
+                        <tr>
+                            <td colspan="5" style="text-align:right;color:var(--txd);padding:8px 16px;border-top:1px solid var(--bm)">Subtotal (neto)</td>
+                            <td style="text-align:right;padding:8px 16px;border-top:1px solid var(--bm)" class="mono">${{ number_format($presupuesto->netoTotal(), 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="text-align:right;color:var(--txd);padding:4px 16px">IVA ({{ $aliTxt }})</td>
+                            <td style="text-align:right;padding:4px 16px" class="mono">${{ number_format($presupuesto->ivaMonto(), 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="text-align:right;font-weight:600;padding:10px 16px;border-top:2px solid var(--bm)">TOTAL</td>
+                            <td style="text-align:right;padding:10px 16px;border-top:2px solid var(--bm)"><strong class="mono" style="font-size:1.1rem">${{ number_format($presupuesto->total, 2) }}</strong></td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td colspan="5" style="text-align:right;font-weight:600;padding:12px 16px;border-top:1px solid var(--bm)">TOTAL</td>
+                            <td style="text-align:right;padding:12px 16px;border-top:1px solid var(--bm)"><strong class="mono" style="font-size:1.1rem">${{ number_format($presupuesto->total, 2) }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="text-align:right;color:var(--txd);font-size:11px;padding:2px 16px 10px">IVA contenido ({{ $aliTxt }})</td>
+                            <td style="text-align:right;color:var(--txd);font-size:11px;padding:2px 16px 10px" class="mono">${{ number_format($presupuesto->ivaMonto(), 2) }}</td>
+                        </tr>
+                    @endif
                 </tfoot>
             </table>
         </div>

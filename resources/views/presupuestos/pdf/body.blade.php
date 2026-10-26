@@ -40,8 +40,8 @@
             </td>
             <td class="u">{{ $item->unidadLabel() }}</td>
             <td class="num">{{ number_format($item->medidaTotal(), 3, ',', '.') }}</td>
-            <td class="num">${{ number_format($item->precio_unitario, 2, ',', '.') }}</td>
-            <td class="num s">${{ number_format($item->subtotal, 2, ',', '.') }}</td>
+            <td class="num">${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->precio_unitario) : $item->precio_unitario, 2, ',', '.') }}</td>
+            <td class="num s">${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->subtotal) : $item->subtotal, 2, ',', '.') }}</td>
         </tr>
         @endforeach
     </tbody>

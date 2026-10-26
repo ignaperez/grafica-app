@@ -62,6 +62,11 @@
     .desc-sub  { color: #7a8189; font-size: 8.5px; margin-top: 1px; }
 
     /* ── Cierre: total + condiciones (solo última hoja) ── */
+    table.tot-desglose { border-collapse: collapse; margin-left: auto; margin-bottom: 4px; width: 62mm; }
+    table.tot-desglose td { border: none; padding: 1.5px 0; font-size: 9.5px; }
+    table.tot-desglose td.l { color: #555; }
+    table.tot-desglose td.r { text-align: right; font-family: dejavusansmono, monospace; }
+    .tot-contenido { text-align: right; font-size: 8.5px; color: #777; margin-top: 3px; }
     table.tot { border-collapse: collapse; margin-left: auto; }
     table.tot td { border: none; padding: 0; }
     td.tot-bar { width: 1.3mm; background-color: #e6502a; }

@@ -90,9 +90,29 @@
             <tbody id="items-body"></tbody>
         </table>
     </div>
-    <div class="gcard-ft" style="text-align:right;padding:16px 20px;border-top:1px solid var(--b)">
-        <span class="txd" style="margin-right:16px">Total estimado</span>
-        <strong class="mono" id="total-display" style="font-size:1.4rem">$0.00</strong>
+    <div class="gcard-ft" style="padding:16px 20px;border-top:1px solid var(--b)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="precio_con_iva" id="precio-con-iva" value="1"
+                           {{ old('precio_con_iva', $presupuesto->precio_con_iva) ? 'checked' : '' }}
+                           style="width:16px;height:16px;accent-color:var(--ac);cursor:pointer">
+                    Los precios que cargo <strong>ya incluyen IVA</strong>
+                </label>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="txd">Alícuota IVA</span>
+                    @php $aliSel = (string) old('alicuota_iva', rtrim(rtrim(number_format((float) $presupuesto->alicuota(), 2, '.', ''), '0'), '.')); @endphp
+                    <select name="alicuota_iva" id="alicuota-iva" class="gselect" style="width:auto;font-size:12px">
+                        <option value="21"   {{ $aliSel === '21'   ? 'selected' : '' }}>21%</option>
+                        <option value="10.5" {{ $aliSel === '10.5' ? 'selected' : '' }}>10,5%</option>
+                        <option value="27"   {{ $aliSel === '27'   ? 'selected' : '' }}>27%</option>
+                        <option value="0"    {{ $aliSel === '0'    ? 'selected' : '' }}>0%</option>
+                    </select>
+                    <span class="txd" id="iva-modo" style="font-size:11px"></span>
+                </div>
+            </div>
+            <div style="text-align:right;min-width:230px" id="resumen-totales"></div>
+        </div>
     </div>
 </div>
 
@@ -182,12 +202,18 @@ const ITEMS_PREVIOS = {!! json_encode($presupuesto->items->map(fn($it) => [
     'alto'            => $it->alto,
     'largo'           => $it->largo,
     'cantidad'        => $it->cantidad,
-    'precio_unitario' => $it->precio_unitario,
+    // Si se cargó con precio NETO, el input muestra el neto (el guardado es final).
+    'precio_unitario' => $presupuesto->precio_con_iva
+        ? $it->precio_unitario
+        : round($it->precio_unitario / (1 + $presupuesto->alicuota() / 100), 2),
 ])->values()) !!};
 
 let rowIndex = 0;
 
 $(function () {
+
+// condición IVA del cliente (para el modo discriminado del resumen)
+window.clienteCondicion = @json($presupuesto->cliente->condicion_iva ?? '');
 
 // ── Select2 para cliente ──────────────────────────────────────────────────
 $('#select-cliente').select2({
@@ -395,13 +421,46 @@ function recalcularFila(tr) {
     recalcularTotal();
 }
 
-function recalcularTotal() {
-    let total = 0;
-    document.querySelectorAll('.lbl-subtotal').forEach(lbl => {
-        total += parseFloat(lbl.textContent.replace('$', '')) || 0;
-    });
-    document.getElementById('total-display').textContent = '$' + total.toFixed(2);
+function money(n) {
+    return '$' + (n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+function recalcularTotal() {
+    let sumTyped = 0;
+    document.querySelectorAll('.lbl-subtotal').forEach(lbl => {
+        sumTyped += parseFloat(lbl.textContent.replace('$', '')) || 0;
+    });
+
+    const conIva = document.getElementById('precio-con-iva').checked;
+    const alic   = parseFloat(document.getElementById('alicuota-iva').value) || 0;
+    const f      = 1 + alic / 100;
+
+    let total, neto, iva;
+    if (conIva) { total = sumTyped; neto = total / f; iva = total - neto; }
+    else        { neto  = sumTyped; iva  = neto * alic / 100; total = neto + iva; }
+
+    const disc = ['responsable_inscripto', 'monotributo'].includes(window.clienteCondicion || '');
+    const aliTxt = (alic % 1 ? alic.toString().replace('.', ',') : alic) + '%';
+
+    document.getElementById('iva-modo').textContent =
+        disc ? '→ se discrimina (neto + IVA)' : '→ IVA contenido (no se discrimina)';
+
+    const box = document.getElementById('resumen-totales');
+    if (disc) {
+        box.innerHTML =
+            '<div style="font-size:13px;color:var(--txd);margin-bottom:2px">Subtotal (neto) <span class="mono" style="color:var(--tx);margin-left:10px">' + money(neto) + '</span></div>' +
+            '<div style="font-size:13px;color:var(--txd);margin-bottom:6px">IVA (' + aliTxt + ') <span class="mono" style="color:var(--tx);margin-left:10px">' + money(iva) + '</span></div>' +
+            '<div style="border-top:1px solid var(--bm);padding-top:6px">TOTAL <strong class="mono" style="font-size:1.4rem;margin-left:12px">' + money(total) + '</strong></div>';
+    } else {
+        box.innerHTML =
+            '<div>TOTAL <strong class="mono" style="font-size:1.4rem;margin-left:12px">' + money(total) + '</strong></div>' +
+            '<div style="font-size:11px;color:var(--txd);margin-top:4px">IVA contenido (' + aliTxt + '): ' + money(iva) + '</div>';
+    }
+}
+
+document.addEventListener('change', e => {
+    if (e.target.id === 'precio-con-iva' || e.target.id === 'alicuota-iva') recalcularTotal();
+});
 
 // ── Cargar ítems previos al iniciar ──────────────────────────────────────
 ITEMS_PREVIOS.forEach(datos => agregarFila(datos));

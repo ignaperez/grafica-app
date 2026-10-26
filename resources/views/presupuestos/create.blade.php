@@ -125,9 +125,27 @@
             </tbody>
         </table>
     </div>
-    <div class="gcard-ft" style="text-align:right;padding:16px 20px;border-top:1px solid var(--b)">
-        <span class="txd" style="margin-right:16px">Total estimado</span>
-        <strong class="mono" id="total-display" style="font-size:1.4rem">$0.00</strong>
+    <div class="gcard-ft" style="padding:16px 20px;border-top:1px solid var(--b)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="precio_con_iva" id="precio-con-iva" value="1" checked
+                           style="width:16px;height:16px;accent-color:var(--ac);cursor:pointer">
+                    Los precios que cargo <strong>ya incluyen IVA</strong>
+                </label>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="txd">Alícuota IVA</span>
+                    <select name="alicuota_iva" id="alicuota-iva" class="gselect" style="width:auto;font-size:12px">
+                        <option value="21" selected>21%</option>
+                        <option value="10.5">10,5%</option>
+                        <option value="27">27%</option>
+                        <option value="0">0%</option>
+                    </select>
+                    <span class="txd" id="iva-modo" style="font-size:11px"></span>
+                </div>
+            </div>
+            <div style="text-align:right;min-width:230px" id="resumen-totales"></div>
+        </div>
     </div>
 </div>
 
@@ -232,6 +250,13 @@ $('#select-cliente').select2({
         processResults: data => ({ results: data }),
         cache: true,
     }
+});
+
+// condición IVA del cliente elegido (para mostrar discriminado o no)
+window.clienteCondicion = @json($prefill['cliente_condicion'] ?? '');
+$('#select-cliente').on('select2:select', function (e) {
+    window.clienteCondicion = e.params.data.condicion_iva || '';
+    recalcularTotal();
 });
 
 // Cuando cambia el cliente, recalcular todos los precios
@@ -432,13 +457,48 @@ function recalcularFila(tr) {
 }
 
 // ── Total general ────────────────────────────────────────────────────────
-function recalcularTotal() {
-    let total = 0;
-    document.querySelectorAll('.lbl-subtotal').forEach(lbl => {
-        total += parseFloat(lbl.textContent.replace('$', '')) || 0;
-    });
-    document.getElementById('total-display').textContent = '$' + total.toFixed(2);
+function money(n) {
+    return '$' + (n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+function recalcularTotal() {
+    let sumTyped = 0;
+    document.querySelectorAll('.lbl-subtotal').forEach(lbl => {
+        sumTyped += parseFloat(lbl.textContent.replace('$', '')) || 0;
+    });
+
+    const conIva = document.getElementById('precio-con-iva').checked;
+    const alic   = parseFloat(document.getElementById('alicuota-iva').value) || 0;
+    const f      = 1 + alic / 100;
+
+    // precio_unitario / total se guardan SIEMPRE como FINAL
+    let total, neto, iva;
+    if (conIva) { total = sumTyped;      neto = total / f; iva = total - neto; }
+    else        { neto  = sumTyped;      iva  = neto * alic / 100; total = neto + iva; }
+
+    // discrimina = cliente RI o Monotributo
+    const disc = ['responsable_inscripto', 'monotributo'].includes(window.clienteCondicion || '');
+
+    document.getElementById('iva-modo').textContent =
+        disc ? '→ se discrimina (neto + IVA)' : '→ IVA contenido (no se discrimina)';
+
+    const box = document.getElementById('resumen-totales');
+    if (disc) {
+        box.innerHTML =
+            '<div style="font-size:13px;color:var(--txd);margin-bottom:2px">Subtotal (neto) <span class="mono" style="color:var(--tx);margin-left:10px">' + money(neto) + '</span></div>' +
+            '<div style="font-size:13px;color:var(--txd);margin-bottom:6px">IVA (' + (alic % 1 ? alic.toString().replace('.', ',') : alic) + '%) <span class="mono" style="color:var(--tx);margin-left:10px">' + money(iva) + '</span></div>' +
+            '<div style="border-top:1px solid var(--bm);padding-top:6px">TOTAL <strong class="mono" style="font-size:1.4rem;margin-left:12px">' + money(total) + '</strong></div>';
+    } else {
+        box.innerHTML =
+            '<div>TOTAL <strong class="mono" style="font-size:1.4rem;margin-left:12px">' + money(total) + '</strong></div>' +
+            '<div style="font-size:11px;color:var(--txd);margin-top:4px">IVA contenido (' + (alic % 1 ? alic.toString().replace('.', ',') : alic) + '%): ' + money(iva) + '</div>';
+    }
+
+}
+
+document.addEventListener('change', e => {
+    if (e.target.id === 'precio-con-iva' || e.target.id === 'alicuota-iva') recalcularTotal();
+});
 
 // ── Precargar una fila con datos (ítem libre, sin catálogo) ──────────────
 function aplicarDatos(tr, d) {

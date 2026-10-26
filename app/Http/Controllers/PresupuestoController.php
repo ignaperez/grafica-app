@@ -154,6 +154,8 @@ class PresupuestoController extends Controller
             'fecha_vencimiento' => 'nullable|date|after_or_equal:fecha',
             'observaciones'     => 'nullable|string',
             'nota_interna'      => 'nullable|string',
+            'alicuota_iva'      => 'nullable|numeric|in:0,10.5,21,27',
+            'precio_con_iva'    => 'nullable|boolean',
             'items'             => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:1000',
             'items.*.unidad'          => 'required|in:m2,ml,unidad',
@@ -173,6 +175,8 @@ class PresupuestoController extends Controller
             'cliente_id'        => $request->cliente_id,
             'lista_precio_id'   => $lista?->id,
             'multiplicador'     => $lista?->multiplicador ?? 1,
+            'alicuota_iva'      => $request->input('alicuota_iva', 21),
+            'precio_con_iva'    => $request->boolean('precio_con_iva', true),
             'mo_m2'             => $lista?->mo_m2     ?? $moGlobal['m2'],
             'mo_ml'             => $lista?->mo_ml     ?? $moGlobal['ml'],
             'mo_unidad'         => $lista?->mo_unidad ?? $moGlobal['unidad'],
@@ -287,6 +291,8 @@ class PresupuestoController extends Controller
             'fecha_vencimiento' => 'nullable|date|after_or_equal:fecha',
             'observaciones'     => 'nullable|string',
             'nota_interna'      => 'nullable|string',
+            'alicuota_iva'      => 'nullable|numeric|in:0,10.5,21,27',
+            'precio_con_iva'    => 'nullable|boolean',
             'items'             => 'required|array|min:1',
             'items.*.descripcion'     => 'required|string|max:1000',
             'items.*.unidad'          => 'required|in:m2,ml,unidad',
@@ -316,6 +322,8 @@ class PresupuestoController extends Controller
             'fecha_vencimiento' => $request->fecha_vencimiento,
             'observaciones'     => $request->observaciones,
             'nota_interna'      => $request->nota_interna,
+            'alicuota_iva'      => $request->input('alicuota_iva', 21),
+            'precio_con_iva'    => $request->boolean('precio_con_iva', true),
             'updated_by'        => auth()->id(),
         ])->save();
 
@@ -576,9 +584,16 @@ class PresupuestoController extends Controller
 
     private function syncItems(Presupuesto $presupuesto, array $items): void
     {
+        // Si el precio cargado es NETO (tilde de "con IVA" quitado), le sumamos
+        // el IVA antes de guardar: precio_unitario / subtotal / total quedan
+        // SIEMPRE como FINAL (IVA incluido), que es como los lee todo el resto.
+        $alic   = $presupuesto->alicuota();
+        $factor = $presupuesto->precio_con_iva ? 1 : (1 + $alic / 100);
+
         foreach ($items as $i => $item) {
-            $medida   = $this->calcularMedida($item);
-            $subtotal = round((float)$item['precio_unitario'] * $medida, 2);
+            $medida  = $this->calcularMedida($item);
+            $precio  = round((float) $item['precio_unitario'] * $factor, 2);
+            $subtotal = round($precio * $medida, 2);
 
             PresupuestoItem::create([
                 'presupuesto_id'  => $presupuesto->id,
@@ -590,7 +605,7 @@ class PresupuestoController extends Controller
                 'alto'            => $item['alto']     ?? null,
                 'largo'           => $item['largo']    ?? null,
                 'cantidad'        => $item['cantidad'],
-                'precio_unitario' => $item['precio_unitario'],
+                'precio_unitario' => $precio,
                 'subtotal'        => $subtotal,
                 'orden'           => $i,
             ]);

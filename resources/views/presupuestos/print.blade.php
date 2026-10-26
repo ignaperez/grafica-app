@@ -383,20 +383,32 @@
                 </td>
                 <td class="u">{{ $item->unidadLabel() }}</td>
                 <td class="num">{{ number_format($item->medidaTotal(), 3, ',', '.') }}</td>
-                <td class="num">${{ number_format($item->precio_unitario, 2, ',', '.') }}</td>
-                <td class="num s">${{ number_format($item->subtotal, 2, ',', '.') }}</td>
+                <td class="num">${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->precio_unitario) : $item->precio_unitario, 2, ',', '.') }}</td>
+                <td class="num s">${{ number_format($presupuesto->discriminaIva() ? $presupuesto->netoDe($item->subtotal) : $item->subtotal, 2, ',', '.') }}</td>
             </tr>
             @endforeach
             </tbody>
         </table>
 
         {{-- Total --}}
+        @php $aliTxt = rtrim(rtrim(number_format($presupuesto->alicuota(), 1, ',', ''), '0'), ',') . '%'; @endphp
+        @if($presupuesto->discriminaIva())
+        <div style="text-align:right;margin:6px 0;font-size:12px;color:#444">
+            Subtotal (neto): <strong>${{ number_format($presupuesto->netoTotal(), 2, ',', '.') }}</strong>
+            &nbsp;·&nbsp; IVA ({{ $aliTxt }}): <strong>${{ number_format($presupuesto->ivaMonto(), 2, ',', '.') }}</strong>
+        </div>
+        @endif
         <div class="total-row">
             <div class="box">
                 <span class="lbl">Total</span>
                 <span class="val">${{ number_format($presupuesto->total, 2, ',', '.') }}</span>
             </div>
         </div>
+        @unless($presupuesto->discriminaIva())
+        <div style="text-align:right;margin-top:4px;font-size:10px;color:#777">
+            IVA contenido ({{ $aliTxt }}): ${{ number_format($presupuesto->ivaMonto(), 2, ',', '.') }}
+        </div>
+        @endunless
 
     </div>{{-- /page-ct --}}
 

@@ -25,7 +25,7 @@ class Presupuesto extends Model
 
     protected $fillable = [
         'numero', 'cliente_id', 'lista_precio_id',
-        'multiplicador', 'mo_m2', 'mo_ml', 'mo_unidad',
+        'multiplicador', 'alicuota_iva', 'precio_con_iva', 'mo_m2', 'mo_ml', 'mo_unidad',
         'estado', 'fecha', 'fecha_vencimiento', 'observaciones', 'nota_interna',
         'total', 'orden_trabajo_id', 'agrupado_en_id',
         'created_by', 'updated_by',
@@ -35,6 +35,8 @@ class Presupuesto extends Model
         'fecha'             => 'date',
         'fecha_vencimiento' => 'date',
         'multiplicador'     => 'decimal:4',
+        'alicuota_iva'      => 'decimal:2',
+        'precio_con_iva'    => 'boolean',
         'mo_m2'             => 'decimal:2',
         'mo_ml'             => 'decimal:2',
         'mo_unidad'         => 'decimal:2',
@@ -65,7 +67,45 @@ class Presupuesto extends Model
         return 'P-' . str_pad($this->numero, 4, '0', STR_PAD_LEFT);
     }
 
-    public function recalcularTotal(): void
+    // ── IVA ───────────────────────────────────────────────────
+    //
+    // precio_unitario / subtotal / total se guardan SIEMPRE como FINAL (IVA
+    // incluido). Acá se deriva el desglose. Cómo se muestra depende del cliente.
+
+    public function alicuota(): float
+    {
+        return (float) ($this->alicuota_iva ?? 21);
+    }
+
+    /**
+     * ¿Se discrimina el IVA (neto + IVA aparte, estilo Factura A)?
+     * RI y Monotributo sí; Consumidor Final / Exento / etc. muestran IVA
+     * contenido (informativo, ya incluido en el total).
+     */
+    public function discriminaIva(): bool
+    {
+        return in_array($this->cliente?->condicion_iva, ['responsable_inscripto', 'monotributo'], true);
+    }
+
+    /** Neto de un ítem (le saca el IVA al subtotal final). */
+    public function netoDe($subtotalFinal): float
+    {
+        return round(((float) $subtotalFinal) / (1 + $this->alicuota() / 100), 2);
+    }
+
+    /** Neto total = suma de los netos por línea (así la tabla cierra exacta). */
+    public function netoTotal(): float
+    {
+        return round($this->items->sum(fn ($it) => $this->netoDe($it->subtotal)), 2);
+    }
+
+    /** IVA = diferencia hasta el total final (que es exacto). */
+    public function ivaMonto(): float
+    {
+        return round((float) $this->total - $this->netoTotal(), 2);
+    }
+
+        public function recalcularTotal(): void
     {
         $this->total = $this->items()->sum('subtotal');
         $this->saveQuietly();
