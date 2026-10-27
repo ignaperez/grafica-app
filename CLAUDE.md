@@ -1701,6 +1701,111 @@ daban vacio: **el selector es `mail2026`**, no los habituales.
 - SPF y DMARC ya estan (`v=spf1 mx ip4:148.113.192.65 ~all` / `p=none`). El PTR es
   `c1116.cloud.wiroos.net`, no coincide con plote.ar.
 
+## Vehículos — marca sin catálogo (modelo a mano) + filtros del listado (2026-10-26)
+
+**Marca sin catálogo.** No todo lo que se plotea es un auto (una lancha, un trailer, un
+contenedor). Con `marca_id` y `modelo_id` obligatorios contra el catálogo no se podía cargar
+nada que no estuviera ahí. Flag **`marcas.modelo_libre`** (bool, migración `2026_10_26_000001`,
+tenant + central): marca a una marca como "sin catálogo de modelos". La migración crea **OTRA**
+con ese flag; se puede marcar cualquier otra igual cambiando el flag.
+- Al elegir una marca con `modelo_libre`, el form reemplaza el `<select>` de Modelo por un campo
+  de texto (`modelo_libre`) y guarda `modelo_id = NULL` (ya era nullable) + la descripción en la
+  columna de texto `modelo`. Las vistas / PDF / búsqueda ya leían esas columnas de texto, no se
+  tocaron.
+- **El campo que no se usa se DESHABILITA, no solo se oculta** (`_marca-modelo-js.blade` →
+  `toggleModelo()`): si solo se ocultara, al pasar de FORD a OTRA viajaría el `modelo_id` viejo
+  junto al texto libre. La validación de `modelo_id` pasó de `required` a `nullable` y la regla
+  real vive en `prepararMarcaModelo()`: según el flag exige uno u otro. Verificado que inyectar un
+  `modelo_id` ajeno junto al texto libre se ignora (guarda null).
+
+**Filtros del listado** (`vehiculos-ploteo/index`): además del buscador por texto, dos `<select>`
+que recargan al cambiar (onchange submit) y se combinan entre sí y con el texto:
+- **Estado**: Pendientes / Terminados (scopes `pendientes()` / `terminados()` sobre `terminado_at`).
+- **Presupuesto**: Presupuestados / Sin presupuestar. Scopes `presupuestados()` / `sinPresupuestar()`
+  que espejan `presupuestado()` = `presupuesto_id` no nulo **O** `presupuestado_manual`.
+Los tres parámetros (q, estado, presup) viajan en el mismo form GET; el `withQueryString()` del
+paginate los conserva. "Limpiar" aparece con cualquier filtro activo.
+
+Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear`.
+
+## Presupuestos — IVA discriminado según el cliente + check "precio con IVA" (2026-10-26)
+
+Un presupuesto a un Responsable Inscripto tenía que discriminar el IVA; a un Consumidor Final no.
+Modelo (Ley 27.743 / Transparencia Fiscal):
+- **RI y Monotributo → DISCRIMINADO**: la tabla muestra netos, y abajo Subtotal (neto) + IVA
+  (alícuota) + Total. Estilo Factura A.
+- **Consumidor Final / Exento / sin condición → IVA CONTENIDO**: el precio ya es el total final y
+  se muestra el "IVA contenido" como informativo (ya incluido).
+`Presupuesto::discriminaIva()` decide según `cliente.condicion_iva`.
+
+**Check "los precios que cargo ya incluyen IVA"** (default tildado) + selector de alícuota
+(21 / 10,5 / 27 / 0), **uno por presupuesto**. Columnas nuevas `presupuestos.alicuota_iva`
+(default 21) y `precio_con_iva` (default true), migración `2026_10_26_000002` (tenant + central).
+- Tildado: 100 = 100 final. Neto = 100/1,21.
+- Destildado: 100 = neto → total 121 (o lo que dé la alícuota).
+
+**Compatibilidad:** `precio_unitario` / `subtotal` / `total` se siguen guardando SIEMPRE como
+FINAL (IVA incluido). Si el precio se cargó neto, `syncItems()` le suma el IVA antes de guardar.
+Así los presupuestos existentes NO cambian de importe; con los defaults (con IVA, 21%) se ven
+idénticos — pero los de clientes RI ahora muestran el desglose, que es lo correcto.
+
+- **GOTCHA del checkbox:** un checkbox DESMARCADO no viaja en el POST → `boolean('precio_con_iva',
+  true)` caía en el default `true` y trataba el precio como final. Fix: `<input type="hidden"
+  name="precio_con_iva" value="0">` ANTES del checkbox (patrón estándar; tildado gana "1",
+  destildado llega "0"). Esto SOLO salta en el navegador real, no si el test manda el campo.
+- Helpers: `alicuota()`, `discriminaIva()`, `netoDe($subtotalFinal)`, `netoTotal()` (suma de netos
+  por línea, así la tabla cierra exacta), `ivaMonto()` (= total − netoTotal).
+- El desglose se agregó a las 4 salidas: `show`, PDF (`pdf/body` + `pdf/cierre` + `pdf/styles`) y
+  la impresión HTML (`print`). Los formularios (`create`/`edit`) tienen el check + alícuota + un
+  **resumen en vivo** que reacciona al cliente (lee `condicion_iva` del Select2, que ya lo
+  devolvía). En `edit`, si se guardó neto, el input muestra el neto (divide el final).
+
+Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear`.
+
+## Presupuestos — botones Facturar y Remito en el detalle (2026-10-26)
+
+Card "Emitir comprobante" en `presupuestos/show`, para no volver al listado. Misma lógica que el
+listado: ya facturado (factura no anulada) → "✓ Facturado"; agrupado en otro → "⮗ Agrupado en
+P-00XX" (linkeado); si no, "⚡ Facturar" (`facturas.create?presupuesto_id=`) + "📦 Remito"
+(`remitos.create?presupuesto_id=`). Cada botón gateado por módulo (`puedeModulo('facturas')` /
+`'remitos'`). `show()` suma `agrupadoEn` al eager load. Sin migración.
+
+## Documentos — firmar órdenes de compra con firma ológrafa (2026-10-26)
+
+Se sube una OC (PDF o imagen), se arrastra la firma donde va y se descarga el PDF firmado para
+imprimir. Menú Ventas → "Firmar documento".
+- **Firma PNG transparente, una vez por usuario** (`users.firma`, migración `2026_10_26_000003`
+  tenant + central). Se sube/reemplaza/elimina. Se sirve por ruta de la app
+  (`documentos.firma.img`), NO por `Storage::url()` (gotcha storage multi-tenant).
+- **Preview + posición en el navegador:** imagen directa, o PDF renderizado con **pdf.js** (CDN
+  cdnjs). En PDFs multipágina se navega y se elige la hoja. La firma es un overlay
+  arrastrable/redimensionable; al generar se manda su posición como FRACCIÓN de la hoja + la hoja
+  + el archivo (POST multipart que devuelve el PDF para descargar).
+- **Motor `App\Services\FirmaDocumentoService`** (mPDF, que ya trae FPDI):
+  - OC en PDF → se importan las páginas originales (vectoriales, intactas) y la firma se superpone
+    SOLO en la hoja elegida.
+  - OC en imagen → se compone la firma sobre la imagen con **GD** (respeta la transparencia) y se
+    envuelve en un PDF por HTML. (El `Image()` manual de mPDF falla si la página no está abierta;
+    por eso el caso imagen va por GD + `WriteHTML`.)
+- Rutas bajo `/documentos`, gateadas a `rol:admin,ventas`. Link en el grupo Ventas del sidebar.
+- Ver gotchas 20 y 21 (API de import de mPDF 8 y la hoja en blanco de más).
+
+Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+
+## Dashboard — funnel Presupuestado→Facturado→Cobrado (%) + confidencial (2026-10-26)
+
+El panel del dashboard admin pasó de "Facturado / Cobrado / Por cobrar del mes" al **funnel
+comercial completo, ACUMULADO** (todo el historial, no del mes): Presupuestado (total cotizado),
+Facturado (% de lo presupuestado), Cobrado (% de lo facturado) y Por cobrar, con dos barras
+(facturado/presupuestado y cobrado/facturado).
+- `DashboardController`: `presupuestadoTotal` = `Presupuesto::whereNull('agrupado_en_id')->sum('total')`
+  (excluye agrupados, no duplica), `facturadoTotal` = Σ facturas 1/6/11 − Σ NC 3/8/13 (no anuladas),
+  `cobradoTotal` = Σ cobros. **Sin filtro de mes** — los números cuadran con prod
+  (sistemas-integrales: presupuestado 6.000.480, facturado 2.674.480).
+- **Confidencial:** el panel se ve **SOLO para el Administrador principal** (`esSuper()`). El
+  dashboard ya era solo-admin, pero puede haber varios admins y la info financiera es sensible.
+Sin migración.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -1728,3 +1833,15 @@ daban vacio: **el selector es `mail2026`**, no los habituales.
     eso el bug aparece y desaparece según el texto de al lado. Para armar frases condicionales
     cortas, juntar las partes en un `@php` y `implode()`, en vez de intercalar `@if`/`@endif`
     dentro del texto (ver el estado vacío de `productos/index.blade.php`).
+20. **mPDF 8 — API de import de PDF:** `SetImportUse()` **ya no existe** (tira
+    `Call to undefined method`). La API es directa: `setSourceFile($path)` → `importPage($n)` →
+    `getTemplateSize($tpl)` → `useTemplate($tpl, ['x'=>..,'y'=>..,'width'=>..,'height'=>..])`.
+    mPDF arranca con una **hoja implícita**, así que para importar un PDF sin meter una hoja en
+    blanco de más hay que construir el mPDF con el `format` de la página 1 (se lee con un mPDF
+    "probe" descartable) y recién desde la 2da página usar `AddPageByArray`. Ver
+    `FirmaDocumentoService`. FPDI viene incluido con mpdf (no hace falta `setasign/fpdf`).
+21. **mPDF `Image()` manual necesita la página ABIERTA:** llamar `$mpdf->Image()` recién
+    construido el objeto (sin un `WriteHTML`/`useTemplate` previo que abra el stream de la página)
+    escupe el operador de dibujo ANTES del `%PDF` y el archivo sale corrupto. En el import de PDF
+    funciona porque `useTemplate` ya abrió la página; para componer sobre una imagen suelta,
+    componer con GD y envolver con `WriteHTML('<img ...>')` en vez de `Image()`.
