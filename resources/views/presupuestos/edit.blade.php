@@ -94,6 +94,8 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
             <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    {{-- hidden 0 + checkbox 1: si se destilda, igual llega '0' (si no, el campo no viaja y el server toma el default) --}}
+                    <input type="hidden" name="precio_con_iva" value="0">
                     <input type="checkbox" name="precio_con_iva" id="precio-con-iva" value="1"
                            {{ old('precio_con_iva', $presupuesto->precio_con_iva) ? 'checked' : '' }}
                            style="width:16px;height:16px;accent-color:var(--ac);cursor:pointer">
