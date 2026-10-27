@@ -291,6 +291,39 @@
         </div>
     </div>
 
+    {{-- Emitir comprobante: factura y remito (misma lógica que el listado) --}}
+    @php
+        $u = auth()->user();
+        $facturado = $presupuesto->facturas->where('estado', '!=', 'anulada')->count() > 0;
+        $puedeFacturar = $u->puedeModulo('facturas');
+        $puedeRemito   = $u->puedeModulo('remitos');
+    @endphp
+    @if($puedeFacturar || $puedeRemito)
+    <div class="gcard" style="margin-bottom:16px">
+        <div class="gcard-hd"><span class="gcard-title">Emitir comprobante</span></div>
+        <div class="gcard-bd" style="display:flex;flex-direction:column;gap:8px">
+            @if($puedeFacturar)
+                @if($facturado)
+                    <span class="gbtn gbtn-ghost" style="width:100%;opacity:.55;cursor:default"
+                          title="Este presupuesto ya fue facturado">✓ Facturado</span>
+                @elseif($presupuesto->estaAgrupado())
+                    <span class="gbtn gbtn-ghost" style="width:100%;opacity:.55;cursor:default"
+                          title="Se agrupó en {{ $presupuesto->agrupadoEn?->numeroFormateado() }} — se factura desde ahí">
+                        ⤷ Agrupado en {{ $presupuesto->agrupadoEn?->numeroFormateado() }}
+                    </span>
+                @else
+                    <a href="{{ route('facturas.create', ['presupuesto_id' => $presupuesto->id]) }}"
+                       class="gbtn gbtn-primary" style="width:100%;justify-content:center">⚡ Facturar</a>
+                @endif
+            @endif
+            @if($puedeRemito)
+                <a href="{{ route('remitos.create', ['presupuesto_id' => $presupuesto->id]) }}"
+                   class="gbtn gbtn-ghost" style="width:100%;justify-content:center">📦 Remito</a>
+            @endif
+        </div>
+    </div>
+    @endif
+
     {{-- Convertir a OT --}}
     @if(!$presupuesto->ordenTrabajo)
     <div class="gcard" style="margin-bottom:16px">
