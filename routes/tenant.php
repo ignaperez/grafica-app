@@ -284,6 +284,15 @@ Route::middleware([
         Route::post('/presupuestos/{presupuesto}/convertir-ot', [PresupuestoController::class, 'convertirAOT'])->name('presupuestos.convertir-ot');
         Route::resource('presupuestos', PresupuestoController::class)->only(['index','create','store','show','edit','update','destroy']);
 
+        // ── Firmar documentos (órdenes de compra) ──────────────────────
+        Route::middleware('rol:admin,ventas')->prefix('documentos')->name('documentos.')->group(function () {
+            Route::get('/firmar',        [\App\Http\Controllers\DocumentoFirmaController::class, 'index'])->name('firmar');
+            Route::post('/firmar',       [\App\Http\Controllers\DocumentoFirmaController::class, 'procesar'])->name('procesar');
+            Route::post('/firma',        [\App\Http\Controllers\DocumentoFirmaController::class, 'guardarFirma'])->name('firma.guardar');
+            Route::delete('/firma',      [\App\Http\Controllers\DocumentoFirmaController::class, 'eliminarFirma'])->name('firma.eliminar');
+            Route::get('/firma/imagen',  [\App\Http\Controllers\DocumentoFirmaController::class, 'firmaImg'])->name('firma.img');
+        });
+
         Route::resource('productos',      ProductoController::class);
         Route::resource('listas-precios', ListaPrecioController::class)->parameters(['listas-precios' => 'listaPrecio']);
 

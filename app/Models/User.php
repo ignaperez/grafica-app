@@ -57,6 +57,7 @@ class User extends Authenticatable
         'es_super',
         'modulos',
         'session_id',
+        'firma',
     ];
 
     /**

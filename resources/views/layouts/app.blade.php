@@ -279,12 +279,12 @@
         $verRemitosP  = $rol === 'produccion' && $u->puedeModulo('remitos');
         $verRemitosV  = ! $verRemitosP && $u->puedeModulo('remitos');
 
-        $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg || $verPrecios;
+        $grupoVentas  = $verClientes || $verPresup || $verFacturas || $verServicios || $verRemitosV || $verSeg || $verPrecios || in_array($rol, ['admin', 'ventas']);
         $grupoConfig  = $verConfig || $verCai;
         $grupoSistema = $verUsuarios || $verConfEmp || $verPapelera;
 
         $produccionOn = request()->routeIs('dashboard') || request()->routeIs('inicio') || request()->routeIs('reportes.*') || request()->routeIs('ordenes-trabajo.*') || request()->routeIs('trabajos.*') || request()->routeIs('trabajos-libres.*') || request()->routeIs('vehiculos-ploteo.*') || (request()->routeIs('remitos.*') && $rol === 'produccion');
-        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('seguimientos.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || (request()->routeIs('remitos.*') && $rol !== 'produccion');
+        $ventasOn     = request()->routeIs('clientes.*') || request()->routeIs('presupuestos.*') || request()->routeIs('facturas.*') || request()->routeIs('seguimientos.*') || request()->routeIs('catalogo.*') || request()->routeIs('productos.*') || request()->routeIs('listas-precios.*') || request()->routeIs('documentos.*') || (request()->routeIs('remitos.*') && $rol !== 'produccion');
         $configOn     = request()->routeIs('tipo-trabajos.*') || request()->routeIs('materiales.*') || request()->routeIs('maquinas.*') || request()->routeIs('remito-cais.*');
         $sistemaOn    = request()->routeIs('usuarios.*') || request()->routeIs('configuracion.*') || request()->routeIs('papelera.*');
         $rrhhOn       = request()->is('rrhh/*');
@@ -357,6 +357,11 @@
             @if($verRemitosV)
             <a href="{{ route('remitos.index') }}" class="s-item {{ request()->routeIs('remitos.*') && !request()->routeIs('remito-cais.*') ? 'on' : '' }}">
                 <span class="dot"></span> Remitos
+            </a>
+            @endif
+            @if(in_array($rol, ['admin', 'ventas']))
+            <a href="{{ route('documentos.firmar') }}" class="s-item {{ request()->routeIs('documentos.*') ? 'on' : '' }}">
+                <span class="dot"></span> Firmar documento
             </a>
             @endif
             @if($verServicios)
