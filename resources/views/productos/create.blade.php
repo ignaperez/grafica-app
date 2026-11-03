@@ -53,18 +53,19 @@
                 </div>
             </div>
 
-            {{-- Tipo de trabajo --}}
+            {{-- Tipo de trabajo (obligatorio: es el grupo del catálogo) --}}
             <div class="col-md-4">
                 <div class="gfg">
-                    <label class="glabel">Proceso / Tipo de trabajo</label>
-                    <select name="tipo_trabajo_id" class="gselect">
-                        <option value="">— Sin especificar —</option>
+                    <label class="glabel">Tipo de trabajo *</label>
+                    <select name="tipo_trabajo_id" class="gselect" required>
+                        <option value="" disabled {{ old('tipo_trabajo_id') ? '' : 'selected' }}>— Elegí el tipo —</option>
                         @foreach($tipos as $t)
                             <option value="{{ $t->id }}" {{ old('tipo_trabajo_id') == $t->id ? 'selected' : '' }}>
                                 {{ $t->nombre }}
                             </option>
                         @endforeach
                     </select>
+                    <div class="txd" style="font-size:11px;margin-top:4px">Es el grupo con el que aparece en presupuestos y trabajos. Si no encaja, usá "OTROS".</div>
                     @error('tipo_trabajo_id')<div class="gerr">{{ $message }}</div>@enderror
                 </div>
             </div>
@@ -131,13 +132,13 @@
     </div>
 </div>
 
-{{-- Info de cómo se compone el precio --}}
+{{-- Info del precio --}}
 <div class="gcard mb-4" style="border-color:var(--bm)">
     <div class="gcard-bd" style="padding:14px 20px">
         <div class="txd" style="font-size:12px;line-height:1.7">
-            <strong style="color:var(--tx)">¿Cómo se calcula el precio final?</strong><br>
-            <span class="mono" style="color:var(--ac)">(costo_material + costo_maquina + mano_de_obra) × cantidad × multiplicador_lista</span><br>
-            Los costos de material y máquina se configuran en sus respectivos ABM. El multiplicador viene de la lista de precios del cliente.
+            <strong style="color:var(--tx)">¿Cómo entra el precio al presupuesto?</strong><br>
+            Si cargás el <strong>Precio del paquete</strong>, el presupuesto lo trae solo al elegir este servicio.
+            Si lo dejás vacío, el precio se pone <strong>a mano</strong> en el presupuesto.
         </div>
     </div>
 </div>

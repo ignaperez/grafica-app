@@ -53,12 +53,12 @@
                 </div>
             </div>
 
-            {{-- Tipo de trabajo --}}
+            {{-- Tipo de trabajo (obligatorio: es el grupo del catálogo) --}}
             <div class="col-md-4">
                 <div class="gfg">
-                    <label class="glabel">Proceso / Tipo de trabajo</label>
-                    <select name="tipo_trabajo_id" class="gselect">
-                        <option value="">— Sin especificar —</option>
+                    <label class="glabel">Tipo de trabajo *</label>
+                    <select name="tipo_trabajo_id" class="gselect" required>
+                        <option value="" disabled {{ old('tipo_trabajo_id', $producto->tipo_trabajo_id) ? '' : 'selected' }}>— Elegí el tipo —</option>
                         @foreach($tipos as $t)
                             <option value="{{ $t->id }}"
                                 {{ old('tipo_trabajo_id', $producto->tipo_trabajo_id) == $t->id ? 'selected' : '' }}>
@@ -66,6 +66,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="txd" style="font-size:11px;margin-top:4px">Es el grupo con el que aparece en presupuestos y trabajos. Si no encaja, usá "OTROS".</div>
                     @error('tipo_trabajo_id')<div class="gerr">{{ $message }}</div>@enderror
                 </div>
             </div>

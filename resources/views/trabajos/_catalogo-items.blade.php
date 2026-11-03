@@ -25,6 +25,7 @@
                     <select class="gselect sel-item" disabled>
                         <option value="">— elegí grupo —</option>
                     </select>
+                    <div class="txd" style="font-size:11px;margin-top:4px">¿No está en el catálogo? Dejá los selectores vacíos y escribí la Descripción a mano.</div>
                     <input type="hidden" name="trabajos[IDX][tipo_trabajo_id]" class="inp-tipo-id">
                     <input type="hidden" name="trabajos[IDX][maquina_id]"      class="inp-maquina-id">
                     <input type="hidden" name="trabajos[IDX][material_id]"     class="inp-material-id">
@@ -66,8 +67,8 @@
 
             {{-- Descripción + fecha --}}
             <div class="col-md-8">
-                <div class="gfg"><label class="glabel">Descripción</label>
-                    <input type="text" name="trabajos[IDX][descripcion]" class="ginput inp-descripcion" placeholder="Se completa del catálogo; podés editarla"></div>
+                <div class="gfg"><label class="glabel">Descripción *</label>
+                    <input type="text" name="trabajos[IDX][descripcion]" class="ginput inp-descripcion" placeholder="Se completa del catálogo, o escribila a mano" required></div>
             </div>
             <div class="col-md-4">
                 <div class="gfg"><label class="glabel">Fecha de entrega</label>

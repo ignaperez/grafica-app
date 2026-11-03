@@ -53,7 +53,7 @@ class ProductoController extends Controller
         $data = $request->validate([
             'nombre'          => 'required|string|max:255',
             'descripcion'     => 'nullable|string',
-            'tipo_trabajo_id' => 'nullable|exists:tipo_trabajos,id',
+            'tipo_trabajo_id' => 'required|exists:tipo_trabajos,id',
             'material_id'     => 'nullable|exists:materiales,id',
             'unidad'          => 'required|in:m2,ml,unidad',
             'costo_mano_obra' => 'nullable|numeric|min:0',
@@ -61,6 +61,8 @@ class ProductoController extends Controller
             // legacy — ignoramos si viene vacío
             'tipo'            => 'nullable|string|max:255',
             'precio'          => 'nullable|numeric|min:0',
+        ], [
+            'tipo_trabajo_id.required' => 'Elegí un tipo de trabajo. Si no encaja en ninguno, usá "OTROS".',
         ]);
 
         $data['activo'] = $request->boolean('activo', true);
@@ -87,13 +89,15 @@ class ProductoController extends Controller
         $data = $request->validate([
             'nombre'          => 'required|string|max:255',
             'descripcion'     => 'nullable|string',
-            'tipo_trabajo_id' => 'nullable|exists:tipo_trabajos,id',
+            'tipo_trabajo_id' => 'required|exists:tipo_trabajos,id',
             'material_id'     => 'nullable|exists:materiales,id',
             'unidad'          => 'required|in:m2,ml,unidad',
             'costo_mano_obra' => 'nullable|numeric|min:0',
             'activo'          => 'sometimes|boolean',
             'tipo'            => 'nullable|string|max:255',
             'precio'          => 'nullable|numeric|min:0',
+        ], [
+            'tipo_trabajo_id.required' => 'Elegí un tipo de trabajo. Si no encaja en ninguno, usá "OTROS".',
         ]);
 
         $data['activo'] = $request->boolean('activo', true);

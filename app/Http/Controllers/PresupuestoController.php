@@ -485,19 +485,27 @@ class PresupuestoController extends Controller
         foreach ($trabajos as $i => $t) {
             $maquina  = $t->maquina;
             $material = $t->material;
-            $unidad   = $t->unidad ?: ($material->unidad ?? 'm2');
+            $unidad   = $t->unidad ?: ($material?->unidad ?? 'm2');
 
-            $mo = match ($unidad) {
-                'ml'     => $lista?->mo_ml     ?? $moGlobal['ml'],
-                'unidad' => $lista?->mo_unidad ?? $moGlobal['unidad'],
-                default  => $lista?->mo_m2     ?? $moGlobal['m2'],
-            };
-            [$cMaq, $cMat] = match ($unidad) {
-                'ml'     => [(float) ($maquina->costo_ml ?? 0),     (float) ($material->costo_ml ?? 0)],
-                'unidad' => [(float) ($maquina->costo_unidad ?? 0), (float) ($material->costo_unidad ?? 0)],
-                default  => [(float) ($maquina->costo_m2 ?? 0),     (float) ($material->costo_m2 ?? 0)],
-            };
-            $precio = round(($cMaq + $cMat) * $mult + (float) $mo, 2);
+            // Opción A: el catálogo ya no usa combos Máquina×Material, así que los
+            // trabajos normalmente no traen máquina/material. En ese caso el precio
+            // se pone a mano en el presupuesto (queda en 0). Sólo si un trabajo
+            // (legacy) todavía tiene máquina o material se calcula con sus costos.
+            if ($maquina || $material) {
+                $mo = match ($unidad) {
+                    'ml'     => $lista?->mo_ml     ?? $moGlobal['ml'],
+                    'unidad' => $lista?->mo_unidad ?? $moGlobal['unidad'],
+                    default  => $lista?->mo_m2     ?? $moGlobal['m2'],
+                };
+                [$cMaq, $cMat] = match ($unidad) {
+                    'ml'     => [(float) ($maquina?->costo_ml ?? 0),     (float) ($material?->costo_ml ?? 0)],
+                    'unidad' => [(float) ($maquina?->costo_unidad ?? 0), (float) ($material?->costo_unidad ?? 0)],
+                    default  => [(float) ($maquina?->costo_m2 ?? 0),     (float) ($material?->costo_m2 ?? 0)],
+                };
+                $precio = round(($cMaq + $cMat) * $mult + (float) $mo, 2);
+            } else {
+                $precio = 0;
+            }
 
             $medida = match ($unidad) {
                 'm2'    => (float) $t->ancho * (float) $t->alto * (int) ($t->cantidad ?: 1),
@@ -509,7 +517,7 @@ class PresupuestoController extends Controller
                 'presupuesto_id'  => $presupuesto->id,
                 'maquina_id'      => $maquina?->id,
                 'material_id'     => $material?->id,
-                'descripcion'     => $t->descripcion ?: trim(($t->tipoTrabajo->nombre ?? '') . ' ' . ($material->nombre ?? '')) ?: 'Trabajo',
+                'descripcion'     => $t->descripcion ?: trim(($t->tipoTrabajo->nombre ?? '') . ' ' . ($material?->nombre ?? '')) ?: 'Trabajo',
                 'unidad'          => $unidad,
                 'ancho'           => $t->ancho,
                 'alto'            => $t->alto,
