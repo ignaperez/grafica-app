@@ -18,4 +18,16 @@ class TipoTrabajo extends Model
     {
         return $this->hasMany(Trabajo::class);
     }
+
+    /**
+     * Id del tipo "OTROS" (lo crea si no existiera). Se usa como fallback:
+     * un trabajo que se guarda sin tipo queda en OTROS, nunca sin tipo.
+     */
+    public static function otrosId(): int
+    {
+        return static::firstOrCreate(
+            ['nombre' => 'OTROS'],
+            ['activo' => true, 'descripcion' => 'Servicios sin un tipo específico'],
+        )->id;
+    }
 }

@@ -154,12 +154,13 @@ class TrabajoController extends Controller
 
         $orden         = OrdenTrabajo::findOrFail($request->orden_trabajo_id);
         $todosArchivos = $request->allFiles()['trabajos'] ?? [];
+        $otrosId       = \App\Models\TipoTrabajo::otrosId();
 
         foreach ($request->trabajos as $idx => $item) {
             $trabajo = Trabajo::create([
                 'orden_trabajo_id' => $orden->id,
                 'cliente_id'       => $orden->cliente_id,
-                'tipo_trabajo_id'  => $item['tipo_trabajo_id'] ?? null,
+                'tipo_trabajo_id'  => ($item['tipo_trabajo_id'] ?? null) ?: $otrosId,
                 'material_id'      => $item['material_id']     ?? null,
                 'maquina_id'       => $item['maquina_id']      ?? null,
                 'unidad'           => $item['unidad']          ?? 'm2',

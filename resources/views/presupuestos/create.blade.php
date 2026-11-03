@@ -236,7 +236,8 @@ CATALOGO.forEach((item, i) => {
     (GRUPOS[g] = GRUPOS[g] || []).push(item);
 });
 // Todos los tipos primero, y cualquier grupo de un ítem que no esté en la lista (borde)
-const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])]
+    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 let rowIndex = 0;
 const PREFILL = @json($prefill['items'] ?? []);   // ítems precargados (ej. desde vehículos)
 

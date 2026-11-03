@@ -3,9 +3,11 @@ const CATALOGO = {!! json_encode(collect($catalogo)->values()) !!};
 // Lista COMPLETA de tipos de trabajo (grupos), aunque no tengan servicios:
 // así se elige el tipo y se escribe el ítem a mano.
 const GRUPOS_LIST = {!! json_encode(\App\Services\CatalogoService::grupos()) !!};
+const GRUPOS_IDS  = {!! json_encode(\App\Services\CatalogoService::gruposMap()) !!};
 const GRUPOS = {};
 CATALOGO.forEach((item, i) => { item._idx = i; const g = item.grupo || 'OTROS'; (GRUPOS[g] = GRUPOS[g] || []).push(item); });
-const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])]
+    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 let idxFila = 0;
 
 function calcularM2(fila) {
@@ -53,7 +55,11 @@ function agregarFilaCat() {
 
     poblarGrupos(fila);
 
-    $(fila.querySelector('.sel-grupo')).on('change', function () { if (this.value) poblarItems(fila, this.value); });
+    $(fila.querySelector('.sel-grupo')).on('change', function () {
+        // El Grupo elegido YA fija el tipo (aunque después escribas el ítem a mano)
+        fila.querySelector('.inp-tipo-id').value = GRUPOS_IDS[this.value] || '';
+        if (this.value) poblarItems(fila, this.value);
+    });
     $(fila.querySelector('.sel-item')).on('change', function () {
         const it = CATALOGO[this.value];
         if (!it) return;

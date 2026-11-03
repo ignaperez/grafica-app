@@ -21,6 +21,17 @@ class CatalogoService
     }
 
     /**
+     * Mapa nombre de grupo → id del tipo de trabajo. Permite que, al elegir el
+     * Grupo y escribir el ítem a mano, el trabajo quede con ESE tipo.
+     */
+    public static function gruposMap(): array
+    {
+        return TipoTrabajo::where('activo', true)
+            ->pluck('id', 'nombre')
+            ->all();
+    }
+
+    /**
      * Catálogo Grupo → Ítem, donde Grupo = Tipo de Trabajo e Ítem = Servicio.
      * Fuente ÚNICA usada por Presupuestos y por Producción (trabajos/OT).
      * Los combos Máquina×Material se quitaron: el catálogo son los Servicios

@@ -196,7 +196,8 @@ CATALOGO.forEach((item, i) => {
     const g = item.grupo || 'OTROS';
     (GRUPOS[g] = GRUPOS[g] || []).push(item);
 });
-const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])]
+    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 const ITEMS_PREVIOS = {!! json_encode($presupuesto->items->map(fn($it) => [
     'maquina_id'      => $it->maquina_id,
     'material_id'     => $it->material_id,
