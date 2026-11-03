@@ -187,14 +187,16 @@
 <script>
 // ── Datos del catálogo y ítems existentes ─────────────────────────────────
 const CATALOGO     = {!! json_encode(collect($catalogo)->values()) !!};
+// Lista COMPLETA de tipos de trabajo (grupos), aunque no tengan servicios.
+const GRUPOS_LIST = {!! json_encode(\App\Services\CatalogoService::grupos()) !!};
 // Agrupar el catálogo por "grupo" una sola vez
 const GRUPOS = {};
 CATALOGO.forEach((item, i) => {
     item._idx = i;
-    const g = item.grupo || 'Otros';
+    const g = item.grupo || 'OTROS';
     (GRUPOS[g] = GRUPOS[g] || []).push(item);
 });
-const GRUPOS_ORD = Object.keys(GRUPOS).sort();
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
 const ITEMS_PREVIOS = {!! json_encode($presupuesto->items->map(fn($it) => [
     'maquina_id'      => $it->maquina_id,
     'material_id'     => $it->material_id,

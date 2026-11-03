@@ -1,8 +1,11 @@
 <script>
 const CATALOGO = {!! json_encode(collect($catalogo)->values()) !!};
+// Lista COMPLETA de tipos de trabajo (grupos), aunque no tengan servicios:
+// así se elige el tipo y se escribe el ítem a mano.
+const GRUPOS_LIST = {!! json_encode(\App\Services\CatalogoService::grupos()) !!};
 const GRUPOS = {};
-CATALOGO.forEach((item, i) => { item._idx = i; const g = item.grupo || 'Otros'; (GRUPOS[g] = GRUPOS[g] || []).push(item); });
-const GRUPOS_ORD = Object.keys(GRUPOS).sort();
+CATALOGO.forEach((item, i) => { item._idx = i; const g = item.grupo || 'OTROS'; (GRUPOS[g] = GRUPOS[g] || []).push(item); });
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
 let idxFila = 0;
 
 function calcularM2(fila) {

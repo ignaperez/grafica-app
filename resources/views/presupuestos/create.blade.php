@@ -225,14 +225,18 @@
 @section('scripts')
 <script>
 const CATALOGO = {!! json_encode(collect($catalogo)->values()) !!};
+// Lista COMPLETA de tipos de trabajo (grupos), aunque no tengan servicios:
+// así se puede elegir el tipo y escribir el ítem a mano.
+const GRUPOS_LIST = {!! json_encode(\App\Services\CatalogoService::grupos()) !!};
 // Agrupar el catálogo por "grupo" una sola vez
 const GRUPOS = {};
 CATALOGO.forEach((item, i) => {
     item._idx = i;                       // índice estable para referenciar
-    const g = item.grupo || 'Otros';
+    const g = item.grupo || 'OTROS';
     (GRUPOS[g] = GRUPOS[g] || []).push(item);
 });
-const GRUPOS_ORD = Object.keys(GRUPOS).sort();
+// Todos los tipos primero, y cualquier grupo de un ítem que no esté en la lista (borde)
+const GRUPOS_ORD = [...new Set([...GRUPOS_LIST, ...Object.keys(GRUPOS)])];
 let rowIndex = 0;
 const PREFILL = @json($prefill['items'] ?? []);   // ítems precargados (ej. desde vehículos)
 

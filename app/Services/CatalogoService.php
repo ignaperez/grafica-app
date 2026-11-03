@@ -3,9 +3,23 @@
 namespace App\Services;
 
 use App\Models\Producto;
+use App\Models\TipoTrabajo;
 
 class CatalogoService
 {
+    /**
+     * Todos los Tipos de Trabajo activos (= los grupos del selector), ordenados.
+     * El selector muestra SIEMPRE la lista completa, aunque un tipo todavía no
+     * tenga servicios: así se puede elegir el tipo y escribir el ítem a mano.
+     */
+    public static function grupos(): array
+    {
+        return TipoTrabajo::where('activo', true)
+            ->orderBy('nombre')
+            ->pluck('nombre')
+            ->all();
+    }
+
     /**
      * Catálogo Grupo → Ítem, donde Grupo = Tipo de Trabajo e Ítem = Servicio.
      * Fuente ÚNICA usada por Presupuestos y por Producción (trabajos/OT).
