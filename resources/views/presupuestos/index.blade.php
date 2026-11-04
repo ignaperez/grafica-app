@@ -52,9 +52,10 @@
                                 ↳ en {{ $p->agrupadoEn?->numeroFormateado() }}
                             </a>
                         @elseif($p->agrupados_count > 0)
+                            @php($nums = $p->agrupados->map->numeroFormateado()->implode(', '))
                             <span style="display:block;font-size:10px;color:#4caf50;font-weight:400"
-                                  title="Agrupa {{ $p->agrupados_count }} presupuestos">
-                                agrupa {{ $p->agrupados_count }}
+                                  title="Agrupa {{ $nums }}">
+                                agrupa {{ $nums }}
                             </span>
                         @endif
                     </td>

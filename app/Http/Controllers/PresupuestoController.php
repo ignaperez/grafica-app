@@ -16,7 +16,7 @@ class PresupuestoController extends Controller
 {
     public function index()
     {
-        $presupuestos = Presupuesto::with(['cliente', 'createdBy', 'updatedBy', 'agrupadoEn'])
+        $presupuestos = Presupuesto::with(['cliente', 'createdBy', 'updatedBy', 'agrupadoEn', 'agrupados:id,agrupado_en_id,numero'])
             // Cantidad de facturas NO anuladas → para bloquear el botón "Facturar"
             ->withCount(['facturas as facturado_count' => fn ($q) => $q->where('estado', '!=', 'anulada')])
             // Cuántos presupuestos agrupa este (si agrupa, no se puede re-agrupar)
