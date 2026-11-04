@@ -77,8 +77,8 @@
         <table class="gtable" id="tabla-items">
             <thead>
                 <tr>
-                    <th style="width:280px">Grupo / Servicio</th>
-                    <th style="width:200px">Descripción</th>
+                    <th style="width:150px">Grupo / Servicio</th>
+                    <th style="min-width:340px">Descripción</th>
                     <th style="width:80px">Unidad</th>
                     <th style="width:90px">Medida</th>
                     <th style="width:70px">Cant.</th>
@@ -139,8 +139,9 @@
         <input type="hidden" name="items[__IDX__][material_id]" class="inp-material-id">
     </td>
     <td>
-        <input type="text" class="ginput inp-descripcion" name="items[__IDX__][descripcion]"
-               placeholder="Descripción..." required style="font-size:12px">
+        <textarea class="ginput inp-descripcion" name="items[__IDX__][descripcion]"
+                  placeholder="Descripción..." required rows="3"
+                  style="font-size:12px;width:100%;resize:vertical;line-height:1.35"></textarea>
     </td>
     <td>
         <select class="gselect inp-unidad" name="items[__IDX__][unidad]" required style="font-size:12px">
