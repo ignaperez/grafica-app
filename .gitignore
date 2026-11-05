@@ -28,3 +28,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Bitácora local (no se commitea)
+CHANGELOG.md
