@@ -257,7 +257,7 @@
         if ($n <= 19) return 'Dieci' . mb_strtolower($letras($n - 10));
         if ($n === 20) return 'Veinte';
         if ($n <= 29)  return 'Veinti' . mb_strtolower($letras($n - 20));
-        $dec = ['','','Treinta','Cuarenta','Cincuenta','Sesenta','Setenta','Ochenta','Noventa'];
+        $dec = ['','','','Treinta','Cuarenta','Cincuenta','Sesenta','Setenta','Ochenta','Noventa'];
         if ($n < 100) return $dec[(int)($n/10)] . ($n % 10 ? ' y ' . $letras($n % 10) : '');
         if ($n === 100) return 'Cien';
         $cen = ['','Ciento','Doscientos','Trescientos','Cuatrocientos','Quinientos',
