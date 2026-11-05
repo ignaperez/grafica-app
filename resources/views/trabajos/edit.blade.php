@@ -87,20 +87,20 @@
                 {{-- Ancho --}}
                 <div class="col-md-2">
                     <div class="gfg">
-                        <label class="glabel">Ancho (m)</label>
-                        <input type="number" step="0.01" min="0" name="ancho"
+                        <label class="glabel">Ancho (cm)</label>
+                        <input type="number" step="0.1" min="0" name="ancho"
                                class="ginput campo-medida" id="ancho"
-                               value="{{ old('ancho', $trabajo->ancho) }}">
+                               value="{{ old('ancho', $trabajo->ancho !== null ? $trabajo->ancho * 100 : '') }}">
                     </div>
                 </div>
 
                 {{-- Alto --}}
                 <div class="col-md-2">
                     <div class="gfg">
-                        <label class="glabel">Alto (m)</label>
-                        <input type="number" step="0.01" min="0" name="alto"
+                        <label class="glabel">Alto (cm)</label>
+                        <input type="number" step="0.1" min="0" name="alto"
                                class="ginput campo-medida" id="alto"
-                               value="{{ old('alto', $trabajo->alto) }}">
+                               value="{{ old('alto', $trabajo->alto !== null ? $trabajo->alto * 100 : '') }}">
                     </div>
                 </div>
 
@@ -251,8 +251,9 @@
 
     // ── Calcular m² ───────────────────────────────────────────────
     function calcularM2() {
-        const ancho    = parseFloat(document.getElementById('ancho')?.value)    || 0;
-        const alto     = parseFloat(document.getElementById('alto')?.value)     || 0;
+        // ancho/alto están en cm → a metros (÷100) para el m².
+        const ancho    = (parseFloat(document.getElementById('ancho')?.value) || 0) / 100;
+        const alto     = (parseFloat(document.getElementById('alto')?.value)  || 0) / 100;
         const cantidad = parseInt(document.getElementById('cantidad')?.value)   || 0;
         const campo    = document.getElementById('m2-resultado');
         campo.value = (ancho > 0 && alto > 0 && cantidad > 0)

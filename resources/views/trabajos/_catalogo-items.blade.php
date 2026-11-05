@@ -45,10 +45,10 @@
             </div>
             <div class="col-md-2">
                 <div class="wrap-m2">
-                    <div class="gfg" style="margin-bottom:6px"><label class="glabel">Ancho (m)</label>
-                        <input type="number" step="0.01" min="0" name="trabajos[IDX][ancho]" class="ginput campo-medida inp-ancho" placeholder="0.00"></div>
-                    <div class="gfg" style="margin:0"><label class="glabel">Alto (m)</label>
-                        <input type="number" step="0.01" min="0" name="trabajos[IDX][alto]" class="ginput campo-medida inp-alto" placeholder="0.00"></div>
+                    <div class="gfg" style="margin-bottom:6px"><label class="glabel">Ancho (cm)</label>
+                        <input type="number" step="0.1" min="0" name="trabajos[IDX][ancho]" class="ginput campo-medida inp-ancho" placeholder="0"></div>
+                    <div class="gfg" style="margin:0"><label class="glabel">Alto (cm)</label>
+                        <input type="number" step="0.1" min="0" name="trabajos[IDX][alto]" class="ginput campo-medida inp-alto" placeholder="0"></div>
                 </div>
                 <div class="wrap-ml" style="display:none">
                     <div class="gfg" style="margin:0"><label class="glabel">Largo (m)</label>

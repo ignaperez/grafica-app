@@ -62,6 +62,16 @@ class Trabajo extends Model
         return round(($this->ancho ?? 0) * ($this->alto ?? 0) * ($this->cantidad ?? 1), 4);
     }
 
+    /**
+     * El formulario de trabajos toma ancho/alto en CENTÍMETROS (el operador
+     * piensa en cm), pero se guardan en METROS para quedar igual que el resto
+     * de la app (presupuestos, dashboard, helpers). 50 → 0.5.
+     */
+    public static function cmAMetros($cm): ?float
+    {
+        return ($cm === null || $cm === '') ? null : round(((float) $cm) / 100, 4);
+    }
+
     // ── Medidas según la unidad ─────────────────────────────────────
 
     public function unidadLabel(): string
@@ -73,7 +83,7 @@ class Trabajo extends Model
         };
     }
 
-    /** Medida de UNA pieza: "2,00 m × 1,50 m" (m²) o "3,00 m" (ml). */
+    /** Medida de UNA pieza: "50 cm × 70 cm" (m², medidas en cm) o "3 m" (ml). */
     public function medidaUnitariaTexto(): ?string
     {
         $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
@@ -86,8 +96,9 @@ class Trabajo extends Model
             return null;
         }
 
+        // ancho/alto se guardan en metros; se muestran en cm (×100) como se cargan.
         return ($this->ancho || $this->alto)
-            ? $fmt($this->ancho) . ' m × ' . $fmt($this->alto) . ' m'
+            ? $fmt(($this->ancho ?? 0) * 100) . ' cm × ' . $fmt(($this->alto ?? 0) * 100) . ' cm'
             : null;
     }
 

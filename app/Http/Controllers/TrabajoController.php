@@ -114,8 +114,8 @@ class TrabajoController extends Controller
             'material_id'     => $request->material_id,
             'maquina_id'      => $request->maquina_id,
             'descripcion'     => $request->descripcion,
-            'ancho'           => $request->ancho,
-            'alto'            => $request->alto,
+            'ancho'           => Trabajo::cmAMetros($request->ancho),  // cm → m
+            'alto'            => Trabajo::cmAMetros($request->alto),   // cm → m
             'cantidad'        => $request->cantidad,
             'fecha_entrega'   => $request->fecha_entrega,
         ]);
@@ -165,9 +165,9 @@ class TrabajoController extends Controller
                 'maquina_id'       => $item['maquina_id']      ?? null,
                 'unidad'           => $item['unidad']          ?? 'm2',
                 'descripcion'      => $item['descripcion']     ?? null,
-                'ancho'            => $item['ancho']           ?? null,
-                'alto'             => $item['alto']            ?? null,
-                'largo'            => $item['largo']           ?? null,
+                'ancho'            => Trabajo::cmAMetros($item['ancho'] ?? null),  // cm → m
+                'alto'             => Trabajo::cmAMetros($item['alto'] ?? null),   // cm → m
+                'largo'            => $item['largo']           ?? null,            // ml ya en m
                 'cantidad'         => $item['cantidad'],
                 'fecha_entrega'    => $item['fecha_entrega']   ?? null,
                 'estado'           => 'pendiente',

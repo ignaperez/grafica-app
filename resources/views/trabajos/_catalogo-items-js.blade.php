@@ -14,7 +14,8 @@ function calcularM2(fila) {
     const u = fila.querySelector('.inp-unidad').value;
     const cant = parseFloat(fila.querySelector('.inp-cantidad')?.value) || 0;
     let medida = 0;
-    if (u === 'm2') medida = (parseFloat(fila.querySelector('.inp-ancho')?.value)||0) * (parseFloat(fila.querySelector('.inp-alto')?.value)||0) * cant;
+    // ancho/alto se cargan en cm → a metros (÷100) para el m². Largo (ml) ya está en m.
+    if (u === 'm2') medida = ((parseFloat(fila.querySelector('.inp-ancho')?.value)||0)/100) * ((parseFloat(fila.querySelector('.inp-alto')?.value)||0)/100) * cant;
     else if (u === 'ml') medida = (parseFloat(fila.querySelector('.inp-largo')?.value)||0) * cant;
     else medida = cant;
     const campo = fila.querySelector('.m2-resultado');
