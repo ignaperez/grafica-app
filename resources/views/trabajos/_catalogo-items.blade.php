@@ -66,9 +66,11 @@
             </div>
 
             {{-- Descripción + fecha --}}
-            <div class="col-md-8">
+            <div class="col-12">
                 <div class="gfg"><label class="glabel">Descripción *</label>
-                    <input type="text" name="trabajos[IDX][descripcion]" class="ginput inp-descripcion" placeholder="Se completa del catálogo, o escribila a mano" required></div>
+                    <textarea name="trabajos[IDX][descripcion]" class="ginput inp-descripcion" rows="3"
+                              style="width:100%;resize:vertical;line-height:1.35"
+                              placeholder="Se completa del catálogo, o escribila a mano" required></textarea></div>
             </div>
             <div class="col-md-4">
                 <div class="gfg"><label class="glabel">Fecha de entrega</label>
