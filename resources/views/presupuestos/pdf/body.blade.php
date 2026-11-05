@@ -14,7 +14,7 @@
 <table class="items">
     <thead>
         <tr>
-            <th class="c" style="width:8mm">#</th>
+            <th class="c" style="width:10mm">Ítem</th>
             <th class="l">Descripción</th>
             <th class="c" style="width:16mm">Unidad</th>
             <th class="r" style="width:20mm">Medida</th>

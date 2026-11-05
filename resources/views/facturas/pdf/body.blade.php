@@ -27,6 +27,7 @@
 <table class="items">
     <thead>
         <tr>
+            <th class="c" style="width:10mm">Ítem</th>
             <th class="l">Descripción</th>
             <th class="c" style="width:16mm">Cantidad</th>
             <th class="c" style="width:16mm">U. Medida</th>
@@ -37,6 +38,7 @@
     <tbody>
         @foreach($factura->items as $it)
         <tr>
+            <td class="c" style="color:#9aa0a8;font-family:dejavusansmono,monospace;font-size:7px">{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</td>
             <td class="l">{{ $it->descripcion }}</td>
             <td class="c">{{ $fmtCant($it->cantidad) }}</td>
             <td class="c">{{ $umLabel($it->unidad ?? 'unidad') }}</td>
