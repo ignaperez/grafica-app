@@ -1806,6 +1806,95 @@ Facturado (% de lo presupuestado), Cobrado (% de lo facturado) y Por cobrar, con
   dashboard ya era solo-admin, pero puede haber varios admins y la info financiera es sensible.
 Sin migración.
 
+## Catálogo — solo Servicios por Tipo de Trabajo (fuera combos Máquina×Material) (2026-11-02)
+
+El selector "Servicio (catálogo)" de **presupuestos y trabajos** mezclaba bajo un mismo dropdown
+los **combos Máquina×Material** autogenerados (existían SOLO para calcular precio) y los
+**Servicios** (tabla `productos`). El usuario no reconocía la lista. Rediseño (opción A, elegida
+por el usuario): **Grupo = Tipo de Trabajo**, **Ítem = Servicio** de ese tipo; lo que no está se
+**escribe a mano** en la Descripción.
+
+- **`CatalogoService::items()`** — se quitaron los combos. El catálogo son los **Servicios activos**
+  (`productos`) agrupados por su Tipo de Trabajo. Ya NO devuelve ítems `fuente:'combo'` (todo es
+  `fuente:'producto'`). Fuente única → afecta a presupuestos Y trabajos.
+  > Deja obsoletas las partes de "combos" de las secciones viejas *Presupuestos — catálogo Grupo →
+  > Ítem (2026-06-10)* y *Producción — carga por catálogo (2026-07-27)*. `presupuestos.precio-servicio`
+  > / `PresupuestoController::precioServicio` quedan **sin uso** (no se borraron).
+- **Servicios (`productos` create/edit + `ProductoController`)**: Tipo de trabajo **obligatorio**
+  (`required|exists` en store/update). La etiqueta "Proceso / Tipo de trabajo" → **"Tipo de trabajo *"**,
+  sin la opción "— Sin especificar —". Se sacó la tarjeta que mentía con la fórmula del combo y se
+  reemplazó por "el precio entra del Precio del paquete o a mano".
+- **Tipo "OTROS"** = fallback. Migración **`2026_11_02_000001`** (central + tenant): crea OTROS y
+  **reasigna a OTROS los servicios sin tipo** (backfill), para poder exigirlo sin huérfanos.
+  `TipoTrabajo::otrosId()` lo crea si faltara (`firstOrCreate`).
+- **`PresupuestoController::desdeTrabajos`**: como los trabajos ya no traen máquina/material, se hizo
+  null-safe y el precio queda en **0** (se pone a mano) cuando no hay máquina/material. Un trabajo
+  legacy que todavía las tenga, calcula con sus costos.
+- Deploy = `git pull` + `migrate` + `tenants:migrate` + `view:clear` + `route:cache`.
+
+## Catálogo — el Grupo lista TODOS los tipos (aunque no tengan servicios) (2026-11-02)
+
+El Grupo del selector solo mostraba los tipos que tenían al menos un servicio, así que tipos sin
+servicios (ej. CORPOREAS, OTROS) no aparecían y no se podía elegir ese tipo para escribir a mano. En
+123ploteos esto hacía que "no se notara el cambio" (tenía solo **3 combos vs 39 servicios**, por eso
+sacar los combos casi no se veía — lo que faltaba era ESTO).
+
+- **`CatalogoService::grupos()`** = todos los Tipos de Trabajo activos, ordenados.
+- **`CatalogoService::gruposMap()`** = `[nombre => id]` (para que elegir el Grupo fije el tipo).
+- `presupuestos/create` + `edit` y el JS compartido de trabajos arman el dropdown de Grupo desde esa
+  lista (`GRUPOS_LIST`, unida con cualquier grupo de un ítem por las dudas), **ordenada asc por nombre**
+  (`localeCompare('es', {sensitivity:'base'})`), en vez de deducirlo solo de los ítems del catálogo.
+  Los ítems por grupo siguen siendo los servicios de ese tipo (puede quedar vacío → se escribe a mano).
+
+## Trabajos — sin tipo → OTROS, y el Grupo fija el tipo (2026-11-02)
+
+- **`TipoTrabajo::otrosId()`**: id del tipo OTROS (lo crea si falta).
+- **Stores de trabajos** (`TrabajoLibreController::store` libres y `TrabajoController::storeMultiples`
+  para orden): si el trabajo se guarda **sin tipo**, cae en **OTROS**
+  (`($item['tipo_trabajo_id'] ?? null) ?: $otrosId`). Nunca queda sin tipo.
+- **Partial `_catalogo-items-js`**: al elegir el **Grupo** ya se setea `tipo_trabajo_id` (vía
+  `GRUPOS_IDS`/`gruposMap`), así un ítem escrito a mano bajo un tipo conserva ESE tipo; si no se elige
+  nada, el server lo manda a OTROS.
+- Aplica a **trabajos** (que guardan el tipo). En presupuesto el tipo es solo guía de carga: el
+  `presupuesto_item` NO guarda tipo. Sin migración propia. Deploy = `git pull` + `view:clear` + `route:cache`.
+
+## Presupuestos — agrupar: el agrupador muestra los números agrupados (2026-11-02)
+
+El **número** del agrupador ya era `máx+1` (el último) — confirmado por simulación y por P-0042 en
+prod; NO se tocó. Lo que cambió es el **label** del listado: el presupuesto que agrupa otros mostraba
+"agrupa N" (conteo) y ahora lista los **números reales**: **"agrupa P-0033, P-0034, P-0036"** (texto
++ tooltip).
+- `PresupuestoController::index` eager-carga `agrupados:id,agrupado_en_id,numero`.
+- **La marca en los originales se MANTIENE** (decisión explícita del usuario): agrupar NO toca el
+  contenido de los originales (ítems/montos intactos), solo les setea `agrupado_en_id` → muestran
+  "↳ en P-00XX" y se les desactiva "Facturar". Esa marca es el **anti doble-facturado** (ver el
+  incidente de septiembre, los 2 CAE reales). Sacarla = riesgo de facturar dos veces.
+- Sin migración. Deploy = `git pull` + `view:clear`.
+
+## Presupuestos y Trabajos — Descripción del ítem como textarea de 3 líneas (2026-11-02)
+
+La Descripción del ítem era un `<input>` de una línea y quedaba muy chica con textos largos.
+- **Presupuestos** (`create` + `edit`): la columna Descripción pasó a `<textarea rows="3">`
+  (redimensionable), se ensanchó (`min-width:340px`) y la de **Grupo/Servicio se achicó** (280→150px).
+  `.gtable` es `table-layout:auto`, por eso respeta el `min-width`.
+- **Trabajos** (`_catalogo-items.blade`, compartido libres + OT): Descripción a `<textarea rows="3">`
+  y a **ancho completo** (`col-12`); la fecha de entrega bajó a su fila. (El Grupo en trabajos está en
+  otra fila, no competía por el ancho, así que no se tocó.)
+- El JS setea/lee `.inp-descripcion.value`, que funciona igual en textarea. Sin migración.
+
+## Correo — por qué el cert de mail.plote.ar "parecía" vencido (2026-10-30)
+
+El cert de `mail.plote.ar` NO estaba vencido (Certbot lo renovó, vence 30/12). El problema: **Dovecot**
+(IMAPS 993 / POP3S 995) corría **desde el 4/8** y nunca releyó el cert nuevo → servía en memoria el
+viejo (venció 30/10 21:30). Nginx (443) y Postfix (587/25) ya tenían el nuevo (por eso solo fallaba
+recibir/leer correo, no navegar).
+- **Fix:** `systemctl reload dovecot` → relee el cert. Verificado: 993/995 pasaron a vencer 30/12.
+- **PENDIENTE (recordar):** NO hay **deploy-hook** de Certbot (`/etc/letsencrypt/renewal-hooks/deploy/`
+  vacío). En la próxima renovación (~30/12) Dovecot va a volver a quedar con el cert viejo. Falta un
+  hook que haga `reload` de dovecot + postfix + nginx tras renovar. (OPcache de PHP-FPM tiene
+  `validate_timestamps=On` + `revalidate_freq=2`, así que los deploys de código se ven solos; no hace
+  falta recargar FPM.)
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
