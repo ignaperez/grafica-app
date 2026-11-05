@@ -469,6 +469,8 @@
             </div>
         </div>
     </div>
+    <div style="padding:6px 16px 10px;color:var(--txd);font-size:10px;letter-spacing:.5px;opacity:.7"
+         title="Versión de la app">v{{ $appVersion }}</div>
 </aside>
 
 <div id="main">
