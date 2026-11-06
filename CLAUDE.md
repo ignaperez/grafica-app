@@ -1895,6 +1895,51 @@ recibir/leer correo, no navegar).
   `validate_timestamps=On` + `revalidate_freq=2`, así que los deploys de código se ven solos; no hace
   falta recargar FPM.)
 
+## Versionado de la app + changelog (2026-11-04)
+
+Control de versión semántico (MAJOR.MINOR.PATCH), visible en la app, que se sube en cada deploy.
+- **`VERSION`** en la raíz del repo = fuente de verdad. `AppServiceProvider` comparte `$appVersion`
+  vía `View::share` leyendo el archivo **en runtime** (NO config cacheada, así basta subir el
+  archivo en el deploy). Se muestra como `v{{ $appVersion }}` en el pie del sidebar (`layouts/app.blade`).
+- **Regla de bump (en memoria `versionado-deploy`):** en CADA deploy, ANTES de pushear, subir
+  `VERSION` según el cambio (PATCH=arreglo, MINOR=función nueva, MAJOR=cambio grande) y commitearlo.
+- **`CHANGELOG.md`** (raíz) = bitácora por versión, líneas cortas. **Está gitignoreado (solo local)**
+  por decisión del usuario → NO se commitea ni se muestra en la app (quizás se surfaceé como
+  "Novedades" más adelante). Igual se actualiza en cada bump.
+- Sin migración. Deploy = `git pull` + `view:clear`.
+
+## Monto en letras — array de decenas corrido (2026-11-04)
+
+`numeroALetras()` (en `FacturaPdfService`, `facturas/print.blade`, `rrhh/adelantos/vale.blade`)
+indexaba `$dec` con `(int)($n/10)`, pero el array arrancaba con **dos** `''` en vez de **tres**, así
+que TODAS las decenas 30-99 salían **+10** (37 → "Cuarenta y Siete", 50 → "Sesenta") y 90-99 caían
+fuera del array (texto vacío). Ej.: $37.450.000 imprimía "Cuarenta y Siete Millones Cuatrocientos
+Sesenta Mil" (=47.460.000). **Fix:** `$dec` arranca con tres `''` para que "Treinta" caiga en el
+índice 3. Las facturas emitidas son **fiscalmente válidas** (el CAE usa el número, no las letras) y
+el PDF se genera on-demand → re-descargar ya sale corregido. Ver gotcha 22. Sin migración.
+
+## Trabajos — carga de medidas en cm (2026-11-04)
+
+El operador piensa en cm (un cartel 50×70 cm) pero los campos estaban en metros → cargaba 50×70 y
+quedaba 50 m × 70 m (= 3.500 m² en vez de 0,35). Ahora **Ancho/Alto del form de trabajos (carga y
+edición) están en CENTÍMETROS**.
+- Se **guardan en METROS** (÷100, `Trabajo::cmAMetros()`) para quedar igual que el resto de la app
+  (presupuestos, dashboard, helpers, `desdeTrabajos`) y no romper los trabajos ya cargados. **Largo
+  (ml) queda en m** (metros lineales, ahí el operador piensa en metros).
+- m² en vivo y dashboard: sin cambios (siguen en m²; `ancho×alto` en m).
+- La ficha muestra las medidas en cm (`medidaUnitariaTexto()` → "50 cm × 70 cm"); el total sigue en
+  m²/ml.
+- **Ojo:** los trabajos cargados ANTES de este fix pueden tener valores inflados (cm tipeados como m)
+  — el fix es forward, no toca datos viejos. Sin migración.
+
+## Presupuesto y factura PDF — columna "Ítem" numerada (2026-11-04)
+
+Primera columna "Ítem" en las tablas de ítems del PDF, con el número de cada fila en gris claro
+(`#9aa0a8`), monoespaciado y chico (no suma peso visual a la hoja). El presupuesto PDF ya tenía la
+columna índice "#" (clase `.idx`) → se renombró a "Ítem"; en factura se agregó con el mismo estilo
+(`facturas/pdf/body`, inline). Solo los PDF — la factura impresa HTML ya tiene "Cód." (= Nº de fila,
+campo estándar AFIP), no se tocó. Sin migración.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
@@ -1934,3 +1979,9 @@ recibir/leer correo, no navegar).
     escupe el operador de dibujo ANTES del `%PDF` y el archivo sale corrupto. En el import de PDF
     funciona porque `useTemplate` ya abrió la página; para componer sobre una imagen suelta,
     componer con GD y envolver con `WriteHTML('<img ...>')` en vez de `Image()`.
+22. **Un array de lookup indexado por `(int)($n/10)` necesita el hueco de los índices bajos:** el
+    array de decenas de `numeroALetras()` arrancaba con dos `''` ('', '', 'Treinta', …), pero el
+    índice que se usa para 30-39 es 3 → "Treinta" caía en el 2 y todas las decenas salían +10, con
+    90-99 fuera del array (vacío). Debe arrancar con **tres** `''` ('', '', '', 'Treinta', …). Está
+    repetido en 3 copias (factura PDF, factura print, vale de adelanto RRHH); si se toca una, tocar
+    las tres.
