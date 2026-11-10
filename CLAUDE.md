@@ -1940,6 +1940,36 @@ columna índice "#" (clase `.idx`) → se renombró a "Ítem"; en factura se agr
 (`facturas/pdf/body`, inline). Solo los PDF — la factura impresa HTML ya tiene "Cód." (= Nº de fila,
 campo estándar AFIP), no se tocó. Sin migración.
 
+## Presupuestos (form) — la cantidad no entraba y las flechas molestaban (2026-11-10)
+
+En el formulario de presupuesto el input de **Cant.** quedaba tan angosto que **solo entraban las
+flechas de subir/bajar**: el número tipeado no se veía.
+
+**La causa no era el `width` del `<th>`.** En una tabla con `table-layout:auto` ese ancho es una
+**sugerencia**: si la tabla no entra en el contenedor, el navegador encoge TODAS las columnas por
+debajo de lo declarado. Medido sobre la hoja de estilos real: con ~900px de contenido el input de
+cantidad caía a **34px** (y el `.ginput` se lleva 12px de padding por lado + el spinner), así que
+no quedaba ni un dígito visible. Subir el `<th>` de 70 a 90px no alcanzaba — se encogía igual.
+
+Tres capas, en `presupuestos/create.blade.php` y `edit.blade.php` (las dos tablas son idénticas):
+- **`min-width` en los inputs angostos** (cantidad / ancho / alto / largo 54px, precio 76px) = piso
+  duro que la columna no puede cruzar. Es lo que realmente arregla el aplastamiento.
+- **`overflow-x:auto` en el `.gcard-bd`** que envuelve la tabla: si aun así no entra, scrollea en
+  vez de triturar las celdas.
+- **Flechas ocultas** (pedido del usuario): `::-webkit-inner/outer-spin-button{-webkit-appearance:
+  none}` para Chrome/Edge/Safari **y** `appearance:textfield` para Firefox — hacen falta las dos.
+  Padding bajado a 8px y cantidad/medidas centradas.
+
+Verificado a 760 / 900 / 1100 / 1400px de contenedor: la cantidad nunca baja de 54px, no se recorta
+a ningún ancho, y por debajo de ~1100px aparece el scroll horizontal.
+
+> El `<style>` va al final de `@section('scripts')` (mismo patrón que `remitos/create`). Las reglas
+> cuelgan de `#tabla-items` para ganarle en especificidad a `.ginput`; **los inline `style` de los
+> inputs no tocan padding ni text-align**, por eso no pisan nada. La fila vive en un `<template>`
+> fuera de `#tabla-items`, pero se clona adentro, así que matchea una vez en el DOM.
+
+**Sin migración.** Deploy = `git pull` + `view:clear`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.
