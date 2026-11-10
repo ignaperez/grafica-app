@@ -106,7 +106,7 @@
         <span class="gcard-title">Ítems del presupuesto</span>
         <button type="button" id="btn-agregar" class="gbtn gbtn-primary gbtn-sm">+ Agregar ítem</button>
     </div>
-    <div class="gcard-bd" style="padding:0">
+    <div class="gcard-bd" style="padding:0;overflow-x:auto">
         <table class="gtable" id="tabla-items">
             <thead>
                 <tr>
@@ -114,7 +114,7 @@
                     <th style="min-width:340px">Descripción</th>
                     <th style="width:80px">Unidad</th>
                     <th style="width:90px">Medida</th>
-                    <th style="width:70px">Cant.</th>
+                    <th style="width:90px">Cant.</th>
                     <th style="width:110px;text-align:right">P. Unitario</th>
                     <th style="width:110px;text-align:right">Subtotal</th>
                     <th style="width:36px"></th>
@@ -549,4 +549,30 @@ document.getElementById('form-presupuesto').addEventListener('submit', function 
 
 }); // end $(function)
 </script>
+
+<style>
+/* Sin flechas de subir/bajar en los números de la tabla de ítems.
+   Chrome/Edge/Safari las dibujan con un pseudo-elemento; Firefox con appearance. */
+#tabla-items input[type=number]::-webkit-outer-spin-button,
+#tabla-items input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+#tabla-items input[type=number]{-moz-appearance:textfield;appearance:textfield}
+
+/* En las columnas angostas el padding de .ginput (12px por lado) se comía el
+   número. Sin las flechas y con menos padding, la cantidad entra holgada. */
+#tabla-items .inp-cantidad,
+#tabla-items .inp-ancho,
+#tabla-items .inp-alto,
+#tabla-items .inp-largo{padding-left:8px;padding-right:8px;text-align:center}
+#tabla-items .inp-precio{padding-left:8px;padding-right:8px}
+
+/* El ancho del <th> es solo una sugerencia: si la tabla no entra, el navegador
+   encoge TODAS las columnas por debajo de ese valor y la cantidad quedaba en
+   34px (solo entraban las flechas). El min-width del input es un piso duro que
+   la columna no puede cruzar; si aun asi no entra, la tabla scrollea. */
+#tabla-items .inp-cantidad,
+#tabla-items .inp-ancho,
+#tabla-items .inp-alto,
+#tabla-items .inp-largo{min-width:54px}
+#tabla-items .inp-precio{min-width:76px}
+</style>
 @endsection
