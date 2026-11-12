@@ -263,6 +263,79 @@ class PresupuestoController extends Controller
         return redirect()->route('presupuestos.show', $presupuesto->id)->with('success', $msg);
     }
 
+    /**
+     * Copia un presupuesto en uno NUEVO (número nuevo, estado borrador) y manda
+     * a editarlo. Para cotizar algo igual o parecido sin recargar todo a mano.
+     *
+     * El original no se toca. NO se arrastra nada que lo ate a su propia
+     * historia: facturas, remitos, la OT, la marca de agrupado ni los vehículos
+     * que tenga marcados — esos siguen siendo del original, si no el duplicado
+     * se los robaría. Los precios se copian tal cual fueron cotizados (los ítems
+     * los tienen congelados, ver gotcha 11): si cambiaron los costos, se ajustan
+     * en la pantalla de edición.
+     */
+    public function duplicar(Presupuesto $presupuesto)
+    {
+        $presupuesto->load('items');
+
+        $nuevo = \DB::transaction(function () use ($presupuesto) {
+            // Si el original tenía vencimiento, se respeta la misma ventana de
+            // días contada desde hoy (copiar la fecha original lo dejaría vencido).
+            $vence = null;
+            if ($presupuesto->fecha_vencimiento && $presupuesto->fecha) {
+                $dias  = (int) $presupuesto->fecha->diffInDays($presupuesto->fecha_vencimiento, false);
+                $vence = $dias > 0 ? now()->addDays($dias)->toDateString() : null;
+            }
+
+            $nuevo = Presupuesto::create([
+                'numero'            => Presupuesto::proximoNumero(),
+                'cliente_id'        => $presupuesto->cliente_id,
+                'lista_precio_id'   => $presupuesto->lista_precio_id,
+                'multiplicador'     => $presupuesto->multiplicador,
+                'alicuota_iva'      => $presupuesto->alicuota_iva,
+                'precio_con_iva'    => $presupuesto->precio_con_iva,
+                'mo_m2'             => $presupuesto->mo_m2,
+                'mo_ml'             => $presupuesto->mo_ml,
+                'mo_unidad'         => $presupuesto->mo_unidad,
+                'estado'            => 'borrador',
+                'fecha'             => now()->toDateString(),
+                'fecha_vencimiento' => $vence,
+                'observaciones'     => $presupuesto->observaciones,
+                'nota_interna'      => $presupuesto->nota_interna,
+                'total'             => 0,
+                'created_by'        => auth()->id(),
+                'updated_by'        => auth()->id(),
+            ]);
+
+            foreach ($presupuesto->items as $item) {
+                PresupuestoItem::create([
+                    'presupuesto_id'  => $nuevo->id,
+                    'maquina_id'      => $item->maquina_id,
+                    'material_id'     => $item->material_id,
+                    'descripcion'     => $item->descripcion,
+                    'unidad'          => $item->unidad,
+                    'ancho'           => $item->ancho,
+                    'alto'            => $item->alto,
+                    'largo'           => $item->largo,
+                    'cantidad'        => $item->cantidad,
+                    'precio_unitario' => $item->precio_unitario,
+                    'subtotal'        => $item->subtotal,
+                    'orden'           => $item->orden,
+                ]);
+            }
+
+            $nuevo->recalcularTotal();
+
+            return $nuevo;
+        });
+
+        return redirect()->route('presupuestos.edit', $nuevo->id)->with(
+            'success',
+            'Se duplicó ' . $presupuesto->numeroFormateado() . ' en ' . $nuevo->numeroFormateado() .
+            ' (' . $presupuesto->items->count() . ' ítems). Revisá los datos y guardá.'
+        );
+    }
+
     public function show(Presupuesto $presupuesto)
     {
         $presupuesto->load([

@@ -73,6 +73,37 @@ class ProductoController extends Controller
         return redirect()->route('productos.index')->with('success', 'Servicio creado correctamente.');
     }
 
+    /**
+     * Copia un servicio en uno NUEVO y manda a editarlo. Para cargar variantes
+     * de lo mismo (p. ej. corpóreas en varias medidas) cambiando solo lo que
+     * difiere, en vez de rellenar todo el formulario cada vez.
+     *
+     * Al nombre se le agrega " (copia)": si se abandona la edición a mitad de
+     * camino, en el listado se ve cuál es el duplicado sin terminar.
+     */
+    public function duplicar(Producto $producto)
+    {
+        $nuevo = Producto::create([
+            'nombre'          => \Illuminate\Support\Str::limit($producto->nombre, 240, '') . ' (copia)',
+            'descripcion'     => $producto->descripcion,
+            'tipo_trabajo_id' => $producto->tipo_trabajo_id,
+            'material_id'     => $producto->material_id,
+            // unidad, costo_mano_obra y activo son NOT NULL en la tabla: copiar
+            // un null crudo (una fila importada a mano, por ejemplo) reventaría
+            // el insert. Se cae al mismo default que tiene la columna.
+            'unidad'          => $producto->unidad ?: 'm2',
+            'costo_mano_obra' => $producto->costo_mano_obra ?? 0,
+            'precio'          => $producto->precio,   // nullable, va tal cual
+            'activo'          => $producto->activo ?? true,
+            'tipo'            => $producto->tipo,   // legacy
+        ]);
+
+        return redirect()->route('productos.edit', $nuevo->id)->with(
+            'success',
+            'Servicio duplicado desde « ' . $producto->nombre . ' ». Cambiá lo que haga falta y guardá.'
+        );
+    }
+
     public function show(Producto $producto)
     {
         $producto->load(['tipoTrabajo', 'material']);

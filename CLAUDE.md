@@ -1970,6 +1970,43 @@ a ningún ancho, y por debajo de ~1100px aparece el scroll horizontal.
 
 **Sin migración.** Deploy = `git pull` + `view:clear`.
 
+## Duplicar — presupuestos y servicios (2026-11-11)
+
+Botón **⧉ Duplicar** que copia un registro en uno NUEVO y lleva derecho a la pantalla de
+edición, para cotizar algo igual o parecido sin recargar todo a mano.
+
+**Presupuestos** (`POST /presupuestos/{presupuesto}/duplicar` → `presupuestos.duplicar`,
+botón en `index` y en el topbar de `show`):
+- Número nuevo (`proximoNumero()`), **estado borrador**, fecha de hoy. El original no se toca.
+- Se copian cliente, lista de precios, multiplicador, alícuota, `precio_con_iva`, los `mo_*`,
+  observaciones, nota interna y **todos los ítems** con su precio congelado (gotcha 11): si los
+  costos cambiaron, se ajusta en la edición.
+- **NO se arrastra nada que ate el original a su propia historia**: facturas, remitos, la OT,
+  `agrupado_en_id` ni los vehículos marcados. Lo de los vehículos es lo importante: si se copiaran,
+  el duplicado se los robaría al original (`vehiculo_ploteos.presupuesto_id` es uno solo).
+- **El vencimiento se recalcula**, no se copia: se respeta la misma ventana de días contada desde
+  hoy (copiar la fecha original lo dejaría naciendo vencido). Si la ventana daba ≤ 0, queda vacío.
+- La fila de Seguimiento la crea sola el evento `Presupuesto::created`, como cualquier alta.
+- Todo en una transacción, y el botón pide `confirm()` porque **consume un número de la secuencia
+  P-XXXX**.
+
+**Servicios** (`POST /productos/{producto}/duplicar` → `productos.duplicar`, botón en `index` y en
+el topbar de `edit`): copia nombre + **" (copia)"**, descripción, tipo de trabajo, material,
+unidad, MO, precio y estado. El sufijo es a propósito: si se abandona la edición a mitad de camino,
+en el listado se ve cuál es el duplicado sin terminar. Desde `edit` se duplica **lo último
+guardado**, no lo que haya sin guardar en el formulario (lo aclara el `confirm()`).
+
+> **Gotcha que saltó en la prueba:** `productos.costo_mano_obra`, `unidad` y `activo` son
+> **NOT NULL con default**. Copiar el valor crudo revienta el insert si el origen tiene null (una
+> fila importada a mano): al duplicar se cae al mismo default de la columna. `precio` sí es
+> nullable y va tal cual. El nombre se recorta a 240 chars antes de agregarle " (copia)" para no
+> pasarse del `varchar(255)`.
+
+`duplicar` se agregó a la lista `crear` de `App\Support\Permisos` — por POST ya caía ahí, pero
+queda explícito. Módulo: `presupuestos` / `servicios`, acción `crear`.
+
+**Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

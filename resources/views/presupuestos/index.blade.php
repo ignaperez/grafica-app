@@ -98,6 +98,14 @@
                         <a href="{{ route('presupuestos.print', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs" target="_blank" title="Imprimir">🖨</a>
                         <a href="{{ route('presupuestos.pdf', ['presupuesto' => $p->id, 'download' => 1]) }}" class="gbtn gbtn-ghost gbtn-xs" title="Descargar PDF">⬇</a>
 
+                        {{-- Duplicar: copia en uno nuevo y lleva a editarlo. Confirma
+                             porque consume un número de la secuencia P-XXXX. --}}
+                        <form action="{{ route('presupuestos.duplicar', $p->id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('¿Duplicar {{ $p->numeroFormateado() }} en un presupuesto nuevo?')">
+                            @csrf
+                            <button class="gbtn gbtn-ghost gbtn-xs" title="Duplicar en un presupuesto nuevo">⧉</button>
+                        </form>
+
                         {{-- Emitir: factura y remito --}}
                         @if($p->facturado_count > 0)
                             <span class="gbtn gbtn-ghost gbtn-xs" style="opacity:.55;cursor:default"

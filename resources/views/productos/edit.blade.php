@@ -4,6 +4,15 @@
 
 @section('topbar-actions')
     <a href="{{ route('productos.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
+    @puede('servicios', 'crear')
+    {{-- Cargar una variante de este mismo servicio sin volver al listado.
+         Ojo: duplica lo GUARDADO, no lo que haya sin guardar en el form. --}}
+    <form action="{{ route('productos.duplicar', $producto->id) }}" method="POST" class="d-inline"
+          onsubmit="return confirm('¿Duplicar este servicio en uno nuevo? Se copia lo último guardado.')">
+        @csrf
+        <button class="gbtn gbtn-ghost gbtn-sm" title="Copiar en un servicio nuevo y editarlo">⧉ Duplicar</button>
+    </form>
+    @endpuede
 @endsection
 
 @section('content')

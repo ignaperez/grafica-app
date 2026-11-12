@@ -63,6 +63,8 @@ class Permisos
             'create', 'store', 'quick', 'marcas-store', 'modelos-store', 'desde-trabajos',
             'desde-vehiculos', 'agrupar', 'convertir-ot', 'from-presupuesto',
             'asignar-orden', 'store-multiples', 'ajax-store', 'pagos',
+            // Duplicar crea un registro nuevo; el original no se toca.
+            'duplicar',
         ],
         'editar' => [
             'edit', 'update', 'estado', 'metadata', 'terminar', 'terminado', 'leida',

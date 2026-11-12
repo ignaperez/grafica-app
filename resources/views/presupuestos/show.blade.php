@@ -5,6 +5,11 @@
 @section('topbar-actions')
     <a href="{{ route('presupuestos.index') }}" class="gbtn gbtn-ghost gbtn-sm">← Volver</a>
     <a href="{{ route('presupuestos.edit', $presupuesto->id) }}" class="gbtn gbtn-ghost gbtn-sm">Editar</a>
+    <form action="{{ route('presupuestos.duplicar', $presupuesto->id) }}" method="POST" class="d-inline"
+          onsubmit="return confirm('¿Duplicar {{ $presupuesto->numeroFormateado() }} en un presupuesto nuevo?')">
+        @csrf
+        <button class="gbtn gbtn-ghost gbtn-sm" title="Copiar en un presupuesto nuevo y editarlo">⧉ Duplicar</button>
+    </form>
     <a href="{{ route('presupuestos.print', $presupuesto->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">🖨 Imprimir</a>
     <a href="{{ route('presupuestos.pdf', $presupuesto->id) }}" class="gbtn gbtn-ghost gbtn-sm" target="_blank">👁 Ver PDF</a>
     <a href="{{ route('presupuestos.pdf', ['presupuesto' => $presupuesto->id, 'download' => 1]) }}" class="gbtn gbtn-primary gbtn-sm">⬇ Descargar PDF</a>

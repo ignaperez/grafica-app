@@ -93,6 +93,15 @@
                         @puede('servicios', 'editar')
                         <a href="{{ route('productos.edit', $p->id) }}" class="gbtn gbtn-ghost gbtn-xs">Editar</a>
                         @endpuede
+                        @puede('servicios', 'crear')
+                        {{-- Duplicar: copia este servicio en uno nuevo y lleva a editarlo.
+                             Para cargar variantes (misma corpórea en otra medida). --}}
+                        <form action="{{ route('productos.duplicar', $p->id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('¿Duplicar « {{ $p->nombre }} » en un servicio nuevo?')">
+                            @csrf
+                            <button class="gbtn gbtn-ghost gbtn-xs" title="Duplicar en un servicio nuevo">⧉</button>
+                        </form>
+                        @endpuede
                         @puede('servicios', 'borrar')
                         <form action="{{ route('productos.destroy', $p->id) }}" method="POST" class="d-inline"
                               onsubmit="return confirm('¿Eliminar « {{ $p->nombre }} »?')">

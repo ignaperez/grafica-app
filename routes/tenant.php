@@ -282,6 +282,7 @@ Route::middleware([
         Route::get('/presupuestos/{presupuesto}/pdf', [PresupuestoController::class, 'pdf'])->name('presupuestos.pdf');
         Route::patch('/presupuestos/{presupuesto}/estado', [PresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
         Route::post('/presupuestos/{presupuesto}/convertir-ot', [PresupuestoController::class, 'convertirAOT'])->name('presupuestos.convertir-ot');
+        Route::post('/presupuestos/{presupuesto}/duplicar', [PresupuestoController::class, 'duplicar'])->name('presupuestos.duplicar');
         Route::resource('presupuestos', PresupuestoController::class)->only(['index','create','store','show','edit','update','destroy']);
 
         // ── Firmar documentos (órdenes de compra) ──────────────────────
@@ -293,6 +294,7 @@ Route::middleware([
             Route::get('/firma/imagen',  [\App\Http\Controllers\DocumentoFirmaController::class, 'firmaImg'])->name('firma.img');
         });
 
+        Route::post('/productos/{producto}/duplicar', [ProductoController::class, 'duplicar'])->name('productos.duplicar');
         Route::resource('productos',      ProductoController::class);
         Route::resource('listas-precios', ListaPrecioController::class)->parameters(['listas-precios' => 'listaPrecio']);
 
