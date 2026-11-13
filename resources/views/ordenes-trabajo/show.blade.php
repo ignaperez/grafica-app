@@ -227,8 +227,10 @@
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:10px">
                         @foreach($grupo[2] as $arch)
+                            {{-- Las imágenes abren en el visor (partials._lightbox), sin salir de la OT --}}
                             <a href="{{ $arch->url }}" target="_blank" title="{{ $arch->nombre_original }}"
-                               style="width:132px;text-decoration:none;flex-shrink:0">
+                               @if($arch->es_imagen) data-lb-src="{{ $arch->url }}" data-lb-cap="{{ $arch->nombre_original }}" @endif
+                               style="width:132px;text-decoration:none;flex-shrink:0;{{ $arch->es_imagen ? 'cursor:zoom-in' : '' }}">
                                 <div style="border:1px solid var(--bm);border-radius:8px;overflow:hidden;background:#0d0d0d">
                                     @if($arch->es_imagen)
                                         <img src="{{ $arch->url }}" alt="{{ $arch->nombre_original }}"
@@ -265,6 +267,8 @@
         </div>
     </div>
 @endforelse
+
+@include('partials._lightbox')
 
 @endsection
 

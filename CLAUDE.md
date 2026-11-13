@@ -2007,6 +2007,42 @@ queda explícito. Módulo: `presupuestos` / `servicios`, acción `crear`.
 
 **Sin migración.** Deploy = `git pull` + `view:clear` + `route:cache`.
 
+## Visor de imagenes (lightbox) reutilizable (2026-11-13)
+
+Las referencias de un trabajo abrian en una **pestaña nueva**: para ver cuatro fotos había que
+abrir cuatro pestañas y volver a mano. Ahora abren en un visor sobre la misma pantalla, con
+**flecha anterior, flecha siguiente y X siempre visibles** (pedido explicito: en pantalla, no al
+pasar el mouse).
+
+**`resources/views/partials/_lightbox.blade.php`** — markup + CSS + JS en un solo archivo, sin
+dependencias (vanilla, no necesita jQuery). Se incluye una vez por pantalla y cada miniatura
+clickeable se marca con `data-lb-src` + `data-lb-cap`. Todas las marcadas de la pagina forman UNA
+galeria en orden del DOM.
+
+- **Se usa en `trabajos/show` y `ordenes-trabajo/show`** (las dos tienen la misma grilla de
+  referencias). `vehiculos-ploteo/show` conserva su lightbox viejo —mas simple, sin flechas—; si
+  se quiere unificar, es cambiar los `onclick="openLightbox(...)"` por los `data-lb-*`.
+- **Solo imagenes.** Un PDF o un .ai no se puede mostrar en un `<img>`: esas miniaturas no llevan
+  `data-lb-src` y siguen abriendo en pestaña nueva como antes.
+- **El `href` se conserva a proposito** y el handler **no** hace `preventDefault()` con
+  ctrl/cmd/shift o boton del medio → "abrir en pestaña nueva" y la navegacion sin JS siguen
+  funcionando. Solo se intercepta el clic normal.
+- **Delegacion en `document`**, no listeners por miniatura, y la galeria se arma al ABRIR (no al
+  cargar): sirve igual si una pantalla agrega miniaturas por JS despues.
+- Navegacion **circular** (de la ultima pasa a la primera). Teclado: Esc / ← / →, y el handler
+  **sale temprano si el visor esta cerrado** para no pisar las flechas que ya usa la pagina (la
+  ficha de vehiculos las usa para ir al vehiculo anterior/siguiente).
+- Con una sola imagen las flechas se ocultan (`.lb-sola`) y el contador queda vacio; la X queda.
+- Mientras esta abierto se bloquea el scroll del fondo (`body.style.overflow`), y se restaura al
+  cerrar. Cierra con la X, con Esc o con clic en el fondo — **clic en la imagen no cierra**.
+
+Verificado en el navegador con 4 imagenes + 1 PDF: contador 2/4 → 3/4, vuelta de 1/4 a 4/4, la
+imagen carga por la ruta del tenant (`trabajo-archivos/{id}/ver`), Esc y X cierran y restauran el
+scroll, el fondo cierra y la imagen no, el PDF no se intercepta, y con una sola imagen las flechas
+desaparecen. Lo mismo desde la OT.
+
+**Sin migracion.** Deploy = `git pull` + `view:clear`.
+
 ## Gotchas conocidos
 
 1. **`materiales` resource:** el parámetro de ruta debe ser `material` (no `materiale`). Se fuerza con `.parameters(['materiales' => 'material'])` en `web.php`.

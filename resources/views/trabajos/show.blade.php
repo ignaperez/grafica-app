@@ -83,8 +83,11 @@
                     $ext = strtolower(pathinfo($ref->nombre_original, PATHINFO_EXTENSION));
                     $esImagen = in_array($ext, ['jpg','jpeg','png','gif','bmp','webp','tif','tiff']);
                 @endphp
+                {{-- Si es imagen abre en el visor (partials._lightbox); el resto
+                     (PDF, .ai…) no se puede mostrar ahí y sigue yendo a pestaña nueva. --}}
                 <a href="{{ $ref->url }}" target="_blank" title="{{ $ref->nombre_original }}"
-                   style="text-decoration:none;width:140px">
+                   @if($esImagen) data-lb-src="{{ $ref->url }}" data-lb-cap="{{ $ref->nombre_original }}" @endif
+                   style="text-decoration:none;width:140px;{{ $esImagen ? 'cursor:zoom-in' : '' }}">
                     @if($esImagen)
                         <img src="{{ $ref->url }}" alt="{{ $ref->nombre_original }}"
                              style="width:140px;height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--bm);display:block">
@@ -119,5 +122,7 @@
     </div>
 </div>
 @endif
+
+@include('partials._lightbox')
 
 @endsection
